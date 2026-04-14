@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleEnum {
+  CUSTOMER
+  SUB_ADMIN
+  ADMIN
+  TECH_SUPPORT
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String?   @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String?
+  phone                String?
+  age                  Int?
+  onboardingComplete   Boolean   @default(true)
+  role                 RoleEnum  @default(CUSTOMER)
+  addresses            Json?
+  paymentMethods       Json?
+  lastLoginAt          DateTime?
+  accounts             Account[]
+  wishlist             Product[] @relation("UserWishlist")
+  orders               Order[]
+  reviews              Review[]
+  createdAt            DateTime  @default(now())
+}
+
+// NextAuth / Auth.js — links OAuth providers to users
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Product {
+  id               String      @id @default(cuid())
+  slug             String      @unique @default(cuid())
+  name             String
+  description      String
+  story            String? // fabric, inspiration, craft narrative
+  mrp              Float
+  discountedPrice  Float?
+  category         String      @default("Uncategorized")
+  tags             String[]    @default([])
+  colors           String[]    @default([])
+  sizes            String[]    @default([])
+  material         String?
+  occasion         String?
+  style            String?
+  fitNotes         String?
+  careInstructions String?
+  stockQuantity    Int         @default(0)
+  /** Per size/color stock rows; when empty, stockQuantity is used as fallback. */
+  variants         ProductVariant[]
+  imageUrls        String[]    @default([])
+  /** Index in imageUrls used for cards / default PDP hero (0-based). */
+  listImageIndex   Int         @default(0)
+  /** CSS object-position for list/card/PDP fit (e.g. center, center 20%, 50% 30%). */
+  listImagePosition String     @default("center")
+  videoUrls        String[]    @default([])
+  wishedBy         User[]      @relation("UserWishlist")
+  orderItems       OrderItem[]
+  reviews          Review[]
+  createdAt        DateTime    @default(now())
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size      String  @default("")
+  color     String  @default("")
+  quantity  Int     @default(0)
+
+  @@unique([productId, size, color])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  authorName String
+  rating     Int // 1–5
+  title      String?
+  body       String?
+  createdAt  DateTime @default(now())
+}
+
+model Coupon {
+  id          String   @id @default(cuid())
+  /** Stored uppercase A–Z / 0–9 only (no spaces); see normalizeCouponCode in app */
+  code        String   @unique
+  discountPct Float
+  isActive    Boolean  @default(true)
+  orders      Order[]
+}
+
+// Homepage hero slides (editable in admin)
+model HeroSlide {
+  id        String  @id @default(cuid())
+  sortOrder Int     @default(0)
+  imageUrl  String
+  /** CSS object-position for hero background (e.g. 50% 35%, center). */
+  imagePosition String @default("center")
+  eyebrow   String  @default("")
+  line1     String
+  accent    String
+  sub1      String  @default("")
+  sub2      String  @default("")
+  isActive  Boolean @default(true)
+}
+
+// Singleton: storefront hero carousel transition (admin /admin/hero)
+model HeroCarouselSettings {
+  id          String   @id @default("default")
+  /** wipe | fade | fadeIn | fadeOut | slideFade | zoomFade | none */
+  transition  String   @default("wipe")
+  updatedAt   DateTime @updatedAt
+}
+
+// Singleton JSON config for storefront home page (sections, copy, images, transitions)
+model HomePageConfig {
+  id        String   @id @default("default")
+  payload   Json
+  updatedAt DateTime @updatedAt
+}
+
+// Editable header: group = null → main bar link; group = "Occasions" → link under that mega-menu column
+model HeaderNavLink {
+  id        String  @id @default(cuid())
+  group     String?
+  label     String
+  href      String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id])
+  guestEmail        String?
+  shippingAddress   Json?
+  /** Sum of line items before coupon (server-calculated). */
+  subtotalBeforeDiscount Float  @default(0)
+  /** Discount amount applied from coupon (0 if none). */
+  discountAmount    Float       @default(0)
+  totalAmount       Float       @default(0)
+  status            String      @default("PENDING") // PENDING, PAID, SHIPPED
+  couponCode        String?
+  couponId          String?
+  coupon            Coupon?     @relation(fields: [couponId], references: [id])
+  trackingUrl       String?
+  invoiceUrl        String?
+  paymentMethod     String? // UPI, CARD, NETBANKING, WALLET (MVP label)
+  items             OrderItem[]
+  createdAt         DateTime    @default(now())
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float   // Captures the price at time of purchase
+  size      String?
+  color     String?
+}

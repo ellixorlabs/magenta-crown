@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  /* Reduce accidental overlaps on small screens: comfortable tap targets + wrapping groups */
+  .btn-row,
+  .flex-wrap-gentle {
+    @apply flex flex-wrap items-center gap-2 sm:gap-3;
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply min-h-dvh text-zinc-900 antialiased;
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background-color: #f4f0f2;
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 255, 255, 0.85), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(250, 245, 248, 0.9), transparent 50%),
+    linear-gradient(180deg, #faf7f8 0%, #f3eef0 45%, #f6f2f4 100%);
+}
+
+.section-shell {
+  @apply mx-auto w-full max-w-[min(100%,1920px)] px-4 sm:px-6 lg:px-10 xl:px-14 2xl:px-16;
+}
+
+/* Cinzel for “Magenta Crown” in header (matches next/font --font-brand) */
+.font-site-brand {
+  font-family: var(--font-brand), ui-serif, serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
