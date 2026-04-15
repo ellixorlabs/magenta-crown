@@ -1,44 +1,29 @@
 import type { ProductVariant } from "@prisma/client";
-import { makeLineKey, normVariantPart } from "@/lib/cart-line";
+import { makeLineKey } from "@/lib/cart-line";
+import {
+  availableQty,
+  findVariant,
+  getProductTotalStock,
+  isSingleDefaultVariant,
+  type VariantForUi
+} from "@/lib/product-variants";
 
-/** One inventory row with blank size+color — stock applies to the whole product (any PDP selection). */
-export function isSingleDefaultSku(
-  variants: Pick<ProductVariant, "size" | "color">[]
-): boolean {
-  return (
-    variants.length === 1 &&
-    normVariantPart(variants[0]!.size) === "" &&
-    normVariantPart(variants[0]!.color) === ""
-  );
-}
+export { getProductTotalStock } from "@/lib/product-variants";
 
-/** Total units for listing filters / badges: sum of variant rows, or aggregate when no rows. */
-export function getProductTotalStock(
-  variants: Pick<ProductVariant, "quantity">[],
-  fallbackStock: number
-): number {
-  if (variants.length === 0) return Math.max(0, fallbackStock);
-  const sum = variants.reduce((a, v) => a + Math.max(0, v.quantity), 0);
-  if (sum > 0) return sum;
-  return Math.max(0, fallbackStock);
+export function isSingleDefaultSku(variants: Pick<ProductVariant, "color" | "size">[]): boolean {
+  return isSingleDefaultVariant(variants as VariantForUi[]);
 }
 
 export function getVariantAvailable(
-  variants: Pick<ProductVariant, "size" | "color" | "quantity">[],
-  fallbackStock: number,
+  variants: Pick<ProductVariant, "color" | "size" | "stock" | "isActive">[],
   size: string,
   color: string
 ): number {
-  if (variants.length === 0) {
-    return Math.max(0, fallbackStock);
+  if (variants.length === 1 && isSingleDefaultVariant(variants as VariantForUi[])) {
+    return availableQty(variants[0] as VariantForUi);
   }
-  if (isSingleDefaultSku(variants)) {
-    return Math.max(0, variants[0]!.quantity);
-  }
-  const ns = normVariantPart(size);
-  const nc = normVariantPart(color);
-  const v = variants.find((x) => normVariantPart(x.size) === ns && normVariantPart(x.color) === nc);
-  return Math.max(0, v?.quantity ?? 0);
+  const v = findVariant(variants as VariantForUi[], color, size);
+  return availableQty(v);
 }
 
 export function lineInBagQuantity(

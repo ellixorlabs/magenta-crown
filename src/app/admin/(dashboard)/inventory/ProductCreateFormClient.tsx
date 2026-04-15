@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { createProduct } from "./actions";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
-import { ProductVariantFields } from "@/components/admin/ProductVariantFields";
+import { ProductVariantMatrix } from "@/components/admin/ProductVariantMatrix";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -26,7 +26,7 @@ export function ProductCreateFormClient() {
         <div>
           <h3 className="font-semibold text-zinc-900">Add product</h3>
           <p className="mt-1 text-xs text-zinc-500">
-            Tags / colors / sizes: comma-separated. Leave slug empty to auto-generate.
+            Tags: comma-separated. Leave slug empty to auto-generate. Inventory lives only in variants below.
           </p>
         </div>
         <Link href="/admin/inventory" className="text-sm font-medium text-crown-800 underline">
@@ -53,11 +53,7 @@ export function ProductCreateFormClient() {
         <Field label="MRP (Rs)" name="mrp" type="number" step="0.01" required />
         <Field label="Sale price (optional)" name="discountedPrice" type="number" step="0.01" />
         <Field label="Category" name="category" placeholder="Sarees" />
-        <Field label="Stock (fallback)" name="stockQuantity" type="number" defaultValue="0" />
-        <p className="sm:col-span-2 text-xs text-zinc-500">
-          If all variant rows below are 0, the fallback stock number is used for a single default option.
-        </p>
-        <ProductVariantFields initial={[]} />
+        <ProductVariantMatrix initial={[]} />
         <Field label="Occasion" name="occasion" placeholder="Wedding" />
         <Field label="Style" name="style" />
         <Field label="Material" name="material" />
@@ -67,18 +63,6 @@ export function ProductCreateFormClient() {
             name="tags"
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             placeholder="silk, bridal, red"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Colors (comma-separated)</label>
-          <input name="colors" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Sizes (comma-separated)</label>
-          <input
-            name="sizes"
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="S, M, L, XL"
           />
         </div>
 

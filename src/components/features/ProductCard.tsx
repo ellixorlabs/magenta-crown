@@ -7,6 +7,7 @@ import { Heart, Star } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Product } from "@prisma/client";
 import { getListImagePosition, getProductDisplayImage } from "@/lib/product-image-display";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
 
 const INR = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -110,6 +111,9 @@ export function ProductCard({
               className="object-cover transition duration-700 group-hover:scale-[1.02]"
               style={{ objectPosition: listPos }}
               sizes="144px"
+              placeholder="blur"
+              blurDataURL={IMAGE_BLUR_DATA_URL}
+              loading="lazy"
               unoptimized
             />
             {outOfStock && (
@@ -162,6 +166,9 @@ export function ProductCard({
             className="object-cover transition duration-500 group-hover:scale-[1.04]"
             style={{ objectPosition: listPos }}
             sizes="(max-width: 640px) 44vw, (max-width: 1024px) 28vw, (max-width: 1536px) 22vw, 18vw"
+            placeholder="blur"
+            blurDataURL={IMAGE_BLUR_DATA_URL}
+            loading="lazy"
             unoptimized
           />
           {showMetaOverlay && (

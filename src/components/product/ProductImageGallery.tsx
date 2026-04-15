@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
 
 const FALLBACK =
   "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80";
@@ -25,6 +26,12 @@ export function ProductImageGallery({ name, imageUrls, listImageIndex, listImage
   const openLb = useCallback(() => setLightbox(true), []);
   const closeLb = useCallback(() => setLightbox(false), []);
 
+  const imgCommon = {
+    placeholder: "blur" as const,
+    blurDataURL: IMAGE_BLUR_DATA_URL,
+    unoptimized: true as const
+  };
+
   return (
     <>
       <div>
@@ -43,7 +50,7 @@ export function ProductImageGallery({ name, imageUrls, listImageIndex, listImage
               style={{ objectPosition: pos }}
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority
-              unoptimized
+              {...imgCommon}
             />
           </div>
         </button>
@@ -68,7 +75,8 @@ export function ProductImageGallery({ name, imageUrls, listImageIndex, listImage
                   className="object-contain"
                   style={{ objectPosition: pos }}
                   sizes="120px"
-                  unoptimized
+                  loading="lazy"
+                  {...imgCommon}
                 />
               </button>
             ))}
@@ -98,7 +106,7 @@ export function ProductImageGallery({ name, imageUrls, listImageIndex, listImage
                 className="object-contain"
                 style={{ objectPosition: pos }}
                 sizes="100vw"
-                unoptimized
+                {...imgCommon}
               />
             </div>
             {urls.length > 1 && (
@@ -112,7 +120,7 @@ export function ProductImageGallery({ name, imageUrls, listImageIndex, listImage
                       i === active ? "border-white" : "border-zinc-600 opacity-70 hover:opacity-100"
                     }`}
                   >
-                    <Image src={url} alt="" fill className="object-contain" sizes="64px" unoptimized />
+                    <Image src={url} alt="" fill className="object-contain" sizes="64px" loading="lazy" {...imgCommon} />
                   </button>
                 ))}
               </div>

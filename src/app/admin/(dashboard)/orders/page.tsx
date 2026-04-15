@@ -12,16 +12,17 @@ export default async function AdminOrdersPage() {
   });
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-zinc-900">Orders</h2>
-        <Link href="/admin" className="text-sm text-crown-800 underline">
-          ← Admin home
+    <div className="space-y-4">
+      <p className="text-sm text-zinc-600">
+        Latest 100 orders. For revenue and product analytics, use{" "}
+        <Link href="/admin" className="font-medium text-admin-700 hover:underline">
+          Overview
         </Link>
-      </div>
-      <ul className="space-y-4">
+        .
+      </p>
+      <ul className="space-y-3">
         {orders.map((o) => (
-          <li key={o.id} className="rounded-xl border border-zinc-200 bg-white p-4 text-sm">
+          <li key={o.id} className="rounded-2xl border border-zinc-200/90 bg-white p-4 text-sm shadow-sm">
             <div className="flex flex-wrap justify-between gap-2">
               <span className="font-mono text-xs">{o.id}</span>
               <span className="text-zinc-600">{new Date(o.createdAt).toLocaleString()}</span>
@@ -38,7 +39,7 @@ export default async function AdminOrdersPage() {
               · {o.user?.email ?? o.guestEmail ?? "Guest"}
             </p>
             {o.trackingUrl && (
-              <a href={o.trackingUrl} className="mt-2 inline-block text-crown-800 underline" target="_blank" rel="noreferrer">
+              <a href={o.trackingUrl} className="mt-2 inline-block font-medium text-admin-700 underline" target="_blank" rel="noreferrer">
                 Tracking
               </a>
             )}

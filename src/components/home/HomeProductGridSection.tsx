@@ -4,7 +4,7 @@ import { ProductCard } from "@/components/features/ProductCard";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
-type ProductRow = Product & { variants?: { quantity: number }[] };
+type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
 
 type Props = {
   eyebrow: string;
@@ -47,7 +47,7 @@ export function HomeProductGridSection({
               key={product.id}
               product={product}
               initialWishlisted={wishlistIds.has(product.id)}
-              outOfStock={getProductTotalStock(product.variants ?? [], product.stockQuantity) === 0}
+              outOfStock={getProductTotalStock(product.variants ?? []) === 0}
             />
           ))}
         </div>

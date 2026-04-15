@@ -271,7 +271,8 @@ export function CheckoutClient() {
             quantity: i.quantity,
             price: i.price,
             size: i.size ?? "",
-            color: i.color ?? ""
+            color: i.color ?? "",
+            variantId: i.variantId ?? null
           })),
           shippingAddress: {
             fullName: fullName.trim(),

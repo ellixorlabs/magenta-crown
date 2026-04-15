@@ -11,6 +11,7 @@ import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { ReviewForm } from "@/components/product/ReviewForm";
 import { TrackProductView } from "@/components/product/TrackProductView";
 import { ProductImageGallery } from "@/components/product/ProductImageGallery";
+import { LazyProductVideo } from "@/components/product/LazyProductVideo";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -61,7 +62,7 @@ export default async function ProductPage({ params }: PageProps) {
     where: { category: product.category, NOT: { id: product.id } },
     take: 4,
     orderBy: { createdAt: "desc" },
-    include: { variants: { select: { quantity: true } } }
+    include: { variants: { select: { stock: true, isActive: true } } }
   });
 
   return (
@@ -81,7 +82,7 @@ export default async function ProductPage({ params }: PageProps) {
               <div className="mt-6 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Video</p>
                 {product.videoUrls.map((url) => (
-                  <video key={url} src={url} controls className="w-full rounded-xl border border-zinc-200" />
+                  <LazyProductVideo key={url} src={url} title={product.name} />
                 ))}
               </div>
             )}
@@ -174,7 +175,7 @@ export default async function ProductPage({ params }: PageProps) {
                   key={p.id}
                   product={p}
                   initialWishlisted={wishlistIds.has(p.id)}
-                  outOfStock={getProductTotalStock(p.variants, p.stockQuantity) === 0}
+                  outOfStock={getProductTotalStock(p.variants) === 0}
                 />
               ))}
             </div>

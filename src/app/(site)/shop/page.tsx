@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EmptyState } from "@/components/empty/EmptyState";
 import { getShopFilterOptions } from "@/lib/shop-filter-options";
+import { SHOP_PRODUCT_GRID_CLASS } from "@/components/skeletons/shop-grid";
 import { buildProductOrderBy, buildProductWhere, parseShopSearchParams } from "@/lib/shop-query";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
@@ -47,7 +49,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
       where,
       orderBy,
       include: {
-        variants: { select: { quantity: true } },
+        variants: { select: { stock: true, isActive: true } },
         reviews: { select: { rating: true } }
       }
     })
@@ -93,13 +95,14 @@ export default async function ShopPage({ searchParams }: PageProps) {
             </div>
 
             {products.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/80 p-12 text-center text-zinc-500">
-                No products match these filters. Try adjusting or{" "}
-                <a href="/shop" className="text-crown-800 underline">
-                  clear filters
-                </a>
-                .
-              </div>
+              <EmptyState
+                title="No products found"
+                description="Nothing matches these filters right now. Clear filters or browse the full collection."
+                actionHref="/shop"
+                actionLabel="View all products"
+                secondaryHref="/"
+                secondaryLabel="Back to home"
+              />
             ) : isList ? (
               <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
                 {products.map((p) => {
@@ -110,14 +113,14 @@ export default async function ShopPage({ searchParams }: PageProps) {
                       product={product}
                       layout="list"
                       initialWishlisted={wishlistIds.has(product.id)}
-                      outOfStock={getProductTotalStock(p.variants, p.stockQuantity) === 0}
+                      outOfStock={getProductTotalStock(p.variants) === 0}
                       reviewSummary={summarizeReviews(reviews)}
                     />
                   );
                 })}
               </div>
             ) : (
-              <div className="grid w-full grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-5 md:grid-cols-3 md:gap-6 lg:grid-cols-4 lg:gap-7 xl:grid-cols-5 xl:gap-8">
+              <div className={SHOP_PRODUCT_GRID_CLASS}>
                 {products.map((p) => {
                   const { reviews, ...product } = p;
                   return (
@@ -125,7 +128,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
                       key={product.id}
                       product={product}
                       initialWishlisted={wishlistIds.has(product.id)}
-                      outOfStock={getProductTotalStock(p.variants, p.stockQuantity) === 0}
+                      outOfStock={getProductTotalStock(p.variants) === 0}
                       reviewSummary={summarizeReviews(reviews)}
                     />
                   );

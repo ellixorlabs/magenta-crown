@@ -57,8 +57,10 @@ export function SiteNavbar({ serverLinks }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const { items: cartItems } = useCart();
+  const { items: cartItems, cartHydrated } = useCart();
   const cartCount = cartItems.reduce((n, it) => n + it.quantity, 0);
+  /** Avoid hydration mismatch: cart lives in localStorage; only show count after client read. */
+  const showCartBadge = cartHydrated && cartCount > 0;
   const [pastHero, setPastHero] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   /** Only one mega submenu open; switching triggers clears the previous immediately (no staggered timers per item). */
@@ -215,7 +217,7 @@ export function SiteNavbar({ serverLinks }: Props) {
               >
                 <span className="relative inline-flex shrink-0">
                   <ShoppingBag className="h-6 w-6" strokeWidth={1.5} />
-                  {cartCount > 0 && (
+                  {showCartBadge && (
                     <span
                       className={`absolute -right-1.5 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
                         isLight ? "bg-crown-800 text-white" : "bg-white text-crown-900 shadow-sm"

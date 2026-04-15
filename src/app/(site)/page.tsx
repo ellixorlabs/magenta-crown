@@ -10,7 +10,7 @@ async function loadHomeProducts(): Promise<Product[]> {
     return await prisma.product.findMany({
       orderBy: { createdAt: "desc" },
       take: 48,
-      include: { variants: { select: { quantity: true } } }
+      include: { variants: { select: { stock: true, isActive: true } } }
     });
   } catch {
     if (process.env.NODE_ENV === "development") {

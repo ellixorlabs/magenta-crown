@@ -82,7 +82,7 @@ export function GlobalPageLoader() {
       if (slowTimerRef.current != null) window.clearTimeout(slowTimerRef.current);
       slowTimerRef.current = window.setTimeout(() => {
         if (pendingNavRef.current) setSlowNav(true);
-      }, 4000);
+      }, 1000);
     };
 
     document.addEventListener("click", onClickCapture, true);

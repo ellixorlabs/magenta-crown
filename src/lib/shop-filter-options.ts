@@ -21,32 +21,29 @@ function uniqSorted(values: (string | null | undefined)[]): string[] {
   return [...s].sort((a, b) => a.localeCompare(b));
 }
 
-function uniqFromArrays(arrays: string[][]): string[] {
-  const s = new Set<string>();
-  for (const arr of arrays) {
-    for (const v of arr) {
-      const t = v?.trim();
-      if (t) s.add(t);
-    }
-  }
-  return [...s].sort((a, b) => a.localeCompare(b));
-}
-
 export async function getShopFilterOptions(): Promise<ShopFilterOptions> {
-  const [products, agg] = await Promise.all([
+  const [products, agg, variantColors, variantSizes] = await Promise.all([
     prisma.product.findMany({
       select: {
         category: true,
         occasion: true,
         style: true,
-        material: true,
-        colors: true,
-        sizes: true
+        material: true
       }
     }),
     prisma.product.aggregate({
       _min: { mrp: true },
       _max: { mrp: true }
+    }),
+    prisma.productVariant.findMany({
+      where: { isActive: true, stock: { gt: 0 } },
+      select: { color: true },
+      distinct: ["color"]
+    }),
+    prisma.productVariant.findMany({
+      where: { isActive: true, stock: { gt: 0 } },
+      select: { size: true },
+      distinct: ["size"]
     })
   ]);
 
@@ -60,8 +57,8 @@ export async function getShopFilterOptions(): Promise<ShopFilterOptions> {
     occasions: uniqSorted(products.map((p) => p.occasion)),
     styles: uniqSorted(products.map((p) => p.style)),
     materials: uniqSorted(products.map((p) => p.material)),
-    colors: uniqFromArrays(products.map((p) => p.colors)),
-    sizes: uniqFromArrays(products.map((p) => p.sizes)),
+    colors: uniqSorted(variantColors.map((c) => c.color)),
+    sizes: uniqSorted(variantSizes.map((s) => s.size)),
     priceMin,
     priceMax
   };

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { EmptyState } from "@/components/empty/EmptyState";
 import { prisma } from "@/lib/prisma";
 
 export const metadata = { title: "Orders | Magenta Crown" };
@@ -27,11 +28,16 @@ export default async function OrdersPage() {
       <p className="mt-2 text-sm text-zinc-600">Order history, tracking, invoices, and returns.</p>
 
       {orders.length === 0 ? (
-        <p className="mt-8 text-zinc-600">No orders yet.{" "}
-          <Link href="/shop" className="text-crown-800 underline">
-            Start shopping
-          </Link>
-        </p>
+        <div className="mt-8">
+          <EmptyState
+            title="No orders yet"
+            description="When you place an order, it will show up here with status and tracking."
+            actionHref="/shop"
+            actionLabel="Start shopping"
+            secondaryHref="/account/profile"
+            secondaryLabel="Go to profile"
+          />
+        </div>
       ) : (
         <ul className="mt-8 space-y-6">
           {orders.map((order) => (

@@ -11,6 +11,7 @@ import {
   type SaveAddressPayload,
   type ShippingPayload
 } from "@/lib/checkout-address";
+import { DEFAULT_COLOR, DEFAULT_SIZE } from "@/lib/product-variants";
 
 type Line = {
   productId: string;
@@ -18,22 +19,55 @@ type Line = {
   price: number;
   size?: string | null;
   color?: string | null;
+  variantId?: string | null;
 };
 
 function isStaffRole(role: string | undefined) {
   return role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
 }
 
-async function syncProductStockFromVariants(tx: Prisma.TransactionClient, productId: string) {
-  const agg = await tx.productVariant.aggregate({
-    where: { productId },
-    _sum: { quantity: true }
+function isPlaceholderSingleSku(v: { color: string; size: string }) {
+  const c = normVariantPart(v.color);
+  const s = normVariantPart(v.size);
+  return (
+    (c === "" || c === DEFAULT_COLOR) &&
+    (s === "" || s === DEFAULT_SIZE)
+  );
+}
+
+async function resolveVariant(tx: Prisma.TransactionClient, line: Line) {
+  if (line.variantId) {
+    const v = await tx.productVariant.findFirst({
+      where: { id: line.variantId, productId: line.productId }
+    });
+    if (v?.isActive) {
+      return {
+        variant: v,
+        size: normVariantPart(v.size),
+        color: normVariantPart(v.color)
+      };
+    }
+  }
+  const size = normVariantPart(line.size);
+  const color = normVariantPart(line.color);
+  let variant = await tx.productVariant.findUnique({
+    where: {
+      productId_size_color: {
+        productId: line.productId,
+        size,
+        color
+      }
+    }
   });
-  const sum = agg._sum.quantity ?? 0;
-  await tx.product.update({
-    where: { id: productId },
-    data: { stockQuantity: Math.max(0, sum) }
-  });
+  if (!variant) {
+    const rows = await tx.productVariant.findMany({
+      where: { productId: line.productId }
+    });
+    if (rows.length === 1 && isPlaceholderSingleSku(rows[0]!)) {
+      variant = rows[0]!;
+    }
+  }
+  return { variant: variant ?? null, size, color };
 }
 
 export async function POST(req: Request) {
@@ -168,41 +202,19 @@ export async function POST(req: Request) {
         return p.discountedPrice ?? p.mrp;
       };
 
-      async function resolveVariant(line: Line) {
-        const size = normVariantPart(line.size);
-        const color = normVariantPart(line.color);
-        let variant = await tx.productVariant.findUnique({
-          where: {
-            productId_size_color: {
-              productId: line.productId,
-              size,
-              color
-            }
-          }
-        });
-        if (!variant) {
-          const rows = await tx.productVariant.findMany({
-            where: { productId: line.productId },
-            select: { id: true, productId: true, size: true, color: true, quantity: true }
-          });
-          if (
-            rows.length === 1 &&
-            normVariantPart(rows[0]!.size) === "" &&
-            normVariantPart(rows[0]!.color) === ""
-          ) {
-            variant = rows[0]!;
-          }
-        }
-        return { variant, size, color };
-      }
+      const resolved = await Promise.all(items.map((line) => resolveVariant(tx, line)));
 
-      /** Stock is only reduced after the order row exists; verify availability first. */
-      for (const line of items) {
-        const { variant, size, color } = await resolveVariant(line);
+      for (let i = 0; i < items.length; i++) {
+        const line = items[i]!;
+        const { variant } = resolved[i]!;
         if (!variant) {
+          const { size, color } = resolved[i]!;
           throw new Error(`VARIANT:${line.productId}:${size}:${color}`);
         }
-        if (variant.quantity < line.quantity) {
+        if (!variant.isActive) {
+          throw new Error(`VARIANT:${line.productId}`);
+        }
+        if (variant.stock < line.quantity) {
           throw new Error(`STOCK:${line.productId}`);
         }
       }
@@ -229,27 +241,29 @@ export async function POST(req: Request) {
           couponId,
           trackingUrl: isCod ? null : "https://example.com/track",
           items: {
-            create: items.map((line) => ({
-              productId: line.productId,
-              quantity: line.quantity,
-              price: unitPriceForLine(line),
-              size: normVariantPart(line.size) || null,
-              color: normVariantPart(line.color) || null
-            }))
+            create: items.map((line, i) => {
+              const { variant, size, color } = resolved[i]!;
+              return {
+                productId: line.productId,
+                quantity: line.quantity,
+                price: unitPriceForLine(line),
+                size: size || null,
+                color: color || null,
+                variantId: variant!.id
+              };
+            })
           }
         }
       });
 
-      for (const line of items) {
-        const { variant } = await resolveVariant(line);
-        if (!variant) {
-          throw new Error(`VARIANT:${line.productId}`);
-        }
+      for (let i = 0; i < items.length; i++) {
+        const line = items[i]!;
+        const { variant } = resolved[i]!;
+        if (!variant) continue;
         await tx.productVariant.update({
           where: { id: variant.id },
-          data: { quantity: variant.quantity - line.quantity }
+          data: { stock: Math.max(0, variant.stock - line.quantity) }
         });
-        await syncProductStockFromVariants(tx, line.productId);
       }
 
       if (savePayload && savePayload.kind) {

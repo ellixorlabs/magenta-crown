@@ -37,29 +37,28 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   });
 
   return (
-    <div>
-      <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-zinc-900">Customers</h2>
-      <p className="mt-1 text-sm text-zinc-600">
+    <div className="space-y-6">
+      <p className="text-sm text-zinc-600">
         Search by email, name, or phone. Open a record for orders and payment status.
       </p>
 
-      <form className="mt-6 flex flex-wrap gap-2" action="/admin/users" method="get">
+      <form className="flex flex-wrap gap-2" action="/admin/users" method="get">
         <input
           type="search"
           name="q"
           defaultValue={q}
           placeholder="Search…"
-          className="min-w-[200px] flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm"
+          className="min-w-[200px] flex-1 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-admin-300 focus:outline-none focus:ring-2 focus:ring-admin-100"
         />
         <button
           type="submit"
-          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+          className="rounded-full bg-admin-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-admin-700"
         >
           Search
         </button>
       </form>
 
-      <div className="mt-8 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200/90 bg-white shadow-sm">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wider text-zinc-500">
             <tr>
@@ -82,7 +81,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               users.map((u) => (
                 <tr key={u.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/users/${u.id}`} className="font-medium text-crown-900 underline-offset-2 hover:underline">
+                    <Link href={`/admin/users/${u.id}`} className="font-medium text-admin-800 underline-offset-2 hover:underline">
                       {u.name ?? "—"}
                     </Link>
                   </td>

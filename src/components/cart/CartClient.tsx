@@ -4,12 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { Product } from "@prisma/client";
+import { EmptyState } from "@/components/empty/EmptyState";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
 import { useCart } from "@/context/CartContext";
 import { ProductCard } from "@/components/features/ProductCard";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
 type Props = {
-  upsells: (Product & { variants?: { quantity: number }[] })[];
+  upsells: (Product & { variants?: { stock: number; isActive: boolean }[] })[];
 };
 
 export function CartClient({ upsells }: Props) {
@@ -23,11 +25,15 @@ export function CartClient({ upsells }: Props) {
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">Your bag</h1>
 
         {items.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
-            <p className="text-zinc-600">Your cart is empty.</p>
-            <Link href="/shop" className="mt-4 inline-block text-crown-800 underline">
-              Continue shopping
-            </Link>
+          <div className="mt-10">
+            <EmptyState
+              title="Your bag is empty"
+              description="Browse the collection and add pieces you love. Your selections stay here while you shop."
+              actionHref="/shop"
+              actionLabel="Shop collection"
+              secondaryHref="/"
+              secondaryLabel="Back to home"
+            />
           </div>
         ) : (
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
@@ -41,11 +47,31 @@ export function CartClient({ upsells }: Props) {
                   <li key={line.lineKey} className="flex gap-4 rounded-2xl border border-zinc-200 bg-white p-4">
                     {productHref ? (
                       <Link href={productHref} className="relative h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
-                        <Image src={img} alt={line.name} fill className="object-contain" sizes="96px" unoptimized />
+                        <Image
+                          src={img}
+                          alt={line.name}
+                          fill
+                          className="object-contain"
+                          sizes="96px"
+                          placeholder="blur"
+                          blurDataURL={IMAGE_BLUR_DATA_URL}
+                          loading="lazy"
+                          unoptimized
+                        />
                       </Link>
                     ) : (
                       <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
-                        <Image src={img} alt={line.name} fill className="object-contain" sizes="96px" unoptimized />
+                        <Image
+                          src={img}
+                          alt={line.name}
+                          fill
+                          className="object-contain"
+                          sizes="96px"
+                          placeholder="blur"
+                          blurDataURL={IMAGE_BLUR_DATA_URL}
+                          loading="lazy"
+                          unoptimized
+                        />
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
@@ -148,7 +174,7 @@ export function CartClient({ upsells }: Props) {
                       <ProductCard
                         key={p.id}
                         product={p}
-                        outOfStock={getProductTotalStock(p.variants ?? [], p.stockQuantity) === 0}
+                        outOfStock={getProductTotalStock(p.variants ?? []) === 0}
                       />
                     ))}
                   </div>

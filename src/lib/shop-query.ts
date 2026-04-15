@@ -36,8 +36,28 @@ export function buildProductWhere(
   if (p.occasion) clauses.push({ occasion: { equals: p.occasion, mode: "insensitive" } });
   if (p.style) clauses.push({ style: { equals: p.style, mode: "insensitive" } });
   if (p.material) clauses.push({ material: { contains: p.material, mode: "insensitive" } });
-  if (p.color) clauses.push({ colors: { has: p.color } });
-  if (p.size) clauses.push({ sizes: { has: p.size } });
+  if (p.color) {
+    clauses.push({
+      variants: {
+        some: {
+          color: { equals: p.color, mode: "insensitive" },
+          isActive: true,
+          stock: { gt: 0 }
+        }
+      }
+    });
+  }
+  if (p.size) {
+    clauses.push({
+      variants: {
+        some: {
+          size: { equals: p.size, mode: "insensitive" },
+          isActive: true,
+          stock: { gt: 0 }
+        }
+      }
+    });
+  }
 
   const min = p.minPrice ? Number(p.minPrice) : undefined;
   const max = p.maxPrice ? Number(p.maxPrice) : undefined;
@@ -51,10 +71,12 @@ export function buildProductWhere(
   const showOos = p.showOutOfStock === "1" || p.showOutOfStock === "true";
   if (applyOosFilter && !showOos) {
     clauses.push({
-      OR: [
-        { stockQuantity: { gt: 0 } },
-        { variants: { some: { quantity: { gt: 0 } } } }
-      ]
+      variants: {
+        some: {
+          isActive: true,
+          stock: { gt: 0 }
+        }
+      }
     });
   }
 

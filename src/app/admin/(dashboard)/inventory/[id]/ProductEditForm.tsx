@@ -3,7 +3,8 @@
 import type { Product, ProductVariant } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
-import { ProductVariantFields } from "@/components/admin/ProductVariantFields";
+import { ProductVariantMatrix } from "@/components/admin/ProductVariantMatrix";
+import { getProductTotalStock } from "@/lib/product-variants";
 import { updateProduct } from "../actions";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 
 export function ProductEditForm({ product }: Props) {
   const router = useRouter();
+  const totalStock = getProductTotalStock(product.variants);
 
   async function saveProduct(formData: FormData) {
     await updateProduct(formData);
@@ -53,9 +55,9 @@ export function ProductEditForm({ product }: Props) {
         />
         <Field label="Category" name="category" defaultValue={product.category} />
         <div className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-600">
-          Total stock on storefront is the sum of variant rows below ({product.stockQuantity} units).
+          Total stock on the storefront is the sum of active variant rows: <strong>{totalStock}</strong> units.
         </div>
-        <ProductVariantFields initial={product.variants} />
+        <ProductVariantMatrix initial={product.variants} />
         <Field label="Occasion" name="occasion" defaultValue={product.occasion ?? ""} />
         <Field label="Style" name="style" defaultValue={product.style ?? ""} />
         <Field label="Material" name="material" defaultValue={product.material ?? ""} />
@@ -64,22 +66,6 @@ export function ProductEditForm({ product }: Props) {
           <input
             name="tags"
             defaultValue={product.tags.join(", ")}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Colors</label>
-          <input
-            name="colors"
-            defaultValue={product.colors.join(", ")}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Sizes</label>
-          <input
-            name="sizes"
-            defaultValue={product.sizes.join(", ")}
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
         </div>

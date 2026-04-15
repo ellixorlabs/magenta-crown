@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { EmptyState } from "@/components/empty/EmptyState";
 import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/features/ProductCard";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
@@ -16,7 +16,7 @@ export default async function WishlistPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { wishlist: { include: { variants: { select: { quantity: true } } } } }
+    include: { wishlist: { include: { variants: { select: { stock: true, isActive: true } } } } }
   });
 
   const items = user?.wishlist ?? [];
@@ -27,12 +27,16 @@ export default async function WishlistPage() {
       <p className="mt-2 text-sm text-zinc-600">Saved pieces you love.</p>
 
       {items.length === 0 ? (
-        <p className="mt-8 text-zinc-600">
-          Nothing saved yet.{" "}
-          <Link href="/shop" className="text-crown-800 underline">
-            Explore the shop
-          </Link>
-        </p>
+        <div className="mt-8">
+          <EmptyState
+            title="Your wishlist is empty"
+            description="Save pieces you love from the product page — tap the heart on each card."
+            actionHref="/shop"
+            actionLabel="Explore the shop"
+            secondaryHref="/account/profile"
+            secondaryLabel="Back to profile"
+          />
+        </div>
       ) : (
         <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
           {items.map((p) => (
@@ -40,7 +44,7 @@ export default async function WishlistPage() {
               key={p.id}
               product={p}
               initialWishlisted
-              outOfStock={getProductTotalStock(p.variants ?? [], p.stockQuantity) === 0}
+              outOfStock={getProductTotalStock(p.variants ?? []) === 0}
             />
           ))}
         </div>

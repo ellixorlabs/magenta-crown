@@ -30,6 +30,8 @@ export type CartItem = {
   imageUrl?: string;
   size?: string;
   color?: string;
+  /** When set, checkout resolves inventory against this SKU. */
+  variantId?: string;
 };
 
 type CartContextValue = {
@@ -71,7 +73,8 @@ function normalizeItem(it: PersistedItem): CartItem {
     maxStock: (it as CartItem).maxStock,
     imageUrl: it.imageUrl,
     size: (it as CartItem).size,
-    color: (it as CartItem).color
+    color: (it as CartItem).color,
+    variantId: (it as CartItem).variantId
   };
 }
 
