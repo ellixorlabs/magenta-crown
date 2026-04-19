@@ -15,7 +15,13 @@ export type HeroSectionConfig = BaseSection & {
   carousel: HeroCarouselMode;
 };
 
-export type CategoryItem = { title: string; href: string; imageUrl: string };
+export type CategoryItem = {
+  title: string;
+  href: string;
+  imageUrl: string;
+  /** When set, the card links to `/shop?occasion=…` (matches product `occasion` field). */
+  occasion?: string;
+};
 
 export type CategoryGridSectionConfig = BaseSection & {
   type: "categoryGrid";
@@ -39,6 +45,14 @@ export type PriceShopSectionConfig = BaseSection & {
 
 export type ProductRailSectionConfig = BaseSection & {
   type: "newArrivals" | "bestsellers";
+  eyebrow: string;
+  title: string;
+  count: number;
+};
+
+/** Horizontal carousel of products in category “Sarees” (dedicated product query on the home page). */
+export type SareeCarouselSectionConfig = BaseSection & {
+  type: "sareeCarousel";
   eyebrow: string;
   title: string;
   count: number;
@@ -92,6 +106,7 @@ export type HomeSectionConfig =
   | CategoryGridSectionConfig
   | PriceShopSectionConfig
   | ProductRailSectionConfig
+  | SareeCarouselSectionConfig
   | ProductStorySectionConfig
   | BrandEthosSectionConfig
   | TestimonialsSectionConfig
@@ -102,3 +117,28 @@ export type HomePagePayloadV1 = {
   version: 1;
   sections: HomeSectionConfig[];
 };
+
+/** Dynamic merchandising section (carousel or grid of hand-picked products). */
+export type DynamicProductSection = {
+  id: string;
+  title: string;
+  eyebrow: string;
+  type: "carousel" | "grid";
+  enabled: boolean;
+  /** Sort key; lower renders first. */
+  order: number;
+  productIds: string[];
+  transition: SectionTransition;
+  /** “View all” link; defaults to /shop in the storefront if empty. */
+  viewAllHref?: string;
+};
+
+/** Current homepage config: hero toggle + fully dynamic product sections (DB). */
+export type HomePagePayloadV2 = {
+  version: 2;
+  /** Hero imagery still comes from HeroSlide admin; this only toggles visibility on the home page. */
+  hero: { enabled: boolean };
+  sections: DynamicProductSection[];
+};
+
+export type HomePagePayload = HomePagePayloadV2;

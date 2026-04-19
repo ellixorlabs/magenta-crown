@@ -4,7 +4,11 @@ import { auth } from "@/auth";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { prisma } from "@/lib/prisma";
 
-export const metadata = { title: "Orders | Magenta Crown" };
+export const metadata = {
+  title: "Orders",
+  description: "View order history and status for your Magenta Crown purchases.",
+  robots: { index: false, follow: true }
+};
 
 export default async function OrdersPage() {
   const session = await auth();
@@ -44,7 +48,12 @@ export default async function OrdersPage() {
             <li key={order.id} className="rounded-2xl border border-zinc-200 bg-white p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="font-mono text-sm text-zinc-900">{order.id}</p>
+                  <p className="font-mono text-sm font-semibold text-zinc-900">
+                    {order.publicOrderRef ?? order.id}
+                  </p>
+                  {order.publicOrderRef && (
+                    <p className="mt-0.5 font-mono text-[11px] text-zinc-400">ID: {order.id}</p>
+                  )}
                   <p className="text-xs text-zinc-500">
                     {new Date(order.createdAt).toLocaleDateString()} · {order.status}
                   </p>

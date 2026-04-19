@@ -22,12 +22,20 @@ export function SiteNavbarMegaMenu({
   /** Keeps menu open while cursor is over the dropdown panel. */
   onPanelPointerEnter: () => void;
 }) {
+  const panelLight =
+    "border-zinc-300/90 bg-gradient-to-b from-white via-zinc-50 to-zinc-100/95 text-zinc-950 shadow-2xl ring-1 ring-zinc-900/[0.07]";
+  const panelDark =
+    "border-white/20 bg-gradient-to-b from-zinc-900/95 via-zinc-900/90 to-zinc-950 text-zinc-50 shadow-2xl ring-1 ring-white/10";
+
+  const linkLight = "text-zinc-950 hover:bg-zinc-200/80";
+  const linkDark = "text-zinc-50 hover:bg-white/12";
+
   return (
-    <div className="relative">
+    <div className="relative z-[20]">
       <button
         type="button"
         className={`flex items-center gap-0.5 rounded-md py-2 font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-crown-500 ${
-          isLight ? "text-zinc-900" : "text-white drop-shadow-sm"
+          isLight ? "text-zinc-900" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
         }`}
         onMouseEnter={onOpen}
         onFocus={onOpen}
@@ -39,25 +47,17 @@ export function SiteNavbarMegaMenu({
       </button>
       {isOpen && (
         <div
-          className="absolute left-0 top-full z-[100] min-w-[13rem] pt-2"
+          className="absolute left-0 top-full z-[1000] min-w-[13rem] pt-2"
           onMouseEnter={onPanelPointerEnter}
           role="menu"
         >
-          <div
-            className={`rounded-xl border p-2 shadow-2xl ${
-              isLight
-                ? "border-zinc-200/90 bg-white/98 backdrop-blur-xl"
-                : "border-white/15 bg-zinc-950/95 backdrop-blur-xl"
-            }`}
-          >
+          <div className={`rounded-xl border p-2 backdrop-blur-md ${isLight ? panelLight : panelDark}`}>
             {links.map((link) => (
               <Link
                 key={link.href + link.label}
                 href={link.href}
                 role="menuitem"
-                className={`block rounded-lg px-3 py-2.5 text-sm transition ${
-                  isLight ? "text-zinc-800 hover:bg-zinc-100" : "text-zinc-100 hover:bg-white/10"
-                }`}
+                className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${isLight ? linkLight : linkDark}`}
               >
                 {link.label}
               </Link>

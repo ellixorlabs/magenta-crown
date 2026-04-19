@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 
 const STORAGE_KEY = "magenta-crown-cookie-consent";
 const COOKIE_NAME = "mc_cookie_consent";
@@ -51,7 +52,8 @@ function clearTimerRef(ref: React.MutableRefObject<ReturnType<typeof setTimeout>
 
 function isPastLandingHero(): boolean {
   const el = document.getElementById("landing-hero");
-  if (!el) return true;
+  /** Hero not mounted yet (streaming) — do not treat as “past hero” or we start the 6s timer early and scroll feels “stuck” after. */
+  if (!el) return false;
   return el.getBoundingClientRect().bottom < HERO_PAST_OFFSET;
 }
 
@@ -108,11 +110,13 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     clearTimerRef(delayTimerRef);
   }, []);
 
-  /* On route change: clear any pending timer (next effect will reschedule if still needed). */
+  /* On route change: clear timer and reset deferred prompt so delayDone never leaks across navigations (e.g. /shop → /). */
   useEffect(() => {
     if (!hydrated || consent !== null) return;
-    cancelDelay();
-  }, [pathname, hydrated, consent, cancelDelay]);
+    clearTimerRef(delayTimerRef);
+    delayDoneRef.current = false;
+    setDelayDone(false);
+  }, [pathname, hydrated, consent]);
 
   /* Non-home: start 6s countdown immediately (nothing to scroll past). */
   useEffect(() => {
@@ -145,11 +149,8 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!showModal) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    lockBodyScroll();
+    return () => unlockBodyScroll();
   }, [showModal]);
 
   return (

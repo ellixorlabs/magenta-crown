@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { CookieConsentProvider } from "@/context/CookieConsentContext";
 import { ShopProvider } from "@/context/ShopContext";
-import { GlobalPageLoader } from "@/components/layout/GlobalPageLoader";
+import { HeroReadyProvider } from "@/context/HeroReadyContext";
 import { NeonKeepAlive } from "@/components/layout/NeonKeepAlive";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -14,11 +14,10 @@ export function Providers({ children }: { children: ReactNode }) {
       <CartProvider>
         <ShopProvider>
           <CookieConsentProvider>
-            <NeonKeepAlive />
-            <Suspense fallback={null}>
-              <GlobalPageLoader />
-            </Suspense>
-            {children}
+            <HeroReadyProvider>
+              <NeonKeepAlive />
+              {children}
+            </HeroReadyProvider>
           </CookieConsentProvider>
         </ShopProvider>
       </CartProvider>

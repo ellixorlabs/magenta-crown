@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { ProductCreateFormClient } from "../ProductCreateFormClient";
 
 export const metadata = { title: "Add product | Admin" };
@@ -12,6 +13,11 @@ export default async function AdminNewProductPage() {
     redirect("/admin/inventory");
   }
 
+  const coupons = await prisma.coupon.findMany({
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, discountPct: true, isActive: true }
+  });
+
   return (
     <div className="space-y-6">
       <p className="text-sm">
@@ -19,7 +25,7 @@ export default async function AdminNewProductPage() {
           ← Inventory
         </Link>
       </p>
-      <ProductCreateFormClient />
+      <ProductCreateFormClient coupons={coupons} />
     </div>
   );
 }

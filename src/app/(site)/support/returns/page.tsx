@@ -1,5 +1,6 @@
 export const metadata = {
-  title: "Returns & Exchanges | Magenta Crown"
+  title: "Returns & exchanges",
+  description: "Returns, exchanges, and eligibility for Magenta Crown purchases."
 };
 
 export default function ReturnsPolicyPage() {

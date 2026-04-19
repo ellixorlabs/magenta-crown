@@ -6,6 +6,13 @@ import bcrypt from "bcryptjs";
 import type { RoleEnum } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+function envTrim(name: string): string | undefined {
+  const raw = process.env[name];
+  if (raw == null) return undefined;
+  const t = raw.trim().replace(/^["']+|["']+$/g, "");
+  return t.length ? t : undefined;
+}
+
 function roleToSession(r: RoleEnum): "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT" {
   if (r === "ADMIN") return "ADMIN";
   if (r === "SUB_ADMIN") return "SUB_ADMIN";
@@ -13,9 +20,9 @@ function roleToSession(r: RoleEnum): "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_
   return "CUSTOMER";
 }
 
-const googleConfigured =
-  Boolean(process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
-  Boolean(process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET);
+const googleClientId = envTrim("AUTH_GOOGLE_ID") ?? envTrim("GOOGLE_CLIENT_ID");
+const googleClientSecret = envTrim("AUTH_GOOGLE_SECRET") ?? envTrim("GOOGLE_CLIENT_SECRET");
+const googleConfigured = Boolean(googleClientId && googleClientSecret);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -27,8 +34,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...(googleConfigured
       ? [
           Google({
-            clientId: (process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) as string,
-            clientSecret: (process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET) as string,
+            clientId: googleClientId as string,
+            clientSecret: googleClientSecret as string,
             allowDangerousEmailAccountLinking: true
           })
         ]

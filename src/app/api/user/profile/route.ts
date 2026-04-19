@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { SavedAddress } from "@/types/profile";
+import { randomId } from "@/lib/random-id";
 
 const KINDS = new Set(["home", "work", "other"]);
 
@@ -27,7 +28,7 @@ function normalizeAddresses(raw: unknown): Prisma.InputJsonValue {
       throw new Error("Other addresses need a custom name.");
     }
     out.push({
-      id: typeof o.id === "string" && o.id ? o.id : crypto.randomUUID(),
+      id: typeof o.id === "string" && o.id ? o.id : randomId(),
       kind,
       customLabel: kind === "other" ? customLabel : undefined,
       label: o.label != null ? String(o.label).trim().slice(0, 80) || undefined : undefined,

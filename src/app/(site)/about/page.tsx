@@ -1,7 +1,9 @@
 import Image from "next/image";
 
 export const metadata = {
-  title: "About Us | Magenta Crown"
+  title: "About us",
+  description:
+    "Our story — Magenta Crown blends heirloom craft with contemporary silhouettes for modern Indian occasionwear."
 };
 
 export default function AboutPage() {

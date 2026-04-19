@@ -8,6 +8,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { Product } from "@prisma/client";
 import { getListImagePosition, getProductDisplayImage } from "@/lib/product-image-display";
 import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
+import { productImageAlt } from "@/lib/seo";
 
 const INR = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -30,7 +31,9 @@ type ProductCardProps = {
   product: Product;
   /** SSR hint to avoid flash before session hydrates */
   initialWishlisted?: boolean;
-  layout?: "grid" | "list";
+  layout?: "grid" | "list" | "carousel";
+  /** Wider list row (e.g. shop list view). */
+  listDensity?: "compact" | "comfortable";
   /** When true, shows an “Out of stock” tag (e.g. from server-side stock totals). */
   outOfStock?: boolean;
   /** When set, shows the rating pill on grid cards (shop passes aggregated reviews). */
@@ -41,6 +44,7 @@ export function ProductCard({
   product,
   initialWishlisted = false,
   layout = "grid",
+  listDensity = "compact",
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
@@ -67,6 +71,7 @@ export function ProductCard({
   const fabric = product.material?.trim();
   const occasion = product.occasion?.trim();
   const showMetaOverlay = Boolean(fabric || occasion);
+  const imgAlt = productImageAlt(product);
 
   const toggleWishlist = useCallback(
     async (e: React.MouseEvent) => {
@@ -100,15 +105,20 @@ export function ProductCard({
   );
 
   if (layout === "list") {
+    const comfy = listDensity === "comfortable";
     return (
       <Link href={`/product/${product.slug}`} className="group block">
-        <article className="flex gap-4 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 transition shadow-sm hover:shadow-md">
-          <div className="relative aspect-[4/5] w-28 shrink-0 overflow-hidden rounded-xl bg-[#ebe4e0] sm:w-36">
+        <article
+          className={`flex overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 transition shadow-sm hover:shadow-md ${comfy ? "gap-6 p-1 sm:gap-8" : "gap-4"}`}
+        >
+          <div
+            className={`relative aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-[#ebe4e0] ${comfy ? "w-40 sm:w-52 md:w-60" : "w-28 sm:w-36"}`}
+          >
             <Image
               src={primaryImage}
-              alt={product.name}
+              alt={imgAlt}
               fill
-              className="object-cover transition duration-700 group-hover:scale-[1.02]"
+              className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
               style={{ objectPosition: listPos }}
               sizes="144px"
               placeholder="blur"
@@ -117,9 +127,11 @@ export function ProductCard({
               unoptimized
             />
             {outOfStock && (
-              <span className="absolute left-2 top-2 z-10 rounded-full bg-zinc-900/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
-                Out of stock
-              </span>
+              <div className="absolute inset-0 z-[14] flex items-center justify-center bg-zinc-900/30 p-1 backdrop-blur-[0.5px]">
+                <span className="rounded-md border border-white/25 bg-gradient-to-b from-zinc-900/95 to-black/90 px-2 py-2 text-center text-[9px] font-bold uppercase leading-tight tracking-[0.16em] text-white shadow-md">
+                  OUT OF STOCK
+                </span>
+              </div>
             )}
             {canWishlist && (
               <button
@@ -133,11 +145,17 @@ export function ProductCard({
               </button>
             )}
           </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4">
+          <div className={`flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4 ${comfy ? "py-5 sm:pr-8" : ""}`}>
             <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500">{product.category}</p>
-            <h3 className="line-clamp-2 text-base font-medium text-[#3d2f2a]">{product.name}</h3>
+            <h3
+              className={`line-clamp-2 font-medium text-[#3d2f2a] ${comfy ? "text-lg sm:text-xl md:text-2xl" : "text-base"}`}
+            >
+              {product.name}
+            </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-lg font-semibold text-[#3d2f2a]">{formatInr(salePrice)}</span>
+              <span className={`font-semibold text-[#3d2f2a] ${comfy ? "text-xl sm:text-2xl" : "text-lg"}`}>
+                {formatInr(salePrice)}
+              </span>
               {showStrikethrough && (
                 <span className="text-sm text-zinc-400 line-through">{formatInr(product.mrp)}</span>
               )}
@@ -154,6 +172,8 @@ export function ProductCard({
   }
 
   const hasRatingPill = Boolean(reviewSummary && reviewSummary.count > 0);
+  const isCarousel = layout === "carousel";
+  const pillTag = product.tags?.[0]?.trim();
 
   return (
     <Link href={`/product/${product.slug}`} className="group block w-full">
@@ -161,9 +181,9 @@ export function ProductCard({
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-[#ebe4e0] shadow-sm ring-1 ring-black/[0.04] transition duration-300 group-hover:shadow-lg">
           <Image
             src={primaryImage}
-            alt={product.name}
+            alt={imgAlt}
             fill
-            className="object-cover transition duration-500 group-hover:scale-[1.04]"
+            className={`object-cover transition duration-500 group-hover:scale-[1.04] ${outOfStock ? "opacity-50 grayscale" : ""}`}
             style={{ objectPosition: listPos }}
             sizes="(max-width: 640px) 44vw, (max-width: 1024px) 28vw, (max-width: 1536px) 22vw, 18vw"
             placeholder="blur"
@@ -224,8 +244,15 @@ export function ProductCard({
             </div>
           )}
           {outOfStock && (
-            <span className="absolute left-2 top-2 z-10 rounded-full bg-zinc-900/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
-              Out of stock
+            <div className="absolute inset-0 z-[14] flex items-center justify-center bg-zinc-900/35 backdrop-blur-[0.5px]">
+              <span className="rounded-md border border-white/25 bg-gradient-to-b from-zinc-900/95 to-black/90 px-4 py-3 text-center text-[11px] font-bold uppercase leading-tight tracking-[0.2em] text-white shadow-lg sm:text-xs">
+                OUT OF STOCK
+              </span>
+            </div>
+          )}
+          {isCarousel && offPct != null && offPct > 0 && !outOfStock && (
+            <span className="absolute left-2 top-2 z-10 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+              Save {offPct}%
             </span>
           )}
           {showNewBadge && (
@@ -239,24 +266,45 @@ export function ProductCard({
               aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               onClick={toggleWishlist}
               disabled={busy}
-              className={`absolute ${showNewBadge ? "left-2 top-2" : "right-2 top-2"} z-20 rounded-full bg-black/30 p-1.5 backdrop-blur-sm transition hover:bg-black/45 disabled:opacity-50`}
+              className={`absolute z-20 rounded-full bg-black/30 p-1.5 backdrop-blur-sm transition hover:bg-black/45 disabled:opacity-50 ${
+                isCarousel
+                  ? "bottom-2 right-2 top-auto"
+                  : showNewBadge
+                    ? "left-2 top-2"
+                    : "right-2 top-2"
+              }`}
             >
               <Heart className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${heartClass}`} strokeWidth={1.6} />
             </button>
           )}
         </div>
+        {isCarousel && pillTag && (
+          <div className="mt-2 flex justify-center">
+            <span className="rounded-full bg-pink-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-pink-800">
+              {pillTag}
+            </span>
+          </div>
+        )}
         <div className="mt-3 w-full px-0.5 text-left sm:mt-3.5">
-          <h3 className="line-clamp-1 font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-[#3d2f2a] sm:text-[15px]">
+          <h3
+            className={`font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-[#3d2f2a] sm:text-[15px] ${
+              isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-1"
+            }`}
+          >
             {product.name}
           </h3>
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-base font-bold tabular-nums text-[#2b211e] sm:text-[17px]">{formatInr(salePrice)}</span>
+            <span
+              className={`text-base font-bold tabular-nums sm:text-[17px] ${isCarousel ? "text-crown-700" : "text-[#2b211e]"}`}
+            >
+              {formatInr(salePrice)}
+            </span>
             {showStrikethrough && (
               <span className="text-xs tabular-nums text-zinc-400 line-through sm:text-sm">
                 {formatInr(product.mrp)}
               </span>
             )}
-            {offPct != null && offPct > 0 && (
+            {offPct != null && offPct > 0 && !isCarousel && (
               <span className="rounded bg-[#E5D3C5] px-1.5 py-px text-[10px] font-semibold leading-tight text-[#4a3428] sm:text-[11px]">
                 {offPct}% off
               </span>

@@ -1,5 +1,5 @@
-import { HomePageSkeleton } from "@/components/skeletons/HomePageSkeleton";
+import { SiteSegmentLoading } from "@/components/layout/SiteSegmentLoading";
 
 export default function SiteLoading() {
-  return <HomePageSkeleton />;
+  return <SiteSegmentLoading />;
 }

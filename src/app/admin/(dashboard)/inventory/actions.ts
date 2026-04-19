@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_COLOR, DEFAULT_SIZE } from "@/lib/product-variants";
+import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
+import { normColorKey, normPart } from "@/lib/product-variants";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 
 function parseList(s: string) {
@@ -29,14 +30,16 @@ function parseVariantRowsFromForm(formData: FormData): ParsedRow[] {
     if (!x || typeof x !== "object") continue;
     const o = x as Record<string, unknown>;
     const size = String(o.size ?? "").trim();
-    const color = String(o.color ?? "").trim();
+    if (!size) continue;
+    const colorRaw = String(o.color ?? "").trim();
+    const colorStored = normColorKey(colorRaw) === "" ? "" : colorRaw;
     const stock = Math.max(0, Math.floor(Number(o.stock ?? o.quantity ?? 0)));
     const isActive = o.isActive !== false && o.isActive !== "false";
-    const k = `${color}\t${size}`;
+    const k = `${normColorKey(colorStored)}\t${normPart(size)}`;
     const prev = merged.get(k);
     merged.set(k, {
-      color: color || DEFAULT_COLOR,
-      size: size || DEFAULT_SIZE,
+      color: colorStored,
+      size,
       stock: (prev?.stock ?? 0) + stock,
       isActive
     });
@@ -46,9 +49,30 @@ function parseVariantRowsFromForm(formData: FormData): ParsedRow[] {
 
 function ensureVariantRows(rows: ParsedRow[]): ParsedRow[] {
   if (rows.length === 0) {
-    return [{ color: DEFAULT_COLOR, size: DEFAULT_SIZE, stock: 0, isActive: true }];
+    return [{ color: "", size: "One size", stock: 0, isActive: true }];
   }
   return rows;
+}
+
+function parseFeaturedCouponIds(formData: FormData): string[] {
+  const raw = String(formData.get("featuredCouponIds") ?? "[]");
+  try {
+    const p = JSON.parse(raw);
+    if (!Array.isArray(p)) return [];
+    return p.filter((x): x is string => typeof x === "string" && x.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function productCommerceFields(formData: FormData) {
+  const sizeRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
+  const sizeChartImageUrl = sizeRaw ? normalizeAdminImageUrl(sizeRaw) : null;
+  const prepaidOfferText = String(formData.get("prepaidOfferText") ?? "").trim() || null;
+  const pricingFootnote = String(formData.get("pricingFootnote") ?? "").trim() || null;
+  const codVals = formData.getAll("codEnabled");
+  const codEnabled = codVals.includes("1") || codVals.includes("on") || codVals.includes("true");
+  return { sizeChartImageUrl, prepaidOfferText, pricingFootnote, codEnabled };
 }
 
 export async function createProduct(formData: FormData) {
@@ -67,7 +91,7 @@ export async function createProduct(formData: FormData) {
     ? Number(formData.get("discountedPrice"))
     : null;
   const variantRows = ensureVariantRows(parseVariantRowsFromForm(formData));
-  const imageUrls = parseList(String(formData.get("imageUrls") ?? ""));
+  const imageUrls = parseList(String(formData.get("imageUrls") ?? "")).map(normalizeAdminImageUrl);
   let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
   if (imageUrls.length > 0) {
     listImageIndex = Math.min(listImageIndex, imageUrls.length - 1);
@@ -76,6 +100,9 @@ export async function createProduct(formData: FormData) {
   }
   const listImagePosition =
     String(formData.get("listImagePosition") ?? "center").trim() || "center";
+
+  const commerce = productCommerceFields(formData);
+  const featuredIds = parseFeaturedCouponIds(formData);
 
   const created = await prisma.product.create({
     data: {
@@ -96,6 +123,7 @@ export async function createProduct(formData: FormData) {
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      ...commerce,
       variants: {
         create: variantRows.map((r) => ({
           size: r.size,
@@ -106,6 +134,18 @@ export async function createProduct(formData: FormData) {
       }
     }
   });
+
+  if (featuredIds.length > 0) {
+    const valid = await prisma.coupon.findMany({
+      where: { id: { in: featuredIds } },
+      select: { id: true }
+    });
+    const ok = new Set(valid.map((v) => v.id));
+    const rows = featuredIds.filter((id) => ok.has(id)).map((couponId) => ({ productId: created.id, couponId }));
+    if (rows.length > 0) {
+      await prisma.productFeaturedCoupon.createMany({ data: rows, skipDuplicates: true });
+    }
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/");
@@ -132,7 +172,7 @@ export async function updateProduct(formData: FormData) {
     ? Number(formData.get("discountedPrice"))
     : null;
   const variantRows = ensureVariantRows(parseVariantRowsFromForm(formData));
-  const imageUrls = parseList(String(formData.get("imageUrls") ?? ""));
+  const imageUrls = parseList(String(formData.get("imageUrls") ?? "")).map(normalizeAdminImageUrl);
   let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
   if (imageUrls.length > 0) {
     listImageIndex = Math.min(listImageIndex, imageUrls.length - 1);
@@ -141,6 +181,9 @@ export async function updateProduct(formData: FormData) {
   }
   const listImagePosition =
     String(formData.get("listImagePosition") ?? "center").trim() || "center";
+
+  const commerce = productCommerceFields(formData);
+  const featuredIds = parseFeaturedCouponIds(formData);
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.productVariant.deleteMany({ where: { productId: id } });
@@ -153,6 +196,19 @@ export async function updateProduct(formData: FormData) {
         isActive: r.isActive
       }))
     });
+
+    await tx.productFeaturedCoupon.deleteMany({ where: { productId: id } });
+    if (featuredIds.length > 0) {
+      const valid = await tx.coupon.findMany({
+        where: { id: { in: featuredIds } },
+        select: { id: true }
+      });
+      const ok = new Set(valid.map((v) => v.id));
+      const rows = featuredIds.filter((cid) => ok.has(cid)).map((couponId) => ({ productId: id, couponId }));
+      if (rows.length > 0) {
+        await tx.productFeaturedCoupon.createMany({ data: rows });
+      }
+    }
 
     return tx.product.update({
       where: { id },
@@ -173,7 +229,8 @@ export async function updateProduct(formData: FormData) {
         imageUrls,
         listImageIndex,
         listImagePosition,
-        videoUrls: parseList(String(formData.get("videoUrls") ?? ""))
+        videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+        ...commerce
       },
       select: { slug: true }
     });

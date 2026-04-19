@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
+import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { auth } from "@/auth";
 import { ProductWishlistToggle } from "@/components/product/ProductWishlistToggle";
@@ -17,10 +20,51 @@ type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export async function generateMetadata({ params }: PageProps) {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await prisma.product.findUnique({ where: { slug } });
-  return { title: product ? `${product.name} | Magenta Crown` : "Product" };
+  const product = await prisma.product.findUnique({
+    where: { slug },
+    select: {
+      name: true,
+      description: true,
+      slug: true,
+      category: true,
+      tags: true,
+      occasion: true,
+      style: true,
+      material: true,
+      imageUrls: true
+    }
+  });
+
+  if (!product) {
+    return { title: "Product" };
+  }
+
+  const description = buildProductMetaDescription(product);
+  const keywords = buildProductKeywords(product);
+  const ogImage = product.imageUrls?.[0];
+  const ogImages = ogImage ? [{ url: ogImage }] : undefined;
+
+  return {
+    title: product.name,
+    description,
+    keywords: keywords.split(", ").filter(Boolean),
+    alternates: { canonical: `/product/${product.slug}` },
+    openGraph: {
+      title: product.name,
+      description,
+      type: "website",
+      url: absoluteUrl(`/product/${product.slug}`),
+      images: ogImages
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description,
+      images: ogImage ? [ogImage] : undefined
+    }
+  };
 }
 
 export default async function ProductPage({ params }: PageProps) {
@@ -29,13 +73,23 @@ export default async function ProductPage({ params }: PageProps) {
     where: { slug },
     include: {
       variants: true,
-      reviews: { orderBy: { createdAt: "desc" }, take: 12 }
+      reviews: { orderBy: { createdAt: "desc" }, take: 12 },
+      featuredCoupons: { include: { coupon: true } }
     }
   });
 
   if (!product) {
     notFound();
   }
+
+  const reviewAgg = await prisma.review.aggregate({
+    where: { productId: product.id },
+    _avg: { rating: true },
+    _count: { _all: true }
+  });
+  const reviewCount = reviewAgg._count._all;
+  const reviewAvgNum = reviewAgg._avg.rating;
+  const reviewAvg = reviewAvgNum != null ? Number(reviewAvgNum) : null;
 
   const session = await auth();
   let initialWishlisted = false;
@@ -67,6 +121,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <main className="bg-[#f8f5f6]">
+      <ProductJsonLd product={product} />
       <TrackProductView productId={product.id} />
 
       <div className="section-shell py-10">
@@ -74,6 +129,7 @@ export default async function ProductPage({ params }: PageProps) {
           <div>
             <ProductImageGallery
               name={product.name}
+              imageAlt={productImageAlt(product)}
               imageUrls={product.imageUrls}
               listImageIndex={product.listImageIndex ?? 0}
               listImagePosition={product.listImagePosition ?? "center"}
@@ -89,14 +145,28 @@ export default async function ProductPage({ params }: PageProps) {
           </div>
 
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{product.category}</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
+              <Link
+                href={`/shop?category=${encodeURIComponent(product.category)}`}
+                className="transition hover:text-crown-800 underline-offset-4 hover:underline"
+              >
+                {product.category}
+              </Link>
+            </p>
             <div className="mt-2 flex flex-wrap items-start gap-3">
               <h1 className="flex-1 font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900 sm:text-4xl">
                 {product.name}
               </h1>
               <ProductWishlistToggle productId={product.id} initialWishlisted={initialWishlisted} />
             </div>
-            <p className="mt-4 text-zinc-600">{product.description}</p>
+            <div className="mt-6">
+              <AddToCartSection
+                product={product}
+                reviewAvg={reviewAvg}
+                reviewCount={reviewCount}
+              />
+            </div>
+            <p className="mt-6 text-zinc-600">{product.description}</p>
 
             {product.story && (
               <div className="mt-8 border-t border-zinc-200 pt-8">
@@ -130,10 +200,6 @@ export default async function ProductPage({ params }: PageProps) {
               <Link href="/support/shipping" className="text-crown-800 underline underline-offset-4">
                 Delivery & returns
               </Link>
-            </div>
-
-            <div className="mt-8">
-              <AddToCartSection product={product} />
             </div>
           </div>
         </div>

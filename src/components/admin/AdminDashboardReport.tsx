@@ -148,16 +148,20 @@ function OrderStatusDonut({ slices }: { slices: OrderStatusSlice[] }) {
             <span className="text-xl font-bold text-zinc-900">{total}</span>
           </div>
         </div>
-        <ul className="min-w-0 flex-1 space-y-2 text-sm">
+        <ul className="min-w-0 flex-1 space-y-4 text-sm sm:pl-1">
           {slices.map((s, i) => (
-            <li key={s.status} className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: colors[i % colors.length] }} />
-                <span className="font-medium text-zinc-800">{s.status}</span>
-              </span>
-              <span className="tabular-nums text-zinc-500">
-                {s.count} ({s.pct.toFixed(0)}%)
-              </span>
+            <li key={s.status} className="flex items-start gap-3">
+              <span
+                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ background: colors[i % colors.length] }}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <span className="font-medium text-zinc-800">{s.status}</span>
+                  <span className="shrink-0 tabular-nums text-zinc-600">{s.count}</span>
+                </div>
+                <p className="mt-0.5 text-xs tabular-nums text-zinc-500">{s.pct.toFixed(0)}% of orders</p>
+              </div>
             </li>
           ))}
         </ul>
@@ -256,7 +260,7 @@ function TopProductsTable({ rows }: { rows: TopProductRow[] }) {
               <th className="px-3 py-3">Category</th>
               <th className="px-3 py-3 text-right">Qty</th>
               <th className="px-5 py-3 text-right">Revenue</th>
-              <th className="px-5 py-3 text-right">Action</th>
+              <th className="px-5 py-3 text-right">Store</th>
             </tr>
           </thead>
           <tbody>
@@ -279,10 +283,12 @@ function TopProductsTable({ rows }: { rows: TopProductRow[] }) {
                   </td>
                   <td className="px-5 py-3 text-right">
                     <Link
-                      href={`/admin/inventory/${r.productId}`}
+                      href={`/product/${r.slug}`}
                       className="text-xs font-semibold text-admin-700 hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
                     >
-                      Edit
+                      View
                     </Link>
                   </td>
                 </tr>

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { ChevronDown, ShoppingBag } from "lucide-react";
+import { ChevronDown, Heart, Menu, ShoppingBag, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { FALLBACK_MEGA, FALLBACK_PRIMARY } from "@/lib/default-nav";
 import { SiteNavbarMegaMenu } from "@/components/features/SiteNavbarMegaMenu";
 import { useCart } from "@/context/CartContext";
+import { useHeroReady } from "@/context/HeroReadyContext";
 
 export type ServerNavLink = {
   label: string;
@@ -16,17 +19,26 @@ export type ServerNavLink = {
   group: string | null;
 };
 
+/** Top-level items hidden from header (still available under Shop / mega menus). */
+const HIDE_PRIMARY_LABELS = new Set(["sarees", "kurtas"]);
+
+function filterPrimaryNav<T extends { label: string }>(items: T[]): T[] {
+  return items.filter((p) => !HIDE_PRIMARY_LABELS.has(p.label.trim().toLowerCase()));
+}
+
 function buildNav(serverLinks: ServerNavLink[] | undefined) {
   if (!serverLinks?.length) {
     return {
-      primary: FALLBACK_PRIMARY.map((p) => ({ label: p.label, href: p.href })),
+      primary: filterPrimaryNav(FALLBACK_PRIMARY.map((p) => ({ label: p.label, href: p.href }))),
       mega: FALLBACK_MEGA
     };
   }
 
-  const primaryRaw = serverLinks
-    .filter((l) => l.group == null || l.group === "")
-    .map((l) => ({ label: l.label, href: l.href }));
+  const primaryRaw = filterPrimaryNav(
+    serverLinks
+      .filter((l) => l.group == null || l.group === "")
+      .map((l) => ({ label: l.label, href: l.href }))
+  );
 
   const mega: Record<string, { label: string; href: string }[]> = {};
   for (const l of serverLinks) {
@@ -39,8 +51,10 @@ function buildNav(serverLinks: ServerNavLink[] | undefined) {
   const megaKeys = new Set(Object.keys(megaFinal).map((k) => k.trim().toLowerCase()));
   const primaryFiltered = primaryRaw.filter((p) => !megaKeys.has(p.label.trim().toLowerCase()));
 
-  const fallbackPrimary = FALLBACK_PRIMARY.map((p) => ({ label: p.label, href: p.href })).filter(
-    (p) => !megaKeys.has(p.label.trim().toLowerCase())
+  const fallbackPrimary = filterPrimaryNav(
+    FALLBACK_PRIMARY.map((p) => ({ label: p.label, href: p.href })).filter(
+      (p) => !megaKeys.has(p.label.trim().toLowerCase())
+    )
   );
 
   return {
@@ -58,14 +72,38 @@ export function SiteNavbar({ serverLinks }: Props) {
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const { items: cartItems, cartHydrated } = useCart();
+  const { heroReady } = useHeroReady();
   const cartCount = cartItems.reduce((n, it) => n + it.quantity, 0);
   /** Avoid hydration mismatch: cart lives in localStorage; only show count after client read. */
   const showCartBadge = cartHydrated && cartCount > 0;
-  const [pastHero, setPastHero] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  /** Avoid session/cart UI hydration mismatch (server vs client session). */
+  const [mounted, setMounted] = useState(false);
+  /** On home: transparent bar over hero until user scrolls past `#landing-hero`, then floating pill. */
+  const [pastHero, setPastHero] = useState(false);
   /** Only one mega submenu open; switching triggers clears the previous immediately (no staggered timers per item). */
   const [openMegaTitle, setOpenMegaTitle] = useState<string | null>(null);
   const megaCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setDrawerMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    lockBodyScroll();
+    return () => unlockBodyScroll();
+  }, [mobileMenuOpen]);
 
   const clearMegaCloseTimer = useCallback(() => {
     if (megaCloseTimer.current) {
@@ -90,18 +128,37 @@ export function SiteNavbar({ serverLinks }: Props) {
   const { primary, mega } = useMemo(() => buildNav(serverLinks), [serverLinks]);
   const isHome = pathname === "/";
 
+  /** Header cart + wishlist icons: shopping flows only (hidden on home and static pages). */
+  const showCommerceIcons = useMemo(() => {
+    if (!pathname) return false;
+    if (pathname === "/shop" || pathname === "/categories" || pathname === "/cart") return true;
+    if (pathname.startsWith("/product/")) return true;
+    if (pathname.startsWith("/checkout")) return true;
+    return false;
+  }, [pathname]);
+
+  /** Pixels from top: when hero bottom is above this, show floating header (aligned with nav chrome). */
+  const HERO_THRESHOLD_PX = 88;
+  /** Ignore measurements until hero has real layout (avoids boxed header on fresh load / streaming). */
+  const MIN_HERO_HEIGHT_PX = 48;
+
   const measureHero = useCallback(() => {
     if (!isHome) return;
     const el = document.getElementById("landing-hero");
+    // Not mounted yet (streaming) or layout not ready — stay immersive, never assume "past hero".
     if (!el) {
-      setPastHero(true);
+      setPastHero(false);
       return;
     }
     const rect = el.getBoundingClientRect();
-    setPastHero(rect.bottom < 96);
+    if (rect.height < MIN_HERO_HEIGHT_PX) {
+      setPastHero(false);
+      return;
+    }
+    setPastHero(rect.bottom < HERO_THRESHOLD_PX);
   }, [isHome]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isHome) {
       setPastHero(true);
       return;
@@ -112,16 +169,76 @@ export function SiteNavbar({ serverLinks }: Props) {
 
   useEffect(() => {
     if (!isHome) return;
+
+    const onScroll = () => measureHero();
     measureHero();
-    window.addEventListener("scroll", measureHero, { passive: true });
-    window.addEventListener("resize", measureHero);
+
+    let ro: ResizeObserver | null = null;
+    const attachRo = () => {
+      const hero = document.getElementById("landing-hero");
+      if (!hero || ro) return;
+      ro = new ResizeObserver(() => requestAnimationFrame(measureHero));
+      ro.observe(hero);
+    };
+    attachRo();
+
+    let mo: MutationObserver | null = null;
+    if (!document.getElementById("landing-hero")) {
+      mo = new MutationObserver(() => {
+        requestAnimationFrame(() => {
+          measureHero();
+          attachRo();
+          if (document.getElementById("landing-hero") && mo) {
+            mo.disconnect();
+            mo = null;
+          }
+        });
+      });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
     return () => {
-      window.removeEventListener("scroll", measureHero);
-      window.removeEventListener("resize", measureHero);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      ro?.disconnect();
+      mo?.disconnect();
     };
   }, [isHome, measureHero]);
 
-  /** Only the homepage hero (before scroll) uses the immersive, edge-to-edge bar. */
+  const signInReturnUrl = useMemo(() => {
+    if (!pathname || pathname.startsWith("/auth")) return "/";
+    const q = searchParams.toString();
+    return q ? `${pathname}?${q}` : pathname;
+  }, [pathname, searchParams]);
+
+  const signInHref = `/auth/signin?callbackUrl=${encodeURIComponent(signInReturnUrl)}`;
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onWide = () => setMobileMenuOpen(false);
+    mq.addEventListener("change", onWide);
+    return () => mq.removeEventListener("change", onWide);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMobileMenu();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileMenuOpen, closeMobileMenu]);
+
+  /** Full-screen home loader owns the first paint — hide chrome until hero imagery is ready. */
+  if (isHome && !heroReady) {
+    return null;
+  }
+
   const immersive = isHome && !pastHero;
   const isLight = !immersive;
 
@@ -133,237 +250,384 @@ export function SiteNavbar({ serverLinks }: Props) {
 
   const megaEntries = Object.entries(mega);
 
-  const signInReturnUrl = useMemo(() => {
-    if (!pathname || pathname.startsWith("/auth")) return "/";
-    const q = searchParams.toString();
-    return q ? `${pathname}?${q}` : pathname;
-  }, [pathname, searchParams]);
-
-  const signInHref = `/auth/signin?callbackUrl=${encodeURIComponent(signInReturnUrl)}`;
-
   const linkTone = isLight
     ? "text-zinc-900 hover:text-crown-900"
-    : "text-white drop-shadow-md hover:text-white/90";
+    : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] hover:text-white";
 
+  /**
+   * Hero: transparent (immersive). Else: warm frosted bar that matches page shell (#f4f0f2 family) — avoids a bright white
+   * “floating card” that fights shop / main content. Dark glass unchanged for edge cases.
+   */
   const shellClass = immersive
-    ? "pointer-events-auto w-full bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5"
-    : /* overflow-visible so mega-menus / account dropdowns aren’t clipped by the rounded panel */
-      `pointer-events-auto mx-auto max-w-[min(1920px,calc(100vw-1rem))] overflow-visible rounded-2xl border shadow-lg backdrop-blur-xl transition-[background,box-shadow,border-color] duration-300 sm:max-w-[min(1920px,calc(100vw-2rem))] ${
+    ? "pointer-events-auto w-full overflow-visible bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5"
+    : `pointer-events-auto mx-auto max-w-[min(1920px,calc(100vw-1rem))] overflow-visible rounded-2xl border shadow-lg backdrop-blur-xl backdrop-saturate-150 transition-[background,box-shadow,border-color] duration-300 sm:max-w-[min(1920px,calc(100vw-2rem))] ${
         isLight
-          ? "border-zinc-300/90 bg-gradient-to-r from-white via-zinc-50/98 to-white/95 text-zinc-900 shadow-zinc-900/10"
-          : "border-white/25 bg-gradient-to-r from-white/18 via-white/10 to-zinc-900/35 text-white shadow-black/30"
+          ? "border-zinc-400/35 bg-gradient-to-br from-[#f2e8ec]/96 via-[#f4f0f2]/94 to-[#ebe3e7]/92 text-zinc-900 shadow-[0_14px_44px_-12px_rgba(55,28,38,0.12)] ring-1 ring-zinc-500/15"
+          : "border-white/25 bg-gradient-to-br from-white/20 via-white/12 to-zinc-900/40 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.35)] ring-1 ring-white/20"
       }`;
 
-  return (
-    <header
-      className={
-        immersive
-          ? "pointer-events-none fixed left-0 right-0 top-0 z-50"
-          : "pointer-events-none fixed left-0 right-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4"
-      }
-    >
-      <div className={shellClass}>
-        <div
-          className={`section-shell flex items-center justify-between gap-4 ${immersive ? "py-1 sm:py-1.5" : "py-3.5 sm:py-[1.125rem]"}`}
-        >
-          <Link href="/" className="shrink-0 text-left">
-            <span
-              className={`font-site-brand block text-base font-semibold tracking-[0.22em] sm:text-lg ${
-                isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
-              }`}
-            >
-              MAGENTA CROWN
-            </span>
-          </Link>
-
-          <nav
-            className="relative z-[1] hidden flex-1 flex-wrap items-center justify-center gap-3 overflow-visible lg:flex xl:gap-6"
-            onMouseEnter={clearMegaCloseTimer}
-            onMouseLeave={scheduleMegaClose}
-          >
-            {primary.map((item) => (
-              <Link
-                key={item.href + item.label}
-                href={item.href}
-                className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
-                onMouseEnter={() => {
-                  clearMegaCloseTimer();
-                  setOpenMegaTitle(null);
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {megaEntries.map(([groupTitle, links]) => (
-              <SiteNavbarMegaMenu
-                key={groupTitle}
-                title={groupTitle}
-                links={links}
-                isLight={isLight}
-                isOpen={openMegaTitle === groupTitle}
-                onOpen={() => openMega(groupTitle)}
-                onPanelPointerEnter={clearMegaCloseTimer}
-              />
-            ))}
-          </nav>
-
+  const mobileDrawer =
+    drawerMounted && mobileMenuOpen ? (
+      createPortal(
+        <div id="site-mobile-menu" className="fixed inset-0 z-[25000] lg:hidden" role="dialog" aria-modal="true" aria-label="Site menu">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            aria-label="Close menu"
+            onClick={closeMobileMenu}
+          />
           <div
-            className={`flex min-w-0 shrink-0 flex-wrap items-center justify-end ${immersive ? "gap-2 sm:gap-3" : "gap-2 sm:gap-4 md:gap-5"}`}
+            className="absolute right-0 top-0 flex h-[100dvh] w-[min(100%,22rem)] flex-col border-l border-zinc-200/90 bg-white text-zinc-900 shadow-2xl"
+            style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
           >
-            {!isStaff && (
-              <Link
-                href="/cart"
-                className={`flex items-center gap-2 rounded-lg px-2 py-2 transition active:scale-[0.98] ${linkTone}`}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3">
+              <span className="font-site-brand text-sm font-semibold tracking-[0.2em]">Menu</span>
+              <button
+                type="button"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100"
+                aria-label="Close menu"
+                onClick={closeMobileMenu}
               >
-                <span className="relative inline-flex shrink-0">
-                  <ShoppingBag className="h-6 w-6" strokeWidth={1.5} />
-                  {showCartBadge && (
-                    <span
-                      className={`absolute -right-1.5 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
-                        isLight ? "bg-crown-800 text-white" : "bg-white text-crown-900 shadow-sm"
-                      }`}
-                      aria-label={`${cartCount} items in cart`}
+                <X className="h-6 w-6" strokeWidth={2} />
+              </button>
+            </div>
+            <nav
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+              aria-label="Site"
+            >
+              <ul className="space-y-0.5">
+                {primary.map((item) => (
+                  <li key={item.href + item.label + "drawer"}>
+                    <Link
+                      href={item.href}
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100"
+                      onClick={closeMobileMenu}
                     >
-                      {cartCount > 99 ? "99+" : cartCount}
-                    </span>
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {megaEntries.map(([groupTitle, links]) => (
+                <div key={groupTitle} className="mt-5 border-t border-zinc-100 pt-5">
+                  <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{groupTitle}</p>
+                  <ul className="space-y-0.5">
+                    {links.map((link) => (
+                      <li key={link.href + link.label}>
+                        <Link
+                          href={link.href}
+                          className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100"
+                          onClick={closeMobileMenu}
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+            <div className="shrink-0 border-t border-zinc-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {status === "loading" ? (
+                <p className="px-3 py-2 text-sm text-zinc-500">…</p>
+              ) : !isAuthed ? (
+                <Link
+                  href={signInHref}
+                  className="block rounded-full bg-zinc-900 py-3 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
+                  onClick={closeMobileMenu}
+                >
+                  Login
+                </Link>
+              ) : (
+                <div className="space-y-1">
+                  {isStaff && (
+                    <Link
+                      href="/admin"
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+                      onClick={closeMobileMenu}
+                    >
+                      Admin
+                    </Link>
                   )}
-                </span>
-                <span className="hidden font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.18em] sm:inline">
-                  Cart
-                </span>
-              </Link>
-            )}
+                  <Link
+                    href="/account/profile"
+                    className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+                    onClick={closeMobileMenu}
+                  >
+                    Profile
+                  </Link>
+                  {!isStaff && (
+                    <>
+                      <Link
+                        href="/account/orders"
+                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+                        onClick={closeMobileMenu}
+                      >
+                        Orders
+                      </Link>
+                      <Link
+                        href="/account/wishlist"
+                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+                        onClick={closeMobileMenu}
+                      >
+                        Wishlist
+                      </Link>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="mt-2 w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+                    onClick={() => {
+                      closeMobileMenu();
+                      void signOut({ callbackUrl: "/" });
+                    }}
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    ) : null;
 
-            {status === "loading" ? (
-              <span className={`text-xs ${isLight ? "text-zinc-500" : "text-white/80"}`}>…</span>
-            ) : !isAuthed ? (
-              <Link
-                href={signInHref}
-                className={`rounded-full px-5 py-2.5 font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.14em] sm:px-6 sm:py-3 sm:text-xs transition active:scale-[0.98] ${
-                  isLight
-                    ? "bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
-                    : "border border-white/80 bg-transparent text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] hover:bg-white/10"
+  return (
+    <>
+      <header
+        className={
+          immersive
+            ? "pointer-events-none fixed left-0 right-0 top-0 z-[5000] isolate"
+            : "pointer-events-none fixed left-0 right-0 top-0 z-[5000] isolate px-3 pt-3 sm:px-5 sm:pt-4"
+        }
+      >
+        <div className={shellClass}>
+          <div
+            className={`section-shell relative flex w-full flex-nowrap items-center justify-between gap-2 sm:gap-3 ${immersive ? "py-1 sm:py-1.5" : "py-2.5 sm:py-3.5 lg:py-[1.125rem]"}`}
+          >
+            <Link href="/" className="relative z-[25] min-w-0 shrink-0 text-left">
+              <span
+                className={`font-site-brand block whitespace-nowrap text-[11px] font-semibold leading-tight tracking-[0.16em] sm:text-base sm:tracking-[0.2em] lg:text-lg ${
+                  isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
                 }`}
               >
-                Login
-              </Link>
-            ) : (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setAccountOpen((o) => !o)}
-                  className={`flex items-center gap-2 rounded-full py-1 transition active:scale-[0.98] ${
-                    isLight ? "text-zinc-900" : "text-white"
-                  }`}
-                  aria-haspopup="menu"
-                  aria-expanded={accountOpen}
+                MAGENTA CROWN
+              </span>
+            </Link>
+
+            <nav
+              className="absolute left-1/2 top-1/2 z-[10] hidden w-full max-w-[min(920px,calc(100vw-17rem))] -translate-x-1/2 -translate-y-1/2 flex-nowrap items-center justify-center gap-x-3 overflow-visible lg:flex xl:gap-x-5"
+              onMouseEnter={clearMegaCloseTimer}
+              onMouseLeave={scheduleMegaClose}
+              aria-label="Primary"
+            >
+              {primary.map((item) => (
+                <Link
+                  key={item.href + item.label}
+                  href={item.href}
+                  className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
+                  onMouseEnter={() => {
+                    clearMegaCloseTimer();
+                    setOpenMegaTitle(null);
+                  }}
                 >
-                  {session.user?.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt=""
-                      width={36}
-                      height={36}
-                      className="h-9 w-9 rounded-full border border-white/30 object-cover"
-                    />
-                  ) : (
-                    <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
-                        isLight ? "border-zinc-300 bg-zinc-100 text-zinc-800" : "border-white/60 bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                      }`}
-                    >
-                      {(session.user?.name ?? session.user?.email ?? "?").slice(0, 1)}
-                    </span>
-                  )}
-                  <ChevronDown className="hidden h-4 w-4 sm:block" />
-                </button>
-                {accountOpen && (
-                  <>
-                    <button
-                      type="button"
-                      className="fixed inset-0 z-[45] cursor-default"
-                      aria-label="Close menu"
-                      onClick={() => setAccountOpen(false)}
-                    />
-                    <div
-                      className={`absolute right-0 z-[100] mt-2 min-w-[200px] rounded-xl border py-2 shadow-xl ${
-                        isLight
-                          ? "border-zinc-200 bg-white text-zinc-800"
-                          : "border-white/10 bg-zinc-950 text-zinc-100"
-                      }`}
-                    >
-                      {isStaff && (
-                        <Link
-                          href="/admin"
-                          className="block px-4 py-2 text-sm hover:bg-black/5"
-                          onClick={() => setAccountOpen(false)}
-                        >
-                          Admin
-                        </Link>
-                      )}
+                  {item.label}
+                </Link>
+              ))}
+              {megaEntries.map(([groupTitle, links]) => (
+                <SiteNavbarMegaMenu
+                  key={groupTitle}
+                  title={groupTitle}
+                  links={links}
+                  isLight={isLight}
+                  isOpen={openMegaTitle === groupTitle}
+                  onOpen={() => openMega(groupTitle)}
+                  onPanelPointerEnter={clearMegaCloseTimer}
+                />
+              ))}
+            </nav>
+
+            <div
+              className={`relative z-[25] ml-auto flex shrink-0 flex-nowrap items-center justify-end ${immersive ? "gap-1.5 sm:gap-2" : "gap-1.5 sm:gap-2 lg:gap-4"}`}
+            >
+              {!mounted ? (
+                <span
+                  className={`inline-flex min-h-[44px] min-w-8 items-center justify-center text-xs tabular-nums ${isLight ? "text-zinc-400" : "text-white/50"}`}
+                  aria-busy="true"
+                  aria-label="Loading"
+                >
+                  …
+                </span>
+              ) : (
+                <>
+                  {showCommerceIcons && !isStaff && (
+                    <>
                       <Link
-                        href="/account/profile"
-                        className="block px-4 py-2 text-sm hover:bg-black/5"
-                        onClick={() => setAccountOpen(false)}
+                        href="/cart"
+                        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
+                          isLight
+                            ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
+                            : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                        }`}
+                        aria-label="Cart"
                       >
-                        Profile
+                        <ShoppingBag className="h-6 w-6" strokeWidth={1.5} />
+                        {showCartBadge && (
+                          <span
+                            className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+                              isLight ? "bg-crown-800 text-white" : "bg-white text-crown-900 shadow-sm"
+                            }`}
+                            aria-label={`${cartCount} items in cart`}
+                          >
+                            {cartCount > 99 ? "99+" : cartCount}
+                          </span>
+                        )}
                       </Link>
-                      {!isStaff && (
-                        <>
-                          <Link
-                            href="/account/orders"
-                            className="block px-4 py-2 text-sm hover:bg-black/5"
-                            onClick={() => setAccountOpen(false)}
-                          >
-                            Orders
-                          </Link>
-                          <Link
-                            href="/account/wishlist"
-                            className="block px-4 py-2 text-sm hover:bg-black/5"
-                            onClick={() => setAccountOpen(false)}
-                          >
-                            Wishlist
-                          </Link>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        className="block w-full px-4 py-2 text-left text-sm hover:bg-black/5"
-                        onClick={() => {
-                          setAccountOpen(false);
-                          void signOut({ callbackUrl: "/" });
-                        }}
+                      <Link
+                        href="/account/wishlist"
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
+                          isLight
+                            ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
+                            : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                        }`}
+                        aria-label="Wishlist — view all saved items"
+                        title="Wishlist"
                       >
-                        Log out
+                        <Heart className="h-6 w-6" strokeWidth={1.6} />
+                      </Link>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition lg:hidden ${
+                      isLight
+                        ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
+                        : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                    aria-label="Open menu"
+                    aria-expanded={mobileMenuOpen}
+                    aria-controls="site-mobile-menu"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    <Menu className="h-6 w-6" strokeWidth={2} />
+                  </button>
+
+                  {status === "loading" ? (
+                    <span className={`hidden text-xs lg:inline ${isLight ? "text-zinc-500" : "text-white/80"}`}>…</span>
+                  ) : !isAuthed ? (
+                    <Link
+                      href={signInHref}
+                      className={`hidden shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.14em] transition active:scale-[0.98] sm:px-6 sm:py-3 sm:text-xs lg:inline-flex ${
+                        isLight
+                          ? "bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
+                          : "border border-white/80 bg-transparent text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] hover:bg-white/10"
+                      }`}
+                    >
+                      Login
+                    </Link>
+                  ) : (
+                    <div className="relative hidden lg:block">
+                      <button
+                      type="button"
+                      onClick={() => setAccountOpen((o) => !o)}
+                      className={`flex items-center gap-2 rounded-full py-1 transition active:scale-[0.98] ${
+                        isLight ? "text-zinc-900" : "text-white"
+                      }`}
+                      aria-haspopup="menu"
+                      aria-expanded={accountOpen}
+                    >
+                      {session.user?.image ? (
+                        <Image
+                          src={session.user.image}
+                          alt=""
+                          width={36}
+                          height={36}
+                          className="h-9 w-9 rounded-full border border-white/30 object-cover"
+                        />
+                      ) : (
+                        <span
+                          className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
+                            isLight ? "border-zinc-300 bg-zinc-100 text-zinc-800" : "border-white/60 bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
+                          }`}
+                        >
+                          {(session.user?.name ?? session.user?.email ?? "?").slice(0, 1)}
+                        </span>
+                      )}
+                      <ChevronDown className="hidden h-4 w-4 sm:block" />
                       </button>
-                    </div>
-                  </>
+                    {accountOpen && (
+                      <>
+                        <button
+                          type="button"
+                          className="fixed inset-0 z-[4990] cursor-default bg-black/0"
+                          aria-label="Close menu"
+                          onClick={() => setAccountOpen(false)}
+                        />
+                        <div
+                          className={`absolute right-0 z-[5010] mt-2 min-w-[200px] rounded-xl border py-2 shadow-2xl ${
+                            isLight
+                              ? "border-zinc-300/90 bg-gradient-to-b from-white to-zinc-100/95 text-zinc-950 ring-1 ring-zinc-900/[0.06]"
+                              : "border-white/20 bg-gradient-to-b from-zinc-900/95 to-zinc-950 text-zinc-100 ring-1 ring-white/10"
+                          }`}
+                        >
+                          {isStaff && (
+                            <Link
+                              href="/admin"
+                              className={`block px-4 py-2 text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
+                              onClick={() => setAccountOpen(false)}
+                            >
+                              Admin
+                            </Link>
+                          )}
+                          <Link
+                            href="/account/profile"
+                            className={`block px-4 py-2 text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            Profile
+                          </Link>
+                          {!isStaff && (
+                            <>
+                              <Link
+                                href="/account/orders"
+                                className={`block px-4 py-2 text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Orders
+                              </Link>
+                              <Link
+                                href="/account/wishlist"
+                                className={`block px-4 py-2 text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Wishlist
+                              </Link>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className={`block w-full px-4 py-2 text-left text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
+                            onClick={() => {
+                              setAccountOpen(false);
+                              void signOut({ callbackUrl: "/" });
+                            }}
+                          >
+                            Log out
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
-
-        <div
-          className={`flex justify-center gap-3 overflow-x-auto lg:hidden ${
-            immersive
-              ? "px-3 pb-3.5 pt-2"
-              : isLight
-                ? "border-t border-zinc-200/80 px-4 pb-3.5 pt-2"
-                : "border-t border-white/15 px-4 pb-3.5 pt-2"
-          }`}
-        >
-          {primary.map((item) => (
-            <Link
-              key={item.href + item.label + "m"}
-              href={item.href}
-              className={`whitespace-nowrap rounded-md px-2 py-1.5 font-[family-name:var(--font-body)] text-[10px] font-semibold uppercase tracking-[0.15em] ${linkTone}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
       </div>
     </header>
+      {mobileDrawer}
+    </>
   );
 }

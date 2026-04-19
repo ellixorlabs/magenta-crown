@@ -1,5 +1,6 @@
 export const metadata = {
-  title: "FAQs | Magenta Crown"
+  title: "FAQs",
+  description: "Answers about sizing, shipping, returns, and shopping at Magenta Crown."
 };
 
 export default function FaqsPage() {

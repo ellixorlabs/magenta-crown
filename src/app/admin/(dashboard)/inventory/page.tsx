@@ -19,7 +19,7 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
 
   const sp = await searchParams;
   const deleteError = firstString(sp.deleteError);
-  const where = buildProductWhere(sp, { applyOutOfStockFilter: false });
+  const where = buildProductWhere(sp);
   const { sort } = parseShopSearchParams(sp);
   const orderBy = buildProductOrderBy(sort);
 

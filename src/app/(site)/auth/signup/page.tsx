@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 
@@ -62,13 +63,7 @@ function SignUpInner() {
           Create account
         </h1>
 
-        <button
-          type="button"
-          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full border-2 border-zinc-300 bg-zinc-50 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-100"
-          onClick={() => signIn("google", { callbackUrl })}
-        >
-          Continue with Google
-        </button>
+        <AuthGoogleSection callbackUrl={callbackUrl} />
 
         <div className="my-8 flex items-center gap-3">
           <div className="h-px flex-1 bg-zinc-300" />
@@ -136,8 +131,8 @@ export default function SignUpPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-zinc-950">
-          <div className="mx-auto max-w-md pt-32 text-center text-sm text-white/60">Loading…</div>
+        <div className="min-h-dvh bg-gradient-to-b from-white via-[#faf7f8] to-[#f0e8ec]">
+          <div className="mx-auto max-w-md pt-32 text-center text-sm text-zinc-500">Loading…</div>
         </div>
       }
     >

@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ProfileFormClient } from "@/components/account/ProfileFormClient";
 
-export const metadata = { title: "Profile | Magenta Crown" };
+export const metadata = {
+  title: "Profile",
+  description: "Manage your Magenta Crown account details and preferences.",
+  robots: { index: false, follow: true }
+};
 
 export default async function ProfilePage() {
   const session = await auth();

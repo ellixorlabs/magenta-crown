@@ -10,7 +10,11 @@ const cats = [
   { label: "Wedding", href: "/shop?occasion=Wedding" }
 ];
 
-export const metadata = { title: "Categories | Magenta Crown" };
+export const metadata = {
+  title: "Categories",
+  description:
+    "Browse Magenta Crown by category or occasion — sarees, lehengas, kurtas, festive and wedding edits."
+};
 
 export default function CategoriesPage() {
   return (

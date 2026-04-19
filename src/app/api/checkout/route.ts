@@ -11,6 +11,7 @@ import {
   type SaveAddressPayload,
   type ShippingPayload
 } from "@/lib/checkout-address";
+import { allocatePublicOrderRef } from "@/lib/order-public-ref";
 import { DEFAULT_COLOR, DEFAULT_SIZE } from "@/lib/product-variants";
 
 type Line = {
@@ -158,12 +159,16 @@ export async function POST(req: Request) {
         select: {
           id: true,
           mrp: true,
-          discountedPrice: true
+          discountedPrice: true,
+          codEnabled: true
         }
       });
       const productMap = new Map(products.map((p) => [p.id, p]));
       if (productMap.size !== productIds.length) {
         throw new Error("PRODUCT_NOT_FOUND");
+      }
+      if (isCod && products.some((p) => p.codEnabled === false)) {
+        throw new Error("COD_NOT_ALLOWED");
       }
 
       let subtotalBeforeDiscount = 0;
@@ -219,8 +224,11 @@ export async function POST(req: Request) {
         }
       }
 
+      const publicOrderRef = await allocatePublicOrderRef(tx);
+
       const created = await tx.order.create({
         data: {
+          publicOrderRef,
           userId: session.user!.id,
           guestEmail: null,
           shippingAddress: {
@@ -296,7 +304,10 @@ export async function POST(req: Request) {
       return created;
     });
 
-    return NextResponse.json({ orderId: order.id });
+    return NextResponse.json({
+      orderId: order.id,
+      publicOrderRef: order.publicOrderRef ?? null
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg === "COUPON_INVALID") {
@@ -331,6 +342,14 @@ export async function POST(req: Request) {
     }
     if (msg === "OTHER_LABEL_REQUIRED") {
       return NextResponse.json({ error: "Please enter a name for this address." }, { status: 400 });
+    }
+    if (msg === "COD_NOT_ALLOWED") {
+      return NextResponse.json(
+        {
+          error: "Cash on delivery is not available for one or more items in your cart. Choose an online payment method."
+        },
+        { status: 400 }
+      );
     }
     console.error(e);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });

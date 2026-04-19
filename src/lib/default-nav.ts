@@ -3,9 +3,7 @@ import type { HeaderNavLink } from "@prisma/client";
 /** Used when the database has no active header links yet */
 export const FALLBACK_PRIMARY: Pick<HeaderNavLink, "label" | "href" | "group">[] = [
   { label: "New arrivals", href: "/shop?sort=new", group: null },
-  { label: "Shop all", href: "/shop", group: null },
-  { label: "Sarees", href: "/shop?category=Sarees", group: null },
-  { label: "Kurtas", href: "/shop?category=Kurtas", group: null }
+  { label: "Shop all", href: "/shop", group: null }
 ];
 
 export const FALLBACK_MEGA: Record<string, { label: string; href: string }[]> = {

@@ -1,4 +1,7 @@
-export const metadata = { title: "Terms & Conditions | Magenta Crown" };
+export const metadata = {
+  title: "Terms & conditions",
+  description: "Terms of use for the Magenta Crown website and online store."
+};
 
 export default function TermsPage() {
   return (

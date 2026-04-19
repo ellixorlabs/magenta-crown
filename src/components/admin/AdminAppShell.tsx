@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdminNavItem } from "@/lib/admin-nav";
 import { ADMIN_NAV, LogOut } from "@/lib/admin-nav";
 
@@ -34,6 +34,7 @@ function pageTitle(pathname: string) {
     "/admin/navigation": "Header & menus"
   };
   if (exact[pathname]) return exact[pathname];
+  if (pathname.startsWith("/admin/orders/") && pathname !== "/admin/orders") return "Order details";
   if (pathname.startsWith("/admin/inventory/")) return "Edit product";
   return "Admin";
 }
@@ -54,8 +55,27 @@ export function AdminAppShell({
   const pathname = usePathname();
   const links = useMemo(() => ADMIN_NAV.filter((l) => !l.adminOnly || isAdmin), [isAdmin]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileWrapRef = useRef<HTMLDivElement>(null);
   /** Manual accordion overrides; if unset, derive open state from current path. */
   const [navOpen, setNavOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (profileWrapRef.current?.contains(e.target as Node)) return;
+      setProfileOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
 
   const title = pageTitle(pathname ?? "");
 
@@ -169,24 +189,6 @@ export function AdminAppShell({
             );
           })}
         </nav>
-
-        <div className="shrink-0 border-t border-zinc-100 p-3">
-          <Link
-            href="/"
-            className="mb-2 block rounded-xl px-3 py-2 text-center text-sm font-medium text-admin-700 hover:bg-admin-50"
-            onClick={() => setMobileOpen(false)}
-          >
-            View storefront
-          </Link>
-          <button
-            type="button"
-            onClick={() => void signOut({ callbackUrl: "/" })}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-          >
-            <LogOut className="h-4 w-4" strokeWidth={1.75} />
-            Log out
-          </button>
-        </div>
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
@@ -223,29 +225,70 @@ export function AdminAppShell({
             >
               <Bell className="h-5 w-5" strokeWidth={1.5} />
             </button>
-            <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50/90 py-1 pl-1 pr-2.5 shadow-sm">
-              {userImage ? (
-                <Image
-                  src={userImage}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 rounded-full border border-white object-cover"
-                />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-admin-100 text-xs font-bold text-admin-800">
-                  {(userName ?? userEmail ?? "?").slice(0, 1).toUpperCase()}
+            <div className="relative" ref={profileWrapRef}>
+              <button
+                type="button"
+                id="admin-profile-menu-button"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                aria-controls="admin-profile-menu"
+                onClick={() => setProfileOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50/90 py-1 pl-1 pr-2.5 text-left shadow-sm transition hover:bg-zinc-100"
+              >
+                {userImage ? (
+                  <Image
+                    src={userImage}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 rounded-full border border-white object-cover"
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-admin-100 text-xs font-bold text-admin-800">
+                    {(userName ?? userEmail ?? "?").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="hidden max-w-[160px] truncate text-sm font-medium text-zinc-800 sm:inline">
+                  {userName || userEmail}
                 </span>
-              )}
-              <span className="hidden max-w-[160px] truncate text-sm font-medium text-zinc-800 sm:inline">
-                {userName || userEmail}
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" />
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-zinc-400 transition ${profileOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {profileOpen ? (
+                <div
+                  id="admin-profile-menu"
+                  role="menu"
+                  aria-labelledby="admin-profile-menu-button"
+                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg"
+                >
+                  <Link
+                    href="/"
+                    role="menuitem"
+                    className="block px-4 py-2.5 text-sm font-medium text-admin-800 hover:bg-admin-50"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setMobileOpen(false);
+                    }}
+                  >
+                    View storefront
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                    onClick={() => void signOut({ callbackUrl: "/" })}
+                  >
+                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                    Log out
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

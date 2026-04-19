@@ -14,10 +14,16 @@ export default async function EditProductPage({ params }: PageProps) {
   }
 
   const { id } = await params;
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: { variants: true }
-  });
+  const [product, coupons] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id },
+      include: { variants: true, featuredCoupons: { select: { couponId: true } } }
+    }),
+    prisma.coupon.findMany({
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, discountPct: true, isActive: true }
+    })
+  ]);
   if (!product) {
     notFound();
   }
@@ -28,7 +34,7 @@ export default async function EditProductPage({ params }: PageProps) {
         ← Back to inventory
       </Link>
       <h2 className="mt-4 text-xl font-semibold text-zinc-900">Edit product</h2>
-      <ProductEditForm product={product} />
+      <ProductEditForm product={product} coupons={coupons} />
     </div>
   );
 }

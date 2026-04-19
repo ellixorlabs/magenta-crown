@@ -1,12 +1,14 @@
 "use client";
 
-import type { HomePagePayloadV1 } from "@/lib/home-page-types";
-import { HomePageBlocksEditor } from "./HomePageBlocksEditor";
+import type { HomePagePayloadV2 } from "@/lib/home-page-types";
+import type { CatalogProduct } from "./HomePageV2Editor";
+import { HomePageV2Editor } from "./HomePageV2Editor";
 
 type Props = {
-  initial: HomePagePayloadV1;
+  initial: HomePagePayloadV2;
+  catalogProducts: CatalogProduct[];
 };
 
-export function HomePageEditorClient({ initial }: Props) {
-  return <HomePageBlocksEditor initial={initial} />;
+export function HomePageEditorClient({ initial, catalogProducts }: Props) {
+  return <HomePageV2Editor initial={initial} catalogProducts={catalogProducts} />;
 }

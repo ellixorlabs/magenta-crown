@@ -7,14 +7,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { photonFeatureToAddress } from "@/lib/photon-address";
 import type { SavedAddress } from "@/types/profile";
+import { randomId } from "@/lib/random-id";
 
-const paymentOptions = [
+const ALL_PAYMENT_OPTIONS = [
   { value: "CASH_ON_DELIVERY", label: "Cash on delivery" },
   { value: "UPI", label: "UPI" },
   { value: "CARD", label: "Credit / Debit card" },
   { value: "NETBANKING", label: "Netbanking" },
   { value: "WALLET", label: "Wallets" }
-];
+] as const;
 
 const PHONE_DIAL_OPTIONS = [
   { value: "+91", label: "IN +91" },
@@ -40,7 +41,12 @@ function savedSummary(a: SavedAddress): string {
   return `${tag}: ${a.line1}, ${a.city} ${a.postalCode}`;
 }
 
-export function CheckoutClient() {
+function validPaymentMethod(pm: string | undefined) {
+  if (!pm) return null;
+  return ALL_PAYMENT_OPTIONS.some((o) => o.value === pm) ? pm : null;
+}
+
+export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?: string | null } = {}) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { items, subtotal, discountedTotal, couponCode, clearCart, cartHydrated, flushCart } = useCart();
@@ -67,9 +73,16 @@ export function CheckoutClient() {
   const [otherLabel, setOtherLabel] = useState("");
   const [replaceHomeConfirmed, setReplaceHomeConfirmed] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState("CASH_ON_DELIVERY");
+  const [allowCod, setAllowCod] = useState(true);
+  const initialPm = validPaymentMethod(defaultPaymentMethod ?? undefined) ?? "CASH_ON_DELIVERY";
+  const [paymentMethod, setPaymentMethod] = useState(initialPm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const paymentOptions = useMemo(() => {
+    if (allowCod) return [...ALL_PAYMENT_OPTIONS];
+    return ALL_PAYMENT_OPTIONS.filter((o) => o.value !== "CASH_ON_DELIVERY");
+  }, [allowCod]);
 
   const email = session?.user?.email ?? "";
 
@@ -83,6 +96,43 @@ export function CheckoutClient() {
 
   const hasSaved = profileAddresses.length > 0;
   const hasHome = useMemo(() => profileAddresses.some((a) => a.kind === "home"), [profileAddresses]);
+
+  const cartProductKey = useMemo(
+    () => [...new Set(items.map((i) => i.productId))].sort().join(","),
+    [items]
+  );
+
+  useEffect(() => {
+    if (!cartHydrated) return;
+    const ids = cartProductKey ? cartProductKey.split(",") : [];
+    if (ids.length === 0) {
+      setAllowCod(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/checkout/payment-options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productIds: ids })
+        });
+        const data = (await res.json()) as { allowCod?: boolean };
+        if (!cancelled) setAllowCod(data.allowCod !== false);
+      } catch {
+        if (!cancelled) setAllowCod(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartHydrated, cartProductKey]);
+
+  useEffect(() => {
+    if (!allowCod) {
+      setPaymentMethod((pm) => (pm === "CASH_ON_DELIVERY" ? "UPI" : pm));
+    }
+  }, [allowCod]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -106,7 +156,7 @@ export function CheckoutClient() {
             if (!x || typeof x !== "object") continue;
             const o = x as Record<string, unknown>;
             list.push({
-              id: typeof o.id === "string" && o.id ? o.id : crypto.randomUUID(),
+              id: typeof o.id === "string" && o.id ? o.id : randomId(),
               kind: o.kind === "home" || o.kind === "work" || o.kind === "other" ? o.kind : undefined,
               customLabel: o.customLabel != null ? String(o.customLabel) : undefined,
               label: o.label != null ? String(o.label) : undefined,

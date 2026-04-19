@@ -1,4 +1,7 @@
-export const metadata = { title: "Privacy Policy | Magenta Crown" };
+export const metadata = {
+  title: "Privacy policy",
+  description: "How Magenta Crown collects, uses, and protects your personal information."
+};
 
 export default function PrivacyPage() {
   return (

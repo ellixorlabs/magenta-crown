@@ -1,131 +1,101 @@
 import type { Product } from "@prisma/client";
 import { LandingHero } from "@/components/features/LandingHero";
-import { CategoryGrid } from "@/components/features/CategoryGrid";
-import { BrandEthosSection } from "@/components/home/BrandEthosSection";
+import { HomeHeroReadyBridge } from "@/components/home/HomeHeroReadyBridge";
+import { HomeProductCarouselSection } from "@/components/home/HomeProductCarouselSection";
 import { HomeProductGridSection } from "@/components/home/HomeProductGridSection";
-import { NewsletterSection } from "@/components/home/NewsletterSection";
-import { PriceShopSection } from "@/components/home/PriceShopSection";
-import { ProductStorySection } from "@/components/home/ProductStorySection";
-import { SocialGallerySection } from "@/components/home/SocialGallerySection";
-import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { HeroTransitionId } from "@/lib/hero-transition";
 import type { HeroSlideVM } from "@/lib/hero-data";
-import type { HomePagePayloadV1 } from "@/lib/home-page-types";
+import type { DynamicProductSection, HomePagePayloadV2 } from "@/lib/home-page-types";
+
+type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
 
 type Props = {
-  payload: HomePagePayloadV1;
+  payload: HomePagePayloadV2;
   heroSlides: HeroSlideVM[];
   heroTransition: HeroTransitionId;
   wishlistIds: Set<string>;
-  /** Newest-first; product rails consume sequentially in section order */
-  products: Product[];
+  /** Products referenced by homepage section IDs (includes variants for stock). */
+  productById: Map<string, ProductRow>;
 };
 
-export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds, products }: Props) {
-  let railCursor = 0;
+function resolveSectionProducts(section: DynamicProductSection, productById: Map<string, ProductRow>): ProductRow[] {
+  const out: ProductRow[] = [];
+  const seen = new Set<string>();
+  for (const id of section.productIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const p = productById.get(id);
+    if (p) out.push(p);
+  }
+  return out;
+}
 
-  const takeRail = (count: number) => {
-    const slice = products.slice(railCursor, railCursor + count);
-    railCursor += count;
-    return slice;
-  };
+export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds, productById }: Props) {
+  const hasHero = payload.hero.enabled;
 
-  const heroCfg = payload.sections.find((s) => s.type === "hero" && s.enabled);
+  const sortedSections = [...payload.sections]
+    .filter((s) => s.enabled)
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
   return (
     <main className="bg-transparent">
-      {heroCfg && heroCfg.type === "hero" && (
-        <LandingHero slides={heroSlides} transition={heroTransition} />
-      )}
+      <HomeHeroReadyBridge hasHero={hasHero} />
+      {hasHero && <LandingHero slides={heroSlides} transition={heroTransition} />}
 
-      {payload.sections.map((section) => {
-        if (!section.enabled || section.type === "hero") return null;
+      {sortedSections.map((section) => {
+        const products = resolveSectionProducts(section, productById);
+        const viewAll = (section.viewAllHref?.trim() || "/shop").replace(/\s/g, "");
 
-        switch (section.type) {
-          case "categoryGrid":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <CategoryGrid eyebrow={section.eyebrow} title={section.title} items={section.items} />
-              </SectionReveal>
-            );
-          case "priceShop":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <PriceShopSection eyebrow={section.eyebrow} title={section.title} buckets={section.buckets} />
-              </SectionReveal>
-            );
-          case "newArrivals":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <HomeProductGridSection
-                  eyebrow={section.eyebrow}
-                  title={section.title}
-                  products={takeRail(section.count)}
-                  wishlistIds={wishlistIds}
-                  viewAllHref="/shop?sort=new"
-                />
-              </SectionReveal>
-            );
-          case "bestsellers":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <HomeProductGridSection
-                  eyebrow={section.eyebrow}
-                  title={section.title}
-                  products={takeRail(section.count)}
-                  wishlistIds={wishlistIds}
-                  viewAllHref="/shop"
-                />
-              </SectionReveal>
-            );
-          case "productStory":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <ProductStorySection
-                  imageUrl={section.imageUrl}
-                  imageAlt={section.imageAlt}
-                  eyebrow={section.eyebrow}
-                  title={section.title}
-                  body={section.body}
-                  bullets={section.bullets}
-                  ctaLabel={section.ctaLabel}
-                  ctaHref={section.ctaHref}
-                />
-              </SectionReveal>
-            );
-          case "brandEthos":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <BrandEthosSection columns={section.columns} />
-              </SectionReveal>
-            );
-          case "testimonials":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <TestimonialsSection eyebrow={section.eyebrow} title={section.title} quotes={section.quotes} />
-              </SectionReveal>
-            );
-          case "socialGallery":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <SocialGallerySection
-                  eyebrow={section.eyebrow}
-                  title={section.title}
-                  subtitle={section.subtitle}
-                  images={section.images}
-                />
-              </SectionReveal>
-            );
-          case "newsletter":
-            return (
-              <SectionReveal key={section.id} transition={section.transition}>
-                <NewsletterSection eyebrow={section.eyebrow} title={section.title} subtitle={section.subtitle} />
-              </SectionReveal>
-            );
-          default:
-            return null;
+        if (section.productIds.length === 0) {
+          return null;
         }
+
+        if (products.length === 0) {
+          return (
+            <SectionReveal key={section.id} transition={section.transition}>
+              <section className="bg-[#faf7f8] py-14 sm:py-16">
+                <div className="section-shell">
+                  <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{section.eyebrow}</p>
+                  <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
+                    {section.title}
+                  </h2>
+                  <div className="mt-8 rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
+                    Some products in this section are no longer available. Update the section in admin.
+                  </div>
+                </div>
+              </section>
+            </SectionReveal>
+          );
+        }
+
+        if (section.type === "grid") {
+          return (
+            <SectionReveal key={section.id} transition={section.transition}>
+              <HomeProductGridSection
+                eyebrow={section.eyebrow}
+                title={section.title}
+                products={products}
+                wishlistIds={wishlistIds}
+                viewAllHref={viewAll}
+                emptyMessage="No products in this section."
+              />
+            </SectionReveal>
+          );
+        }
+
+        return (
+          <SectionReveal key={section.id} transition={section.transition}>
+            <HomeProductCarouselSection
+              eyebrow={section.eyebrow}
+              title={section.title}
+              products={products}
+              wishlistIds={wishlistIds}
+              viewAllHref={viewAll}
+              emptyMessage="No products in this section."
+            />
+          </SectionReveal>
+        );
       })}
     </main>
   );

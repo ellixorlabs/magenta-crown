@@ -6,6 +6,13 @@ export function firstString(v: string | string[] | undefined): string | undefine
   return undefined;
 }
 
+function parseGridCols(raw: string | undefined): 2 | 3 | 4 | 5 | 6 | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  if (n === 2 || n === 3 || n === 4 || n === 5 || n === 6) return n;
+  return null;
+}
+
 export function parseShopSearchParams(sp: Record<string, string | string[] | undefined>) {
   return {
     category: firstString(sp.category),
@@ -17,19 +24,15 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
     minPrice: firstString(sp.minPrice),
     maxPrice: firstString(sp.maxPrice),
     sort: firstString(sp.sort) ?? "new",
-    cols: firstString(sp.cols),
+    cols: parseGridCols(firstString(sp.cols)),
     view: firstString(sp.view),
-    /** When "1", include products with no sellable stock (default: hide them). */
-    showOutOfStock: firstString(sp.showOutOfStock)
+    /** When "1", only show products that have at least one active variant with stock &gt; 0 (default: show entire catalog, including zero stock). */
+    hideOutOfStock: firstString(sp.hideOutOfStock)
   };
 }
 
-export function buildProductWhere(
-  sp: Record<string, string | string[] | undefined>,
-  opts?: { applyOutOfStockFilter?: boolean }
-): Prisma.ProductWhereInput {
+export function buildProductWhere(sp: Record<string, string | string[] | undefined>): Prisma.ProductWhereInput {
   const p = parseShopSearchParams(sp);
-  const applyOosFilter = opts?.applyOutOfStockFilter ?? true;
   const clauses: Prisma.ProductWhereInput[] = [];
 
   if (p.category) clauses.push({ category: { equals: p.category, mode: "insensitive" } });
@@ -41,8 +44,7 @@ export function buildProductWhere(
       variants: {
         some: {
           color: { equals: p.color, mode: "insensitive" },
-          isActive: true,
-          stock: { gt: 0 }
+          isActive: true
         }
       }
     });
@@ -52,8 +54,7 @@ export function buildProductWhere(
       variants: {
         some: {
           size: { equals: p.size, mode: "insensitive" },
-          isActive: true,
-          stock: { gt: 0 }
+          isActive: true
         }
       }
     });
@@ -68,8 +69,8 @@ export function buildProductWhere(
     clauses.push({ mrp });
   }
 
-  const showOos = p.showOutOfStock === "1" || p.showOutOfStock === "true";
-  if (applyOosFilter && !showOos) {
+  const hideOos = p.hideOutOfStock === "1" || p.hideOutOfStock === "true";
+  if (hideOos) {
     clauses.push({
       variants: {
         some: {

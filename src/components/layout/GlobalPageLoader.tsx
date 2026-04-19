@@ -1,54 +1,51 @@
 "use client";
 
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 
-const LOGO = "/branding/mc-logo.png";
+/** Once the home hero has reported ready, skip full-screen intro for the rest of this page load (Strict Mode safe). */
+let homeHeroIntroDismissedThisLoad = false;
 
-/** Strict Mode remounts reset component refs; this avoids running the home intro twice. */
-let homeIntroConsumedThisLoad = false;
+type Props = {
+  /** Passed from HeroReadyProvider so this component does not call useHeroReady under Suspense (avoids context loss with useSearchParams). */
+  heroReady: boolean;
+};
 
-export function GlobalPageLoader() {
+export function GlobalPageLoader({ heroReady }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [heroIntro, setHeroIntro] = useState(false);
+  /** Avoid painting the full-screen hero overlay on SSR / before hydration (broken or blocked JS would trap users). */
+  const [clientMounted, setClientMounted] = useState(false);
   const [slowNav, setSlowNav] = useState(false);
 
   const pendingNavRef = useRef(false);
   const slowTimerRef = useRef<number | null>(null);
   const prevPathRef = useRef<string | null>(null);
 
-  /**
-   * Breathing logo only when the app’s first client route is `/` (fresh load on home).
-   * Client navigation from e.g. collections → `/` does not show it (`prev` is already set).
-   */
+  useEffect(() => {
+    setClientMounted(true);
+  }, []);
+
   useEffect(() => {
     const prev = prevPathRef.current;
     prevPathRef.current = pathname;
 
-    if (pathname !== "/") {
-      setHeroIntro(false);
-      return;
-    }
+    if (pathname !== "/") return;
 
-    if (prev !== null) {
-      setHeroIntro(false);
-      return;
+    if (prev !== null && prev !== "/") {
+      homeHeroIntroDismissedThisLoad = true;
     }
-
-    if (homeIntroConsumedThisLoad) {
-      setHeroIntro(false);
-      return;
-    }
-
-    homeIntroConsumedThisLoad = true;
-    setHeroIntro(true);
-    const t = window.setTimeout(() => setHeroIntro(false), 3000);
-    return () => window.clearTimeout(t);
   }, [pathname]);
+
+  useEffect(() => {
+    if (heroReady && pathname === "/") {
+      homeHeroIntroDismissedThisLoad = true;
+    }
+  }, [heroReady, pathname]);
 
   useEffect(() => {
     pendingNavRef.current = false;
@@ -78,51 +75,49 @@ export function GlobalPageLoader() {
       const target = `${pathPart}${normalizedQuery}`;
       if (target === current) return;
 
+      /** Same pathname, new search only (e.g. /shop filters) — skip slow-route overlay. */
+      if (pathPart === pathname) {
+        return;
+      }
+
       pendingNavRef.current = true;
       if (slowTimerRef.current != null) window.clearTimeout(slowTimerRef.current);
       slowTimerRef.current = window.setTimeout(() => {
         if (pendingNavRef.current) setSlowNav(true);
-      }, 1000);
+      }, 3200);
     };
 
     document.addEventListener("click", onClickCapture, true);
     return () => document.removeEventListener("click", onClickCapture, true);
   }, [pathname, searchParams]);
 
-  const showHeroOverlay = heroIntro && pathname === "/";
+  const showHeroOverlay =
+    clientMounted && pathname === "/" && !homeHeroIntroDismissedThisLoad && !heroReady;
+
   const showSlowOverlay = slowNav && !showHeroOverlay;
+
+  /** Slow-route overlay is interactive — lock scroll without fighting other locks (ref-counted). */
+  useEffect(() => {
+    if (!showSlowOverlay) return;
+    lockBodyScroll();
+    return () => unlockBodyScroll();
+  }, [showSlowOverlay]);
 
   return (
     <AnimatePresence>
       {(showHeroOverlay || showSlowOverlay) && (
         <motion.div
           key={showHeroOverlay ? "hero" : "slow"}
-          className={`fixed inset-0 z-[200] flex items-center justify-center ${
+          className={`fixed inset-0 z-[20000] flex min-h-[100dvh] w-full min-w-full flex-col items-center justify-center ${
             showHeroOverlay ? "pointer-events-none bg-white" : "bg-white/85 backdrop-blur-sm"
           }`}
-          initial={{ opacity: 0 }}
+          /** Hero overlay must be opaque on frame 1 — opacity 0 lets the body gradient show through (split-screen look). */
+          initial={showHeroOverlay ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: showHeroOverlay ? 0 : 0.2 }}
         >
-          <motion.div
-            animate={{ scale: [1, 1.06, 1] }}
-            transition={{
-              duration: 2.4,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="relative h-28 w-28 sm:h-40 sm:w-40"
-          >
-            <Image
-              src={LOGO}
-              alt="Magenta Crown"
-              fill
-              className="object-contain"
-              sizes="(max-width: 640px) 112px, 160px"
-              priority
-            />
-          </motion.div>
+          <BreathingLogoMark />
         </motion.div>
       )}
     </AnimatePresence>

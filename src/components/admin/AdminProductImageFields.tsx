@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ImageFocusPicker } from "@/components/admin/ImageFocusPicker";
+import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 
 function parseUrls(text: string): string[] {
   return text
@@ -32,7 +33,8 @@ export function AdminProductImageFields({
   textareaName = "imageUrls"
 }: Props) {
   const [text, setText] = useState(defaultUrlsText);
-  const urls = useMemo(() => parseUrls(text), [text]);
+  const [uploading, setUploading] = useState(false);
+  const urls = useMemo(() => parseUrls(text).map(normalizeAdminImageUrl), [text]);
   const [idx, setIdx] = useState(() =>
     Math.max(0, Math.min(Math.max(0, urls.length - 1), defaultListImageIndex))
   );
@@ -53,6 +55,78 @@ export function AdminProductImageFields({
 
   return (
     <div className="space-y-6 sm:col-span-2">
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-semibold text-zinc-900">Product images</h4>
+            <p className="mt-1 text-xs text-zinc-500">
+              Upload files (saved under <span className="font-mono">/public/uploads/products</span>) or paste CDN URLs
+              below. Thumbnails update instantly.
+            </p>
+          </div>
+          <label className="cursor-pointer rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-100">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="sr-only"
+              disabled={uploading}
+              multiple
+              onChange={async (e) => {
+                const files = e.target.files;
+                if (!files?.length) return;
+                setUploading(true);
+                try {
+                  const appended: string[] = [];
+                  for (const f of Array.from(files)) {
+                    const fd = new FormData();
+                    fd.append("file", f);
+                    const res = await fetch("/api/admin/product-image", { method: "POST", body: fd });
+                    const data = (await res.json()) as { url?: string; error?: string };
+                    if (!res.ok) throw new Error(data.error ?? "Upload failed");
+                    if (data.url) appended.push(data.url);
+                  }
+                  if (appended.length) {
+                    setText((t) => {
+                      const base = t.trim();
+                      const next = base ? `${base}\n${appended.join("\n")}` : appended.join("\n");
+                      const nextUrls = parseUrls(next);
+                      setIdx((i) => Math.min(i, Math.max(0, nextUrls.length - 1)));
+                      return next;
+                    });
+                  }
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Upload failed");
+                } finally {
+                  setUploading(false);
+                  e.target.value = "";
+                }
+              }}
+            />
+            {uploading ? "Uploading…" : "Upload images"}
+          </label>
+        </div>
+        {urls.length > 0 ? (
+          <div className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:thin]">
+            {urls.map((u, i) => (
+              <button
+                key={`${u}-${i}`}
+                type="button"
+                onClick={() => setIdx(i)}
+                className={`relative block h-24 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                  i === Math.min(idx, urls.length - 1) ? "border-crown-700 ring-2 ring-crown-500/30" : "border-zinc-200"
+                }`}
+              >
+                {/* Native img: admin pastes arbitrary hosts; next/image can block or hang on unknown remotes. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={u} alt="" loading="lazy" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-zinc-400">No images yet — upload or paste URLs.</p>
+        )}
+      </div>
+
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
         <h4 className="text-sm font-semibold text-zinc-900">Storefront preview image</h4>
         <p className="mt-1 text-xs text-zinc-600">

@@ -6,7 +6,11 @@ import { ProductCard } from "@/components/features/ProductCard";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
-export const metadata = { title: "Wishlist | Magenta Crown" };
+export const metadata = {
+  title: "Wishlist",
+  description: "Saved pieces you love — sign in to sync your Magenta Crown wishlist across devices.",
+  robots: { index: false, follow: true }
+};
 
 export default async function WishlistPage() {
   const session = await auth();

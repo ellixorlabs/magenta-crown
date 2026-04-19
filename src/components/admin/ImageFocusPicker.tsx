@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 
 function parseToPercent(value: string): { x: number; y: number } {
   const v = value.trim().toLowerCase();
@@ -101,7 +101,9 @@ export function ImageFocusPicker({
     }
   };
 
-  if (!src) {
+  const safeSrc = src ? normalizeAdminImageUrl(src) : "";
+
+  if (!safeSrc) {
     return (
       <div className={`rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-xs text-zinc-500 ${className ?? ""}`}>
         Add an image URL to set focus
@@ -115,11 +117,6 @@ export function ImageFocusPicker({
     orientation === "portrait"
       ? "aspect-[3/4] max-h-[320px]"
       : "aspect-video max-h-[min(360px,50vh)] w-full";
-
-  const previewSizes =
-    orientation === "portrait"
-      ? "(max-width: 768px) 100vw, 400px"
-      : "(max-width: 768px) 100vw, min(720px, 90vw)";
 
   return (
     <div className={className}>
@@ -158,14 +155,14 @@ export function ImageFocusPicker({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <Image
-          src={src}
+        {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary admin URLs; next/image blocks unknown hosts */}
+        <img
+          key={safeSrc}
+          src={safeSrc}
           alt=""
-          fill
-          className={fit === "cover" ? "object-cover" : "object-contain"}
+          draggable={false}
+          className={`absolute inset-0 h-full w-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
           style={{ objectPosition: objectPos }}
-          sizes={previewSizes}
-          unoptimized
         />
         <div
           className="pointer-events-none absolute h-[22%] min-h-[44px] w-[22%] min-w-[44px] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-white/80 bg-white/25 shadow-md"

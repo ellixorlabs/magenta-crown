@@ -1,4 +1,5 @@
 import type { SavedAddress } from "@/types/profile";
+import { randomId } from "@/lib/random-id";
 
 export type ShippingPayload = {
   fullName: string;
@@ -21,7 +22,7 @@ export type SaveAddressPayload = {
 };
 
 export function shippingToSavedAddress(shipping: ShippingPayload, save: SaveAddressPayload): SavedAddress {
-  const id = crypto.randomUUID();
+  const id = randomId();
   const kind = save.kind;
   const custom =
     kind === "other" ? (save.customLabel ?? "").trim().slice(0, 80) : undefined;
@@ -56,7 +57,7 @@ export function parseSavedAddresses(raw: unknown): SavedAddress[] {
     if (!row || typeof row !== "object") continue;
     const o = row as Record<string, unknown>;
     out.push({
-      id: typeof o.id === "string" && o.id ? o.id : crypto.randomUUID(),
+      id: typeof o.id === "string" && o.id ? o.id : randomId(),
       kind:
         o.kind === "home" || o.kind === "work" || o.kind === "other"
           ? o.kind

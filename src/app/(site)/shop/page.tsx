@@ -1,14 +1,26 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { getShopFilterOptions } from "@/lib/shop-filter-options";
-import { SHOP_PRODUCT_GRID_CLASS } from "@/components/skeletons/shop-grid";
+import { getShopProductGridClass } from "@/components/skeletons/shop-grid";
 import { buildProductOrderBy, buildProductWhere, parseShopSearchParams } from "@/lib/shop-query";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
-import { ShopViewToggle } from "@/components/shop/ShopViewToggle";
+import { ShopFilterSheetProvider } from "@/components/shop/ShopFilterSheetProvider";
+import { ShopToolbar } from "@/components/shop/ShopToolbar";
 import { ProductCard } from "@/components/features/ProductCard";
+
+/** Avoid stale RSC/HTML on localhost — external browsers often cache /shop harder than embedded dev browsers. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: "Shop",
+  description:
+    "Browse sarees, lehengas, kurtas, and luxury occasionwear. Filter by category, occasion, size, material, and price at Magenta Crown."
+};
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -27,6 +39,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
   const { sort } = parsed;
   const orderBy = buildProductOrderBy(sort);
   const isList = parsed.view === "list";
+  const gridClass = getShopProductGridClass(parsed.cols);
 
   const session = await auth();
   let wishlistIds = new Set<string>();
@@ -55,87 +68,95 @@ export default async function ShopPage({ searchParams }: PageProps) {
     })
   ]);
 
+  /** Solid shell tone — avoids half-white / half-blush from body gradients under this page only. */
+  const shopBg = "bg-[#f4f0f2]";
+
   return (
-    <main className="min-h-screen w-full max-w-[100vw] overflow-x-hidden text-zinc-900">
-      <div className="border-b border-zinc-200/60 bg-white/40 py-8 backdrop-blur-sm">
+    <main className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden text-zinc-900 ${shopBg}`}>
+      <div className={`border-b border-zinc-300/35 py-8 ${shopBg}`}>
         <div className="section-shell text-center">
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Shop</p>
           <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-semibold sm:text-4xl">
             All products
           </h1>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-zinc-600">
-            Filters and collection use the full width below—spacious grid, larger cards. Switch list or grid anytime.
+            Filter the collection, pick sort order, and switch between list view and 2–6 column grids.
           </p>
         </div>
       </div>
 
-      <div className="section-shell py-8 sm:py-10">
+      <div className={`section-shell py-8 sm:py-10 ${shopBg}`}>
         <div className="flex min-w-0 flex-col items-stretch gap-10 lg:flex-row lg:items-start lg:gap-12 xl:gap-14">
           <aside className="sticky top-[8.75rem] z-10 hidden w-full max-w-[300px] shrink-0 self-start sm:top-[9.25rem] lg:block lg:min-w-[260px]">
-            <div className="rounded-2xl border border-zinc-200/90 bg-white/95 p-5 shadow-sm">
+            <div
+              id="shop-sidebar-filters"
+              className="rounded-2xl border border-zinc-300/60 bg-[#faf6f7]/98 p-5 shadow-sm scroll-mt-28 backdrop-blur-[2px]"
+            >
               <Suspense fallback={<div className="p-4 text-sm text-zinc-500">Loading filters…</div>}>
-                <ShopFilters options={filterOptions} basePath="/shop" enablePriceSlider showOutOfStockToggle />
+                <ShopFilters
+                  options={filterOptions}
+                  basePath="/shop"
+                  enablePriceSlider
+                  hideOutOfStockToggle
+                  omitSort
+                />
               </Suspense>
             </div>
           </aside>
 
-          <div className="min-w-0 w-full flex-1">
-            <div className="mb-6 lg:hidden">
-              <div className="mx-auto max-w-lg rounded-2xl border border-zinc-200/90 bg-white/95 p-4 shadow-sm">
-                <Suspense fallback={null}>
-                  <ShopFilters options={filterOptions} basePath="/shop" enablePriceSlider showOutOfStockToggle />
-                </Suspense>
-              </div>
-            </div>
+          <ShopFilterSheetProvider
+            options={filterOptions}
+            basePath="/shop"
+            enablePriceSlider
+            hideOutOfStockToggle
+          >
+            <div className="min-w-0 w-full flex-1">
+              <ShopToolbar basePath="/shop" isList={isList} cols={parsed.cols} />
 
-            <div className="mb-4 flex justify-center">
-              <Suspense fallback={null}>
-                <ShopViewToggle />
-              </Suspense>
+              {products.length === 0 ? (
+                <EmptyState
+                  title="No products found"
+                  description="Nothing matches these filters right now. Clear filters or browse the full collection."
+                  actionHref="/shop"
+                  actionLabel="View all products"
+                  secondaryHref="/"
+                  secondaryLabel="Back to home"
+                />
+              ) : isList ? (
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+                  {products.map((p) => {
+                    const { reviews, ...product } = p;
+                    return (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        layout="list"
+                        listDensity="comfortable"
+                        initialWishlisted={wishlistIds.has(product.id)}
+                        outOfStock={getProductTotalStock(p.variants) === 0}
+                        reviewSummary={summarizeReviews(reviews)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={gridClass}>
+                  {products.map((p) => {
+                    const { reviews, ...product } = p;
+                    return (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        initialWishlisted={wishlistIds.has(product.id)}
+                        outOfStock={getProductTotalStock(p.variants) === 0}
+                        reviewSummary={summarizeReviews(reviews)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
-
-            {products.length === 0 ? (
-              <EmptyState
-                title="No products found"
-                description="Nothing matches these filters right now. Clear filters or browse the full collection."
-                actionHref="/shop"
-                actionLabel="View all products"
-                secondaryHref="/"
-                secondaryLabel="Back to home"
-              />
-            ) : isList ? (
-              <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-                {products.map((p) => {
-                  const { reviews, ...product } = p;
-                  return (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      layout="list"
-                      initialWishlisted={wishlistIds.has(product.id)}
-                      outOfStock={getProductTotalStock(p.variants) === 0}
-                      reviewSummary={summarizeReviews(reviews)}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={SHOP_PRODUCT_GRID_CLASS}>
-                {products.map((p) => {
-                  const { reviews, ...product } = p;
-                  return (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      initialWishlisted={wishlistIds.has(product.id)}
-                      outOfStock={getProductTotalStock(p.variants) === 0}
-                      reviewSummary={summarizeReviews(reviews)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          </ShopFilterSheetProvider>
         </div>
       </div>
     </main>

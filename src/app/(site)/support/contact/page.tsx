@@ -1,7 +1,8 @@
 import { ContactForm } from "@/components/support/ContactForm";
 
 export const metadata = {
-  title: "Contact | Magenta Crown"
+  title: "Contact",
+  description: "Get in touch with Magenta Crown — customer care, orders, and styling questions."
 };
 
 export default function ContactPage() {

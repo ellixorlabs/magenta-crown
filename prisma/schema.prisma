@@ -70,6 +70,14 @@ model Product {
   style            String?
   fitNotes         String?
   careInstructions String?
+  /** Shown in PDP size area — opens modal with this image. */
+  sizeChartImageUrl String?
+  /** When false, COD is hidden at checkout for carts containing this product. */
+  codEnabled       Boolean          @default(true)
+  /** Short promo line under price (e.g. prepaid discount copy). */
+  prepaidOfferText String?
+  /** Tax / shipping disclaimer under price; null = use site default in UI. */
+  pricingFootnote  String?
   variants         ProductVariant[]
   imageUrls        String[]         @default([])
   /** Index in imageUrls used for cards / default PDP hero (0-based). */
@@ -77,6 +85,7 @@ model Product {
   /** CSS object-position for list/card/PDP fit (e.g. center, center 20%, 50% 30%). */
   listImagePosition String          @default("center")
   videoUrls        String[]         @default([])
+  featuredCoupons  ProductFeaturedCoupon[]
   wishedBy         User[]           @relation("UserWishlist")
   orderItems       OrderItem[]
   reviews          Review[]
@@ -117,6 +126,18 @@ model Coupon {
   discountPct Float
   isActive    Boolean  @default(true)
   orders      Order[]
+  featuredOnProducts ProductFeaturedCoupon[]
+}
+
+/** Coupons highlighted on a product PDP (“Great offers”). */
+model ProductFeaturedCoupon {
+  productId String
+  couponId  String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  coupon    Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@id([productId, couponId])
+  @@index([couponId])
 }
 
 // Homepage hero slides (editable in admin)
@@ -161,6 +182,8 @@ model HeaderNavLink {
 
 model Order {
   id                String      @id @default(cuid())
+  /** Customer-facing reference (e.g. #MC8K2PQ9N). Set when the order is placed at checkout. */
+  publicOrderRef    String?     @unique
   userId            String?
   user              User?       @relation(fields: [userId], references: [id])
   guestEmail        String?

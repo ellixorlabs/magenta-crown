@@ -1,5 +1,6 @@
 export const metadata = {
-  title: "Shipping Policy | Magenta Crown"
+  title: "Shipping",
+  description: "Shipping timelines, tracking, and delivery information for Magenta Crown orders."
 };
 
 export default function ShippingPolicyPage() {

@@ -1,7 +1,28 @@
-import type { HomePagePayloadV1 } from "./home-page-types";
+import type { HomePagePayloadV1, HomePagePayloadV2 } from "./home-page-types";
+import { randomId } from "@/lib/random-id";
 
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?auto=format&fit=crop&w=1200&q=80";
+
+export function createDefaultHomePagePayloadV2(): HomePagePayloadV2 {
+  return {
+    version: 2,
+    hero: { enabled: true },
+    sections: [
+      {
+        id: `section-${randomId()}`,
+        title: "Curated picks",
+        eyebrow: "Shop",
+        type: "carousel",
+        enabled: false,
+        order: 0,
+        productIds: [],
+        transition: "fade",
+        viewAllHref: "/shop"
+      }
+    ]
+  };
+}
 
 export function createDefaultHomePagePayload(): HomePagePayloadV1 {
   return {
@@ -15,27 +36,30 @@ export function createDefaultHomePagePayload(): HomePagePayloadV1 {
         carousel: "fade"
       },
       {
-        id: "categories",
+        id: "occasions",
         type: "categoryGrid",
         enabled: true,
         transition: "fade",
-        eyebrow: "Featured categories",
-        title: "Shop by occasion",
+        eyebrow: "Occasions",
+        title: "Occasion section",
         items: [
           {
             title: "Wedding",
+            occasion: "Wedding",
             href: "/shop?occasion=Wedding",
             imageUrl:
               "https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=900&q=80"
           },
           {
             title: "Festive",
+            occasion: "Festive",
             href: "/shop?occasion=Festive",
             imageUrl:
               "https://images.unsplash.com/photo-1604147495798-57beb5d6af73?auto=format&fit=crop&w=900&q=80"
           },
           {
             title: "Casual",
+            occasion: "Casual",
             href: "/shop?occasion=Casual",
             imageUrl:
               "https://images.unsplash.com/photo-1617331721458-bd3bd3f9c7f8?auto=format&fit=crop&w=900&q=80"
@@ -54,6 +78,15 @@ export function createDefaultHomePagePayload(): HomePagePayloadV1 {
           { label: "₹10,000 – ₹25,000", minPrice: 10000, maxPrice: 25000 },
           { label: "Above ₹25,000", minPrice: 25000 }
         ]
+      },
+      {
+        id: "sareeCarousel",
+        type: "sareeCarousel",
+        enabled: true,
+        transition: "fade",
+        eyebrow: "Sarees",
+        title: "Summer specials",
+        count: 8
       },
       {
         id: "newArrivals",

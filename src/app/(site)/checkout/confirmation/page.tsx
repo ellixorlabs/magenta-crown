@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -5,6 +6,34 @@ import { prisma } from "@/lib/prisma";
 type PageProps = {
   searchParams: Promise<{ orderId?: string }>;
 };
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const sp = await searchParams;
+  const orderId = sp.orderId;
+  if (!orderId) {
+    return {
+      title: "Order confirmation",
+      description: "Your Magenta Crown order confirmation.",
+      robots: { index: false, follow: true }
+    };
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, publicOrderRef: true }
+  });
+
+  if (!order) {
+    return { title: "Order confirmation", robots: { index: false, follow: true } };
+  }
+
+  const ref = order.publicOrderRef ?? order.id.slice(0, 8);
+  return {
+    title: "Order confirmed",
+    description: `Thank you — your Magenta Crown order ${ref} has been placed.`,
+    robots: { index: false, follow: true }
+  };
+}
 
 export default async function ConfirmationPage({ searchParams }: PageProps) {
   const sp = await searchParams;
@@ -30,7 +59,16 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
           Order confirmed
         </h1>
         <p className="mt-4 text-zinc-600">
-          Your order <span className="font-mono text-sm text-zinc-900">{order.id}</span> has been placed.
+          Your order{" "}
+          <span className="font-mono text-sm font-semibold text-zinc-900">
+            {order.publicOrderRef ?? order.id}
+          </span>{" "}
+          has been placed.
+          {order.publicOrderRef && (
+            <span className="mt-2 block text-xs font-normal text-zinc-500">
+              Reference for support: save this code with your receipt.
+            </span>
+          )}
         </p>
         <p className="mt-2 text-sm text-zinc-600">
           Tracking (demo):{" "}

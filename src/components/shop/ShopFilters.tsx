@@ -10,7 +10,7 @@ const sortOptions = [
   { value: "new", label: "Newest" },
   { value: "price-asc", label: "Price: low to high" },
   { value: "price-desc", label: "Price: high to low" },
-  { value: "name", label: "Name A–Z" }
+  { value: "name", label: "Alphabetically, A–Z" }
 ];
 
 type Props = {
@@ -19,18 +19,28 @@ type Props = {
   enablePriceSlider?: boolean;
   /** Admin inventory: horizontal pill bar. Storefront: vertical stack. */
   layout?: "stack" | "adminBar";
-  /** Storefront only: toggle to include products with zero sellable stock. */
-  showOutOfStockToggle?: boolean;
+  /** Storefront only: toggle to hide products with no sellable stock (default: show full catalog). */
+  hideOutOfStockToggle?: boolean;
+  /** Hide sort control (e.g. when sort lives in the shop toolbar). */
+  omitSort?: boolean;
+  /** Tighter spacing for mobile sheet. */
+  compact?: boolean;
 };
 
-function selectClass(bar: boolean) {
-  return bar
-    ? "mt-1 w-full min-w-[8rem] rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-xs text-zinc-900 shadow-sm"
-    : "mt-2 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm";
+function selectClass(bar: boolean, compact: boolean) {
+  if (bar) {
+    return "mt-1 w-full min-w-[8rem] rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-xs text-zinc-900 shadow-sm";
+  }
+  if (compact) {
+    return "mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-900 shadow-sm";
+  }
+  return "mt-2 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm";
 }
 
-function labelClass(bar: boolean) {
-  return bar ? "text-[10px] font-semibold uppercase tracking-wider text-zinc-600" : "font-semibold text-zinc-900";
+function labelClass(bar: boolean, compact: boolean) {
+  if (bar) return "text-[10px] font-semibold uppercase tracking-wider text-zinc-600";
+  if (compact) return "text-[11px] font-semibold uppercase tracking-wide text-zinc-700";
+  return "font-semibold text-zinc-900";
 }
 
 export function ShopFilters({
@@ -38,7 +48,9 @@ export function ShopFilters({
   basePath,
   enablePriceSlider = false,
   layout = "stack",
-  showOutOfStockToggle = false
+  hideOutOfStockToggle = false,
+  omitSort = false,
+  compact = false
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,7 +79,7 @@ export function ShopFilters({
     searchParams.get("maxPrice") ?? undefined
   );
 
-  const showOos = searchParams.get("showOutOfStock") === "1";
+  const hideOos = searchParams.get("hideOutOfStock") === "1";
 
   const onPriceSliderCommit = useCallback(
     (min: string | null, max: string | null) => {
@@ -76,28 +88,30 @@ export function ShopFilters({
     [update]
   );
 
-  const sel = selectClass(bar);
-  const lab = labelClass(bar);
+  const sel = selectClass(bar, compact);
+  const lab = labelClass(bar, compact);
 
   const filters = (
     <>
-      <div className={bar ? "min-w-[120px] flex-1" : ""}>
-        <label className={lab} htmlFor="sort">
-          Sort
-        </label>
-        <select
-          id="sort"
-          className={sel}
-          value={searchParams.get("sort") ?? "new"}
-          onChange={(e) => update({ sort: e.target.value })}
-        >
-          {sortOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!omitSort && (
+        <div className={bar ? "min-w-[120px] flex-1" : ""}>
+          <label className={lab} htmlFor="sort">
+            Sort
+          </label>
+          <select
+            id="sort"
+            className={sel}
+            value={searchParams.get("sort") ?? "new"}
+            onChange={(e) => update({ sort: e.target.value })}
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className={bar ? "min-w-[120px] flex-1" : ""}>
         <label className={lab} htmlFor="category">
@@ -256,15 +270,15 @@ export function ShopFilters({
         </button>
       </div>
 
-      {showOutOfStockToggle && !bar && (
+      {hideOutOfStockToggle && !bar && (
         <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/90 p-3">
           <p className="text-xs font-semibold text-zinc-700">Availability</p>
           <button
             type="button"
             className="mt-2 w-full rounded-full border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
-            onClick={() => update({ showOutOfStock: showOos ? null : "1" })}
+            onClick={() => update({ hideOutOfStock: hideOos ? null : "1" })}
           >
-            {showOos ? "Showing out of stock — tap to hide" : "Show out of stock"}
+            {hideOos ? "Showing in-stock only — tap to show all products" : "Hide out of stock"}
           </button>
         </div>
       )}
@@ -279,5 +293,7 @@ export function ShopFilters({
     );
   }
 
-  return <div className="space-y-5 text-sm">{filters}</div>;
+  return (
+    <div className={compact ? "space-y-2.5 text-xs sm:text-sm" : "space-y-5 text-sm"}>{filters}</div>
+  );
 }

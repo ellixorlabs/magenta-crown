@@ -36,12 +36,12 @@ export async function getShopFilterOptions(): Promise<ShopFilterOptions> {
       _max: { mrp: true }
     }),
     prisma.productVariant.findMany({
-      where: { isActive: true, stock: { gt: 0 } },
+      where: { isActive: true },
       select: { color: true },
       distinct: ["color"]
     }),
     prisma.productVariant.findMany({
-      where: { isActive: true, stock: { gt: 0 } },
+      where: { isActive: true },
       select: { size: true },
       distinct: ["size"]
     })

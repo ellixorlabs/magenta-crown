@@ -1,4 +1,7 @@
-export const metadata = { title: "Refund Policy | Magenta Crown" };
+export const metadata = {
+  title: "Refund policy",
+  description: "Refund and cancellation policy for Magenta Crown orders."
+};
 
 export default function RefundPage() {
   return (

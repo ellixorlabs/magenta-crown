@@ -14,6 +14,10 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
   const skipTopPad = isHome || isAuthImmersive;
 
   return (
-    <div className={skipTopPad ? "min-w-0" : "min-w-0 pt-[8.75rem] sm:pt-[9.25rem]"}>{children}</div>
+    <div
+      className={`relative z-0 min-w-0 ${skipTopPad ? "" : "pt-[8.75rem] sm:pt-[9.25rem]"}`}
+    >
+      {children}
+    </div>
   );
 }

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedAddress } from "@/types/profile";
+import { randomId } from "@/lib/random-id";
 
 function emptyAddress(): SavedAddress {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     kind: undefined,
     customLabel: undefined,
     label: "",
@@ -57,7 +58,7 @@ export function ProfileFormClient() {
           const kind =
             o.kind === "home" || o.kind === "work" || o.kind === "other" ? o.kind : undefined;
           return {
-            id: typeof o.id === "string" && o.id ? o.id : crypto.randomUUID(),
+            id: typeof o.id === "string" && o.id ? o.id : randomId(),
             kind,
             customLabel: o.customLabel != null ? String(o.customLabel) : undefined,
             label: String(o.label ?? ""),

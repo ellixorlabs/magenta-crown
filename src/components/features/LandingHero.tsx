@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { HeroSlideVM } from "@/lib/hero-data";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-data";
+import { useHeroReady } from "@/context/HeroReadyContext";
 import { TRANS_EASE, TRANS_FADE_IN_MS, TRANS_MS, type HeroTransitionId } from "@/lib/hero-transition";
 
 const gold = "#C5A059";
@@ -33,6 +34,8 @@ export function LandingHero({ slides, transition }: Props) {
   const [wipeDir, setWipeDir] = useState<1 | -1>(1);
 
   const heroRef = useRef<HTMLElement>(null);
+  const heroReadyNotified = useRef(false);
+  const { markHeroReady } = useHeroReady();
   const labelId = useId();
   const [tilt, setTilt] = useState({ x: 0.5, y: 0.5 });
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -185,6 +188,17 @@ export function LandingHero({ slides, transition }: Props) {
 
   const fadeOutActive = t === "fadeOut" && incomingIndex !== null && !reduceMotion;
 
+  const notifyHeroReadyOnce = useCallback(() => {
+    if (heroReadyNotified.current) return;
+    heroReadyNotified.current = true;
+    markHeroReady();
+  }, [markHeroReady]);
+
+  /** Do not block the shell when the user prefers reduced motion. */
+  useEffect(() => {
+    if (reduceMotion) notifyHeroReadyOnce();
+  }, [reduceMotion, notifyHeroReadyOnce]);
+
   const incomingOverlayStyle = (): React.CSSProperties => {
     if (!wipeOpen) {
       if (t === "wipe") {
@@ -259,13 +273,13 @@ export function LandingHero({ slides, transition }: Props) {
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       aria-live="polite"
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-black outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      className="relative flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] shrink-0 flex-col overflow-hidden bg-black outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
     >
       <h2 id={labelId} className="sr-only">
         Featured hero — use left and right arrow keys to change slides
       </h2>
 
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 min-h-0 overflow-hidden">
         {fadeOutActive ? (
           <>
             <div className="absolute inset-0 z-0">
@@ -277,6 +291,8 @@ export function LandingHero({ slides, transition }: Props) {
                 style={{ objectPosition: list[incomingIndex! % len].imagePosition }}
                 sizes="100vw"
                 unoptimized
+                onLoad={notifyHeroReadyOnce}
+                onError={notifyHeroReadyOnce}
               />
             </div>
             <div
@@ -296,24 +312,30 @@ export function LandingHero({ slides, transition }: Props) {
                 style={{ objectPosition: list[displayIndex % len].imagePosition }}
                 sizes="100vw"
                 unoptimized
+                onLoad={notifyHeroReadyOnce}
+                onError={notifyHeroReadyOnce}
               />
             </div>
           </>
         ) : (
           <>
-            <Image
-              src={list[displayIndex % len].bg}
-              alt=""
-              fill
-              className="object-cover"
-              style={{ objectPosition: list[displayIndex % len].imagePosition }}
-              priority={displayIndex === 0 && incomingIndex === null}
-              sizes="100vw"
-              unoptimized
-            />
+            <div className="absolute inset-0 z-0">
+              <Image
+                src={list[displayIndex % len].bg}
+                alt=""
+                fill
+                className="object-cover"
+                style={{ objectPosition: list[displayIndex % len].imagePosition }}
+                priority={displayIndex === 0 && incomingIndex === null}
+                sizes="100vw"
+                unoptimized
+                onLoad={notifyHeroReadyOnce}
+                onError={notifyHeroReadyOnce}
+              />
+            </div>
 
             {incomingIndex !== null && !reduceMotion && t !== "none" && (
-              <div className="absolute inset-0 z-[1]" style={incomingOverlayStyle()} onTransitionEnd={onLayerTransitionEnd}>
+              <div className="absolute inset-0 z-[1] min-h-0" style={incomingOverlayStyle()} onTransitionEnd={onLayerTransitionEnd}>
                 <Image
                   src={list[incomingIndex % len].bg}
                   alt=""
@@ -322,6 +344,8 @@ export function LandingHero({ slides, transition }: Props) {
                   style={{ objectPosition: list[incomingIndex % len].imagePosition }}
                   sizes="100vw"
                   unoptimized
+                  onLoad={notifyHeroReadyOnce}
+                  onError={notifyHeroReadyOnce}
                 />
               </div>
             )}

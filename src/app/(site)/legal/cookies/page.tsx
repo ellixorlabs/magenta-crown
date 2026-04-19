@@ -1,4 +1,7 @@
-export const metadata = { title: "Cookie Policy | Magenta Crown" };
+export const metadata = {
+  title: "Cookie policy",
+  description: "How Magenta Crown uses cookies and similar technologies on this site."
+};
 
 export default function CookiesPage() {
   return (
