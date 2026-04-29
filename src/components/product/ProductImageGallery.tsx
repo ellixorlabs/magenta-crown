@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
-import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
 
 const FALLBACK =
   "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80";
@@ -191,8 +190,6 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
   }, [lightbox, closeLb, goPrev, goNext]);
 
   const imgCommon = {
-    placeholder: "blur" as const,
-    blurDataURL: IMAGE_BLUR_DATA_URL,
     unoptimized: true as const
   };
 
@@ -388,7 +385,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                 // eslint-disable-next-line @next/next/no-img-element -- dynamic zoom dimensions
                 <img src={mainUrl} alt="" draggable={false} className="select-none" style={zoomStyle} />
               ) : (
-                <div className="absolute inset-0 hidden items-center justify-center px-4 text-center text-xs leading-relaxed text-zinc-400 lg:flex">
+                <div className="absolute inset-0 hidden items-center justify-center px-4 text-center text-xs leading-relaxed text-zinc-400 xl:flex">
                   Hover the image to preview a magnified area.
                 </div>
               )}

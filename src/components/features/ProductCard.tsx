@@ -2,13 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { Heart, Star } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Product } from "@prisma/client";
 import { getListImagePosition, getProductDisplayImage } from "@/lib/product-image-display";
-import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
 import { productImageAlt } from "@/lib/seo";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 const INR = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -25,7 +24,12 @@ function discountPct(mrp: number, sale: number) {
   return Math.round((1 - sale / mrp) * 100);
 }
 
-const NEW_MS = 21 * 24 * 60 * 60 * 1000;
+function isNewTagActive(product: Pick<Product, "tags" | "newTagExpiresAt">): boolean {
+  const hasNewTag = (product.tags ?? []).some((t) => t.trim().toLowerCase() === "new");
+  if (!hasNewTag) return false;
+  if (!product.newTagExpiresAt) return false;
+  return new Date(product.newTagExpiresAt).getTime() > Date.now();
+}
 
 type ProductCardProps = {
   product: Product;
@@ -48,15 +52,31 @@ export function ProductCard({
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
-  const { data: session, status } = useSession();
+  const [userId, setUserId] = useState<string | null>(null);
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
   const [busy, setBusy] = useState(false);
 
-  const isStaff =
-    session?.user?.role === "ADMIN" ||
-    session?.user?.role === "SUB_ADMIN" ||
-    session?.user?.role === "TECH_SUPPORT";
-  const canWishlist = status === "authenticated" && session?.user?.id && !isStaff;
+  useEffect(() => {
+    let mounted = true;
+    let unsub: (() => void) | null = null;
+    (async () => {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase || !mounted) return;
+      supabase.auth.getUser().then(({ data }) => {
+        if (mounted) setUserId(data.user?.id ?? null);
+      });
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (mounted) setUserId(session?.user?.id ?? null);
+      });
+      unsub = () => sub.subscription.unsubscribe();
+    })();
+    return () => {
+      mounted = false;
+      unsub?.();
+    };
+  }, []);
+
+  const canWishlist = Boolean(userId);
 
   const { url: primaryImage } = getProductDisplayImage(product);
   const listPos = getListImagePosition(product);
@@ -65,8 +85,11 @@ export function ProductCard({
   const showStrikethrough = product.discountedPrice != null && product.discountedPrice < product.mrp;
   const offPct = showStrikethrough ? discountPct(product.mrp, product.discountedPrice!) : null;
 
-  const isNew = Date.now() - new Date(product.createdAt).getTime() < NEW_MS;
-  const showNewBadge = isNew && !outOfStock;
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+  const showNewBadge = hydrated && isNewTagActive(product) && !outOfStock;
 
   const fabric = product.material?.trim();
   const occasion = product.occasion?.trim();
@@ -81,9 +104,14 @@ export function ProductCard({
       setBusy(true);
       const next = !wishlisted;
       try {
+      const supabase = await getSupabaseClientOrNull();
+      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
         const res = await fetch("/api/user/wishlist", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
           body: JSON.stringify({ productId: product.id, wishlist: next })
         });
         if (res.ok) {
@@ -100,7 +128,7 @@ export function ProductCard({
     () =>
       wishlisted
         ? "fill-rose-500 text-rose-500"
-        : "fill-white/90 text-white drop-shadow-md hover:scale-110",
+        : "fill-zinc-100 text-zinc-700",
     [wishlisted]
   );
 
@@ -121,8 +149,6 @@ export function ProductCard({
               className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
               style={{ objectPosition: listPos }}
               sizes="144px"
-              placeholder="blur"
-              blurDataURL={IMAGE_BLUR_DATA_URL}
               loading="lazy"
               unoptimized
             />
@@ -139,7 +165,7 @@ export function ProductCard({
                 aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 onClick={toggleWishlist}
                 disabled={busy}
-                className="absolute right-2 top-2 z-10 rounded-full bg-black/35 p-1.5 backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-50"
+                className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 disabled:opacity-50"
               >
                 <Heart className={`h-4 w-4 ${heartClass}`} strokeWidth={1.6} />
               </button>
@@ -186,8 +212,6 @@ export function ProductCard({
             className={`object-cover transition duration-500 group-hover:scale-[1.04] ${outOfStock ? "opacity-50 grayscale" : ""}`}
             style={{ objectPosition: listPos }}
             sizes="(max-width: 640px) 44vw, (max-width: 1024px) 28vw, (max-width: 1536px) 22vw, 18vw"
-            placeholder="blur"
-            blurDataURL={IMAGE_BLUR_DATA_URL}
             loading="lazy"
             unoptimized
           />
@@ -266,7 +290,7 @@ export function ProductCard({
               aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               onClick={toggleWishlist}
               disabled={busy}
-              className={`absolute z-20 rounded-full bg-black/30 p-1.5 backdrop-blur-sm transition hover:bg-black/45 disabled:opacity-50 ${
+              className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 disabled:opacity-50 ${
                 isCarousel
                   ? "bottom-2 right-2 top-auto"
                   : showNewBadge

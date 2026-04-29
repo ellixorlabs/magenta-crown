@@ -1,154 +1,63 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
-import type { RoleEnum } from "@prisma/client";
+import "server-only";
+
+import { cookies } from "next/headers";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { prisma } from "@/lib/prisma";
 
-function envTrim(name: string): string | undefined {
-  const raw = process.env[name];
-  if (raw == null) return undefined;
-  const t = raw.trim().replace(/^["']+|["']+$/g, "");
-  return t.length ? t : undefined;
-}
+export type AppRole = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
 
-function roleToSession(r: RoleEnum): "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT" {
-  if (r === "ADMIN") return "ADMIN";
-  if (r === "SUB_ADMIN") return "SUB_ADMIN";
-  if (r === "TECH_SUPPORT") return "TECH_SUPPORT";
-  return "CUSTOMER";
-}
+export type AppSession = {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    image: string | null;
+    role: AppRole;
+    age: number | null;
+    phone: string | null;
+  };
+};
 
-const googleClientId = envTrim("AUTH_GOOGLE_ID") ?? envTrim("GOOGLE_CLIENT_ID");
-const googleClientSecret = envTrim("AUTH_GOOGLE_SECRET") ?? envTrim("GOOGLE_CLIENT_SECRET");
-const googleConfigured = Boolean(googleClientId && googleClientSecret);
+export const AUTH_COOKIE = "mc-access-token";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  secret: process.env.AUTH_SECRET,
-  pages: {
-    signIn: "/auth/signin"
-  },
-  providers: [
-    ...(googleConfigured
-      ? [
-          Google({
-            clientId: googleClientId as string,
-            clientSecret: googleClientSecret as string,
-            allowDangerousEmailAccountLinking: true
-          })
-        ]
-      : []),
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        const email = credentials?.email as string | undefined;
-        const password = credentials?.password as string | undefined;
-        if (!email || !password) return null;
+export async function auth(): Promise<AppSession | null> {
+  const token = (await cookies()).get(AUTH_COOKIE)?.value?.trim();
+  if (!token) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase().trim() }
-        });
-        if (!user?.password) return null;
+  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
+  if (error || !data.user) return null;
 
-        const ok = await bcrypt.compare(password, user.password);
-        if (!ok) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: roleToSession(user.role)
-        };
-      }
-    })
-  ],
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60
-  },
-  cookies: {
-    sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-authjs.session-token"
-          : "authjs.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production"
-      }
-    }
-  },
-  events: {
-    async signIn({ user }) {
-      const id = user?.id;
-      if (!id) return;
-      try {
-        await prisma.user.update({
-          where: { id },
-          data: { lastLoginAt: new Date() }
-        });
-      } catch {
-        /* ignore audit failures */
-      }
-    }
-  },
-  callbacks: {
-    async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      try {
-        const next = new URL(url);
-        if (next.origin === new URL(baseUrl).origin) return url;
-      } catch {
-        /* invalid */
-      }
-      return baseUrl;
+  const email = data.user.email?.trim().toLowerCase();
+  const row = await prisma.user.findFirst({
+    where: {
+      OR: [{ id: data.user.id }, ...(email ? [{ email }] : [])]
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-        const r = (user as { role?: string }).role;
-        if (r) token.role = r;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-
-        const db = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: {
-            age: true,
-            image: true,
-            role: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        });
-        if (db) {
-          session.user.role = roleToSession(db.role);
-          session.user.image = db.image;
-          session.user.name = db.name;
-          session.user.email = db.email ?? "";
-          session.user.age = db.age ?? null;
-          session.user.phone = db.phone ?? null;
-        } else {
-          session.user.role =
-            (token.role as "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT") ?? "CUSTOMER";
-        }
-      }
-      return session;
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+      role: true,
+      age: true,
+      phone: true,
+      deletionScheduledFor: true
     }
-  },
-  trustHost: true
-});
+  });
+  if (!row) return null;
+  if (row.deletionScheduledFor && row.deletionScheduledFor.getTime() <= Date.now()) {
+    await prisma.user.delete({ where: { id: row.id } }).catch(() => null);
+    return null;
+  }
+
+  return {
+    user: {
+      id: row.id,
+      email: row.email ?? data.user.email ?? "",
+      name: row.name,
+      image: row.image,
+      role: row.role as AppRole,
+      age: row.age ?? null,
+      phone: row.phone ?? null
+    }
+  };
+}

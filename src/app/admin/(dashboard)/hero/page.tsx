@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { parseHeroTransition } from "@/lib/hero-transition";
-import { DEFAULT_HERO_SLIDES } from "@/lib/hero-data";
+import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { prisma } from "@/lib/prisma";
 import { seedDefaultHeroSlides } from "./actions";
 import { HeroSlideForm } from "./HeroSlideForm";

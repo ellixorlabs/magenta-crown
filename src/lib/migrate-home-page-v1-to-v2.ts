@@ -8,6 +8,7 @@ import type { DynamicProductSection, HomePagePayloadV1, HomePagePayloadV2 } from
 export function migrateHomePageV1ToV2(v1: HomePagePayloadV1): HomePagePayloadV2 {
   const heroSec = v1.sections.find((s) => s.type === "hero");
   const heroEnabled = !!(heroSec && heroSec.type === "hero" && heroSec.enabled);
+  const categoryGrid = v1.sections.find((s) => s.type === "categoryGrid");
 
   const sections: DynamicProductSection[] = [];
   let order = 0;
@@ -15,23 +16,24 @@ export function migrateHomePageV1ToV2(v1: HomePagePayloadV1): HomePagePayloadV2 
   for (const s of v1.sections) {
     if (!s.enabled) continue;
     if (s.type === "newArrivals" || s.type === "bestsellers" || s.type === "sareeCarousel") {
-      const eyebrow = "eyebrow" in s ? s.eyebrow : "";
-      const title = "title" in s ? s.title : s.type;
+      const rail = s;
+      const eyebrow = rail.eyebrow;
+      const title = rail.title;
       const viewAllHref =
-        s.type === "sareeCarousel"
+        rail.type === "sareeCarousel"
           ? "/shop?category=Sarees"
-          : s.type === "newArrivals"
+          : rail.type === "newArrivals"
             ? "/shop?sort=new"
             : "/shop";
       sections.push({
-        id: `migrated-${s.id}-${randomId()}`,
+        id: `migrated-${rail.id}-${randomId()}`,
         title,
         eyebrow,
         type: "carousel",
         enabled: true,
         order: order++,
         productIds: [],
-        transition: s.transition,
+        transition: rail.transition,
         viewAllHref
       });
     }
@@ -51,5 +53,25 @@ export function migrateHomePageV1ToV2(v1: HomePagePayloadV1): HomePagePayloadV2 
     });
   }
 
-  return { version: 2, hero: { enabled: heroEnabled }, sections };
+  return {
+    version: 2,
+    hero: { enabled: heroEnabled },
+    categoryCircles: {
+      enabled: !!categoryGrid?.enabled,
+      eyebrow: categoryGrid?.type === "categoryGrid" ? categoryGrid.eyebrow : "Shop by category",
+      title: categoryGrid?.type === "categoryGrid" ? categoryGrid.title : "Explore collections",
+      shape: "circle",
+      items:
+        categoryGrid?.type === "categoryGrid"
+          ? categoryGrid.items.slice(0, 8).map((item) => ({
+              id: `circle-${randomId()}`,
+              label: item.title,
+              imageUrl: item.imageUrl,
+              targetType: "customUrl" as const,
+              targetValue: item.href
+            }))
+          : []
+    },
+    sections
+  };
 }

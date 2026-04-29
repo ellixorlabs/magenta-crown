@@ -2,8 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import type { ShopFilterOptions } from "@/lib/shop-filter-options";
-import { PRICE_BUCKETS, minMaxToPriceBucket, priceBucketToMinMax } from "@/lib/shop-filter-options";
+import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
+import { PRICE_BUCKETS, minMaxToPriceBucket, priceBucketToMinMax } from "@/lib/shop-filter-shared";
 import { PriceRangeSlider } from "@/components/shop/PriceRangeSlider";
 
 const sortOptions = [
@@ -23,6 +23,10 @@ type Props = {
   hideOutOfStockToggle?: boolean;
   /** Hide sort control (e.g. when sort lives in the shop toolbar). */
   omitSort?: boolean;
+  /** Used by the mobile drawer so the panel can provide its own Clear button. */
+  hideClearButton?: boolean;
+  /** When true, commits the price filter while dragging (used by the mobile filter drawer). */
+  priceSliderCommitOnChange?: boolean;
   /** Tighter spacing for mobile sheet. */
   compact?: boolean;
 };
@@ -50,6 +54,8 @@ export function ShopFilters({
   layout = "stack",
   hideOutOfStockToggle = false,
   omitSort = false,
+  hideClearButton = false,
+  priceSliderCommitOnChange = false,
   compact = false
 }: Props) {
   const router = useRouter();
@@ -63,6 +69,8 @@ export function ShopFilters({
         if (v === null || v === "") next.delete(k);
         else next.set(k, v);
       });
+      // Filter changes should restart pagination to avoid empty pages.
+      next.set("page", "1");
       const q = next.toString();
       router.push(q ? `${basePath}?${q}` : basePath);
     },
@@ -232,6 +240,7 @@ export function ShopFilters({
               urlMin={searchParams.get("minPrice")}
               urlMax={searchParams.get("maxPrice")}
               onCommit={onPriceSliderCommit}
+              commitOnChange={priceSliderCommitOnChange}
             />
           </div>
         ) : (
@@ -256,19 +265,21 @@ export function ShopFilters({
         )}
       </div>
 
-      <div className={bar ? "flex shrink-0 items-end pb-0.5" : ""}>
-        <button
-          type="button"
-          className={
-            bar
-              ? "rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
-              : "w-full rounded-full border border-zinc-300 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100"
-          }
-          onClick={() => router.push(basePath)}
-        >
-          Clear
-        </button>
-      </div>
+      {!hideClearButton && (
+        <div className={bar ? "flex shrink-0 items-end pb-0.5" : ""}>
+          <button
+            type="button"
+            className={
+              bar
+                ? "rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+                : "w-full rounded-full border border-zinc-300 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100"
+            }
+            onClick={() => router.push(basePath)}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {hideOutOfStockToggle && !bar && (
         <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/90 p-3">

@@ -3,6 +3,7 @@
 import type { Product, ProductFeaturedCoupon, ProductVariant } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
+import { AdminProductVideoFields } from "@/components/admin/AdminProductVideoFields";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
 import { getProductTotalStock } from "@/lib/product-variants";
@@ -22,6 +23,11 @@ export function ProductEditForm({ product, coupons }: Props) {
   const router = useRouter();
   const totalStock = getProductTotalStock(product.variants);
   const selectedCouponIds = product.featuredCoupons.map((f) => f.couponId);
+  const defaultNewDays = (() => {
+    if (!product.newTagExpiresAt) return "21";
+    const ms = new Date(product.newTagExpiresAt).getTime() - Date.now();
+    return String(Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000))));
+  })();
 
   async function saveProduct(formData: FormData) {
     await updateProduct(formData);
@@ -36,6 +42,7 @@ export function ProductEditForm({ product, coupons }: Props) {
         defaultUrlsText={product.imageUrls.join("\n")}
         defaultListImageIndex={product.listImageIndex ?? 0}
         defaultListImagePosition={product.listImagePosition ?? "center"}
+        productId={product.id}
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -135,18 +142,16 @@ export function ProductEditForm({ product, coupons }: Props) {
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
         </div>
+        <Field
+          label="NEW badge duration (days, only when tag includes 'new')"
+          name="newTagDurationDays"
+          type="number"
+          defaultValue={defaultNewDays}
+        />
 
         <ProductFeaturedCouponPicker coupons={coupons} selectedIds={selectedCouponIds} />
 
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Video URLs</label>
-          <textarea
-            name="videoUrls"
-            rows={2}
-            defaultValue={product.videoUrls.join("\n")}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-xs"
-          />
-        </div>
+        <AdminProductVideoFields defaultUrlsText={product.videoUrls.join("\n")} productId={product.id} />
         <Field label="Fit notes" name="fitNotes" defaultValue={product.fitNotes ?? ""} />
         <Field label="Care" name="careInstructions" defaultValue={product.careInstructions ?? ""} />
       </div>

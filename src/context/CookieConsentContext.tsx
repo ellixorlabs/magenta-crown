@@ -17,8 +17,6 @@ import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 const STORAGE_KEY = "magenta-crown-cookie-consent";
 const COOKIE_NAME = "mc_cookie_consent";
 const DELAY_MS = 6000;
-/** Match navbar: hero considered “passed” when bottom clears this offset from viewport top */
-const HERO_PAST_OFFSET = 96;
 
 export type ConsentChoice = "accepted" | "declined" | null;
 
@@ -50,13 +48,6 @@ function clearTimerRef(ref: React.MutableRefObject<ReturnType<typeof setTimeout>
   }
 }
 
-function isPastLandingHero(): boolean {
-  const el = document.getElementById("landing-hero");
-  /** Hero not mounted yet (streaming) — do not treat as “past hero” or we start the 6s timer early and scroll feels “stuck” after. */
-  if (!el) return false;
-  return el.getBoundingClientRect().bottom < HERO_PAST_OFFSET;
-}
-
 export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === "/";
@@ -68,6 +59,9 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const delayDoneRef = useRef(false);
   delayDoneRef.current = delayDone;
+  /** Hysteresis: avoid starting/canceling the 6s timer every frame when the hero edge sits near the threshold. */
+  const heroPastLatchRef = useRef(false);
+  const consentTickRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     setConsent(readStored());
@@ -116,6 +110,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     clearTimerRef(delayTimerRef);
     delayDoneRef.current = false;
     setDelayDone(false);
+    heroPastLatchRef.current = false;
   }, [pathname, hydrated, consent]);
 
   /* Non-home: start 6s countdown immediately (nothing to scroll past). */
@@ -129,18 +124,44 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated || consent !== null || !isHome) return;
 
-    const tick = () => {
+    const runTick = () => {
       if (delayDoneRef.current) return;
-      if (isPastLandingHero()) scheduleDelay();
+      const el = document.getElementById("landing-hero");
+      if (!el) {
+        heroPastLatchRef.current = false;
+        cancelDelay();
+        return;
+      }
+      const bottom = el.getBoundingClientRect().bottom;
+      const ENTER = 72;
+      const EXIT = 130;
+      if (!heroPastLatchRef.current) {
+        if (bottom < ENTER) heroPastLatchRef.current = true;
+      } else if (bottom > EXIT) {
+        heroPastLatchRef.current = false;
+      }
+      if (heroPastLatchRef.current) scheduleDelay();
       else cancelDelay();
     };
 
-    tick();
+    const tick = () => {
+      if (consentTickRafRef.current != null) return;
+      consentTickRafRef.current = requestAnimationFrame(() => {
+        consentTickRafRef.current = null;
+        runTick();
+      });
+    };
+
+    runTick();
     window.addEventListener("scroll", tick, { passive: true });
     window.addEventListener("resize", tick);
     return () => {
       window.removeEventListener("scroll", tick);
       window.removeEventListener("resize", tick);
+      if (consentTickRafRef.current != null) {
+        cancelAnimationFrame(consentTickRafRef.current);
+        consentTickRafRef.current = null;
+      }
       cancelDelay();
     };
   }, [hydrated, consent, isHome, pathname, scheduleDelay, cancelDelay]);
@@ -169,7 +190,7 @@ function CookieConsentModal() {
 
   return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[2147483000] flex items-center justify-center p-4 sm:p-6"
+      className="mc-viewport-fill pointer-events-auto fixed inset-0 z-[2147483000] flex items-center justify-center p-4 sm:p-6"
       role="presentation"
       style={{ isolation: "isolate" }}
     >

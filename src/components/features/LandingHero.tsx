@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { HeroSlideVM } from "@/lib/hero-data";
-import { DEFAULT_HERO_SLIDES } from "@/lib/hero-data";
+import type { HeroSlideVM } from "@/lib/hero-public";
+import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { useHeroReady } from "@/context/HeroReadyContext";
 import { TRANS_EASE, TRANS_FADE_IN_MS, TRANS_MS, type HeroTransitionId } from "@/lib/hero-transition";
 
@@ -273,7 +273,7 @@ export function LandingHero({ slides, transition }: Props) {
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       aria-live="polite"
-      className="relative flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] shrink-0 flex-col overflow-hidden bg-black outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      className="relative flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] shrink-0 touch-pan-y flex-col overflow-hidden bg-black outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black supports-[min-height:100svh]:h-[100svh] supports-[min-height:100svh]:max-h-[100svh] supports-[min-height:100svh]:min-h-[100svh]"
     >
       <h2 id={labelId} className="sr-only">
         Featured hero — use left and right arrow keys to change slides

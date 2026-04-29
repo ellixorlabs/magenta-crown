@@ -18,11 +18,11 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   {
     href: "/admin/inventory",
-    label: "Products",
+    label: "Inventory",
     icon: Package,
     activePathPrefixes: ["/admin/inventory"],
     children: [
-      { href: "/admin/inventory", label: "All products" },
+      { href: "/admin/inventory", label: "Products in inventory" },
       { href: "/admin/inventory/new", label: "Add product" }
     ]
   },
@@ -30,7 +30,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "Customers", icon: Users },
   {
     href: "/admin/homepage",
-    label: "Homepage",
+    label: "Homepage editor",
     icon: Home,
     adminOnly: true,
     activePathPrefixes: ["/admin/homepage", "/admin/hero"],

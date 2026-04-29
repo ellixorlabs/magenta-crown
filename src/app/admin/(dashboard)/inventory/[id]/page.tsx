@@ -1,17 +1,13 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { notFound } from "next/navigation";
+import { requireStaff } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { ProductEditForm } from "./ProductEditForm";
 
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function EditProductPage({ params }: PageProps) {
-  const session = await auth();
-  if (!isAdminRole(session?.user?.role)) {
-    redirect("/admin/inventory");
-  }
+  await requireStaff("/admin/inventory");
 
   const { id } = await params;
   const [product, coupons] = await Promise.all([

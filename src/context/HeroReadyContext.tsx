@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { GlobalPageLoader } from "@/components/layout/GlobalPageLoader";
+import { clearLoaderChromeFromDocument } from "@/lib/loader-dom-cleanup";
 
 type HeroReadyContextValue = {
   heroReady: boolean;
@@ -37,6 +38,17 @@ export function HeroReadyProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [pathname, heroReady, markHeroReady]);
 
+  /** bfcache restore can leave maroon boot / `heroReady` stale — recover to a usable page. */
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      clearLoaderChromeFromDocument();
+      setHeroReady(true);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
   const value = useMemo(
     () => ({
       heroReady,
@@ -48,9 +60,8 @@ export function HeroReadyProvider({ children }: { children: ReactNode }) {
   return (
     <HeroReadyContext.Provider value={value}>
       {children}
-      <Suspense fallback={null}>
-        <GlobalPageLoader heroReady={heroReady} />
-      </Suspense>
+      {/** No Suspense wrapper: `useSearchParams` inside would suspend this subtree and strand the loader / body tint. */}
+      <GlobalPageLoader heroReady={heroReady} markHeroReady={markHeroReady} />
     </HeroReadyContext.Provider>
   );
 }

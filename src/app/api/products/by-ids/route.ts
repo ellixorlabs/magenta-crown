@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getProductsByIdsForApi } from "@/services/products/product.service";
 
+/** Legacy shape `{ products }` — hydration for cart / wishlist; logic lives in product service. */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const idsParam = searchParams.get("ids");
@@ -12,20 +13,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ products: [] });
   }
 
-  const products = await prisma.product.findMany({
-    where: { id: { in: ids } },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      imageUrls: true,
-      mrp: true,
-      discountedPrice: true
-    }
-  });
-
-  const order = new Map(ids.map((id, i) => [id, i]));
-  products.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-
+  const products = await getProductsByIdsForApi(ids);
   return NextResponse.json({ products });
 }

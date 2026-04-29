@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SlidersHorizontal, X } from "lucide-react";
-import type { ShopFilterOptions } from "@/lib/shop-filter-options";
+import { useRouter } from "next/navigation";
+import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 
@@ -37,6 +38,8 @@ function FiltersBody({
       compact
       layout="stack"
       omitSort={Boolean(omitSortInSheet)}
+      hideClearButton
+      priceSliderCommitOnChange={true}
     />
   );
 }
@@ -58,12 +61,26 @@ export function ShopFiltersMobileSheet(props: Props) {
   const setOpen = isControlled ? onOpenChange : setInternalOpen;
 
   const [mounted, setMounted] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const router = useRouter();
 
   const onClose = useCallback(() => setOpen(false), [setOpen]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setAnimating(false);
+      return;
+    }
+
+    // Two-phase open so the drawer can slide in smoothly.
+    setAnimating(false);
+    const raf = requestAnimationFrame(() => setAnimating(true));
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,11 +91,10 @@ export function ShopFiltersMobileSheet(props: Props) {
   const overlay =
     open && mounted ? (
       <div
-        className="fixed inset-0 z-[25000] flex flex-col justify-end sm:justify-center sm:p-4"
+        className="fixed inset-0 z-[25000]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shop-filters-sheet-title"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <button
           type="button"
@@ -86,9 +102,15 @@ export function ShopFiltersMobileSheet(props: Props) {
           className="absolute inset-0 bg-zinc-900/45 backdrop-blur-md transition"
           onClick={onClose}
         />
+
         <div
-          className="relative z-[1] flex max-h-[min(88dvh,780px)] w-full flex-col rounded-t-2xl border border-white/35 bg-white/92 shadow-2xl backdrop-blur-2xl sm:mx-auto sm:max-w-md sm:rounded-2xl"
+          className={[
+            "absolute left-0 top-0 h-full w-[min(92vw,420px)] border-r border-white/30 bg-white/95 shadow-2xl backdrop-blur-2xl",
+            "transition-transform duration-300 ease-out",
+            animating ? "translate-x-0" : "-translate-x-full"
+          ].join(" ")}
           onClick={(e) => e.stopPropagation()}
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-zinc-200/80 px-3 pb-2 pt-3 sm:px-4 sm:pb-2.5 sm:pt-3.5">
             <h2
@@ -97,15 +119,17 @@ export function ShopFiltersMobileSheet(props: Props) {
             >
               Filter
             </h2>
+
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
+
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-3">
             <Suspense fallback={<p className="text-xs text-zinc-500">Loading filters…</p>}>
               <FiltersBody
@@ -117,14 +141,27 @@ export function ShopFiltersMobileSheet(props: Props) {
               />
             </Suspense>
           </div>
+
           <div className="shrink-0 border-t border-zinc-200/80 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 sm:px-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-full bg-crown-800 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900 sm:py-3"
-            >
-              Done
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full bg-crown-800 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  router.push(basePath);
+                  onClose();
+                }}
+                className="rounded-full border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       </div>

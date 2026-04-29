@@ -8,9 +8,18 @@ type Props = {
   urlMin: string | null;
   urlMax: string | null;
   onCommit: (min: string | null, max: string | null) => void;
+  /** When true, updates the URL immediately while dragging (used by the mobile filter drawer). */
+  commitOnChange?: boolean;
 };
 
-export function PriceRangeSlider({ boundsMin, boundsMax, urlMin, urlMax, onCommit }: Props) {
+export function PriceRangeSlider({
+  boundsMin,
+  boundsMax,
+  urlMin,
+  urlMax,
+  onCommit,
+  commitOnChange = false
+}: Props) {
   const appliedLo = useMemo(() => {
     if (urlMin != null && urlMin !== "" && !Number.isNaN(Number(urlMin))) {
       return clamp(Number(urlMin), boundsMin, boundsMax);
@@ -70,7 +79,9 @@ export function PriceRangeSlider({ boundsMin, boundsMax, urlMin, urlMax, onCommi
           aria-label="Minimum price"
           onChange={(e) => {
             const v = Number(e.target.value);
-            setLo(clamp(v, boundsMin, hi));
+            const nextLo = clamp(v, boundsMin, hi);
+            setLo(nextLo);
+            if (commitOnChange) commit(nextLo, hi);
           }}
         />
       </div>
@@ -89,7 +100,9 @@ export function PriceRangeSlider({ boundsMin, boundsMax, urlMin, urlMax, onCommi
           aria-label="Maximum price"
           onChange={(e) => {
             const v = Number(e.target.value);
-            setHi(clamp(v, lo, boundsMax));
+            const nextHi = clamp(v, lo, boundsMax);
+            setHi(nextHi);
+            if (commitOnChange) commit(lo, nextHi);
           }}
         />
       </div>
@@ -97,7 +110,10 @@ export function PriceRangeSlider({ boundsMin, boundsMax, urlMin, urlMax, onCommi
         type="button"
         disabled={!dirty}
         onClick={() => commit(lo, hi)}
-        className="w-full rounded-full bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+        className={[
+          "w-full rounded-full py-2.5 text-sm font-semibold transition",
+          commitOnChange ? "hidden" : "bg-zinc-900 text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+        ].join(" ")}
       >
         Apply price filter
       </button>

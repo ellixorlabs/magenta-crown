@@ -8,6 +8,38 @@ export function createDefaultHomePagePayloadV2(): HomePagePayloadV2 {
   return {
     version: 2,
     hero: { enabled: true },
+    categoryCircles: {
+      enabled: true,
+      eyebrow: "Shop by category",
+      title: "Explore collections",
+      shape: "circle",
+      items: [
+        {
+          id: `circle-${randomId()}`,
+          label: "Sarees",
+          targetType: "category",
+          targetValue: "Sarees",
+          imageUrl:
+            "https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=900&q=80"
+        },
+        {
+          id: `circle-${randomId()}`,
+          label: "Kurtas",
+          targetType: "category",
+          targetValue: "Kurtas",
+          imageUrl:
+            "https://images.unsplash.com/photo-1604147495798-57beb5d6af73?auto=format&fit=crop&w=900&q=80"
+        },
+        {
+          id: `circle-${randomId()}`,
+          label: "New",
+          targetType: "shopFilter",
+          targetValue: "sort=new",
+          imageUrl:
+            "https://images.unsplash.com/photo-1617331721458-bd3bd3f9c7f8?auto=format&fit=crop&w=900&q=80"
+        }
+      ]
+    },
     sections: [
       {
         id: `section-${randomId()}`,

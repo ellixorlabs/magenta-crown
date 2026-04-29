@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function emptyAddress(): SavedAddress {
   return {
@@ -28,16 +29,29 @@ export function ProfileFormClient() {
   const [age, setAge] = useState("");
   const [addresses, setAddresses] = useState<SavedAddress[]>([emptyAddress()]);
   const [email, setEmail] = useState("");
+  const [deletionScheduledFor, setDeletionScheduledFor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletionBusy, setDeletionBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const authHeaders = useCallback(async () => {
+    const supabase = await getSupabaseClientOrNull();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    if (!token) throw new Error("Please sign in.");
+    return { Authorization: `Bearer ${token}` };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/user/profile");
+      const headers = await authHeaders();
+      // Ensure profile row exists for fresh Supabase users.
+      await fetch("/api/user/profile", { method: "POST", headers });
+      const res = await fetch("/api/user/profile", { headers });
       if (!res.ok) throw new Error("Could not load profile");
       const d = (await res.json()) as {
         name: string;
@@ -45,11 +59,13 @@ export function ProfileFormClient() {
         phone: string;
         age: number | null;
         addresses: unknown;
+        deletionScheduledFor: string | null;
       };
       setName(d.name ?? "");
       setEmail(d.email ?? "");
       setPhone(d.phone ?? "");
       setAge(d.age != null ? String(d.age) : "");
+      setDeletionScheduledFor(d.deletionScheduledFor ?? null);
       const raw = Array.isArray(d.addresses) ? d.addresses : [];
       const parsed = raw
         .filter((x) => x && typeof x === "object")
@@ -77,7 +93,7 @@ export function ProfileFormClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authHeaders]);
 
   useEffect(() => {
     void load();
@@ -125,7 +141,7 @@ export function ProfileFormClient() {
 
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
@@ -139,6 +155,52 @@ export function ProfileFormClient() {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function requestDeletion() {
+    const ok = window.confirm(
+      "Delete account? This is permanent and cannot be recovered after 7 days. You can revoke deletion within this period."
+    );
+    if (!ok) return;
+    setDeletionBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/user/account-deletion", {
+        method: "POST",
+        headers: await authHeaders()
+      });
+      const data = (await res.json()) as { deletionScheduledFor?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not schedule deletion.");
+      setDeletionScheduledFor(data.deletionScheduledFor ?? null);
+      setMessage("Account deletion scheduled. You can revoke within 7 days.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not schedule deletion.");
+    } finally {
+      setDeletionBusy(false);
+    }
+  }
+
+  async function revokeDeletion() {
+    const ok = window.confirm("Revoke account deletion request?");
+    if (!ok) return;
+    setDeletionBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/user/account-deletion", {
+        method: "DELETE",
+        headers: await authHeaders()
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not revoke deletion.");
+      setDeletionScheduledFor(null);
+      setMessage("Account deletion revoked.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not revoke deletion.");
+    } finally {
+      setDeletionBusy(false);
     }
   }
 
@@ -316,6 +378,37 @@ export function ProfileFormClient() {
       >
         {saving ? "Saving…" : "Save profile"}
       </button>
+
+      <section className="rounded-2xl border border-red-200 bg-red-50/60 p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-red-900">Profile settings</h2>
+        <p className="mt-1 text-sm text-red-900/80">
+          Deleting your account is permanent after 7 days and cannot be recovered.
+        </p>
+        {deletionScheduledFor ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-red-800">
+              Deletion scheduled for: <span className="font-semibold">{new Date(deletionScheduledFor).toLocaleString()}</span>
+            </p>
+            <button
+              type="button"
+              disabled={deletionBusy}
+              onClick={() => void revokeDeletion()}
+              className="rounded-full border border-red-700 bg-white px-5 py-2.5 text-sm font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60"
+            >
+              {deletionBusy ? "Please wait…" : "Revoke deletion"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={deletionBusy}
+            onClick={() => void requestDeletion()}
+            className="mt-4 rounded-full bg-red-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-60"
+          >
+            {deletionBusy ? "Please wait…" : "Delete account"}
+          </button>
+        )}
+      </section>
     </form>
   );
 }

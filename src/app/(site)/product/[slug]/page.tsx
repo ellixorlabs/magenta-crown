@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
-import { auth } from "@/auth";
+import { auth, type AppSession } from "@/auth";
 import { ProductWishlistToggle } from "@/components/product/ProductWishlistToggle";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { ProductCard } from "@/components/features/ProductCard";
@@ -15,10 +15,40 @@ import { ReviewForm } from "@/components/product/ReviewForm";
 import { TrackProductView } from "@/components/product/TrackProductView";
 import { ProductImageGallery } from "@/components/product/ProductImageGallery";
 import { LazyProductVideo } from "@/components/product/LazyProductVideo";
+import { ProductShareButton } from "@/components/product/ProductShareButton";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+async function loadWishlistState(
+  session: AppSession | null,
+  productId: string
+): Promise<{ initialWishlisted: boolean; wishlistIds: Set<string> }> {
+  const role = session?.user?.role;
+  if (
+    !session?.user?.id ||
+    role === "ADMIN" ||
+    role === "SUB_ADMIN" ||
+    role === "TECH_SUPPORT"
+  ) {
+    return { initialWishlisted: false, wishlistIds: new Set() };
+  }
+  const uid = session.user.id;
+  const [onList, u] = await Promise.all([
+    prisma.product.count({
+      where: { id: productId, wishedBy: { some: { id: uid } } }
+    }),
+    prisma.user.findUnique({
+      where: { id: uid },
+      select: { wishlist: { select: { id: true } } }
+    })
+  ]);
+  return {
+    initialWishlisted: onList > 0,
+    wishlistIds: new Set((u?.wishlist ?? []).map((w) => w.id))
+  };
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -69,55 +99,42 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    include: {
-      variants: true,
-      reviews: { orderBy: { createdAt: "desc" }, take: 12 },
-      featuredCoupons: { include: { coupon: true } }
-    }
-  });
+  const [product, session] = await Promise.all([
+    prisma.product.findUnique({
+      where: { slug },
+      include: {
+        variants: true,
+        reviews: { orderBy: { createdAt: "desc" }, take: 8 },
+        featuredCoupons: { include: { coupon: true } }
+      }
+    }),
+    auth()
+  ]);
 
   if (!product) {
     notFound();
   }
 
-  const reviewAgg = await prisma.review.aggregate({
-    where: { productId: product.id },
-    _avg: { rating: true },
-    _count: { _all: true }
-  });
+  const [reviewAgg, crossSells, wishlistState] = await Promise.all([
+    prisma.review.aggregate({
+      where: { productId: product.id },
+      _avg: { rating: true },
+      _count: { _all: true }
+    }),
+    prisma.product.findMany({
+      where: { category: product.category, NOT: { id: product.id } },
+      take: 4,
+      orderBy: { createdAt: "desc" },
+      include: { variants: { select: { stock: true, isActive: true } } }
+    }),
+    loadWishlistState(session, product.id)
+  ]);
+
   const reviewCount = reviewAgg._count._all;
   const reviewAvgNum = reviewAgg._avg.rating;
   const reviewAvg = reviewAvgNum != null ? Number(reviewAvgNum) : null;
-
-  const session = await auth();
-  let initialWishlisted = false;
-  let wishlistIds = new Set<string>();
-  if (
-    session?.user?.id &&
-    session.user.role !== "ADMIN" &&
-    session.user.role !== "SUB_ADMIN" &&
-    session.user.role !== "TECH_SUPPORT"
-  ) {
-    const onList = await prisma.product.count({
-      where: { id: product.id, wishedBy: { some: { id: session.user.id } } }
-    });
-    initialWishlisted = onList > 0;
-
-    const u = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { wishlist: { select: { id: true } } }
-    });
-    wishlistIds = new Set(u?.wishlist.map((w) => w.id) ?? []);
-  }
-
-  const crossSells = await prisma.product.findMany({
-    where: { category: product.category, NOT: { id: product.id } },
-    take: 4,
-    orderBy: { createdAt: "desc" },
-    include: { variants: { select: { stock: true, isActive: true } } }
-  });
+  const { initialWishlisted, wishlistIds } = wishlistState;
+  const canQuickEdit = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
 
   return (
     <main className="bg-[#f8f5f6]">
@@ -126,7 +143,7 @@ export default async function ProductPage({ params }: PageProps) {
 
       <div className="section-shell py-10">
         <div className="grid gap-10 lg:grid-cols-2">
-          <div>
+          <div className="relative">
             <ProductImageGallery
               name={product.name}
               imageAlt={productImageAlt(product)}
@@ -157,7 +174,25 @@ export default async function ProductPage({ params }: PageProps) {
               <h1 className="flex-1 font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900 sm:text-4xl">
                 {product.name}
               </h1>
-              <ProductWishlistToggle productId={product.id} initialWishlisted={initialWishlisted} />
+              <div className="flex items-center gap-2">
+                <ProductWishlistToggle
+                  productId={product.id}
+                  initialWishlisted={initialWishlisted}
+                  variant="default"
+                />
+                <ProductShareButton
+                  productName={product.name}
+                  productUrl={absoluteUrl(`/product/${product.slug}`)}
+                />
+                {canQuickEdit && (
+                  <Link
+                    href={`/admin/inventory/${product.id}`}
+                    className="inline-flex items-center rounded-full border border-crown-700/30 bg-crown-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-crown-800 transition hover:bg-crown-100"
+                  >
+                    Edit product
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="mt-6">
               <AddToCartSection

@@ -1,10 +1,7 @@
-import type { Session } from "next-auth";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, type AppSession } from "@/auth";
 
-export type StaffSession = Session & {
-  user: NonNullable<Session["user"]> & { id: string };
-};
+export type StaffSession = AppSession;
 
 export async function requireStaff(callbackPath = "/admin"): Promise<StaffSession> {
   const session = await auth();

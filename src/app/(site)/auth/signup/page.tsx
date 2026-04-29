@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function SignUpInner() {
   const router = useRouter();
@@ -15,6 +15,7 @@ function SignUpInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -23,29 +24,59 @@ function SignUpInner() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email: email.trim().toLowerCase(), password })
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Could not register");
+      if (!name.trim()) {
+        setError("Name is required.");
         return;
       }
-      const sign = await signIn("credentials", {
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        setError("Supabase is not configured. Add keys in .env and restart dev server.");
+        return;
+      }
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
-        redirect: false,
-        callbackUrl
+        options: {
+          data: { name: name.trim() },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+            callbackUrl
+          )}`
+        }
       });
-      if (sign?.error) {
-        setError("Account created — please sign in.");
-        router.push("/auth/signin?callbackUrl=" + encodeURIComponent(callbackUrl));
+      if (signUpError) {
+        setError(signUpError.message || "Could not create account.");
         return;
       }
-      router.replace(callbackUrl);
-      router.refresh();
+
+      // If signup returns a session immediately (email confirmation disabled), sync local profile row now.
+      const token = data.session?.access_token;
+      if (token) {
+        await fetch("/api/auth/sync-user", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        router.replace(callbackUrl);
+        router.refresh();
+        return;
+      }
+
+      // Confirmation email path.
+      setError(
+        "Account created. Please verify your email from the inbox, then sign in."
+      );
     } catch {
       setError("Something went wrong.");
     } finally {
@@ -75,7 +106,8 @@ function SignUpInner() {
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-zinc-800">Name</label>
             <input
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-400"
+              required
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -85,7 +117,7 @@ function SignUpInner() {
             <input
               type="email"
               required
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-400"
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -97,9 +129,21 @@ function SignUpInner() {
               type="password"
               required
               minLength={8}
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-400"
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-800">Confirm password</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
             />
           </div>

@@ -1,13 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { photonFeatureToAddress } from "@/lib/photon-address";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
+
+type RazorpayCtorOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+  notes?: Record<string, string>;
+  handler: (resp: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => void;
+  modal?: { ondismiss?: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (opts: RazorpayCtorOptions) => { open: () => void };
+  }
+}
 
 const ALL_PAYMENT_OPTIONS = [
   { value: "CASH_ON_DELIVERY", label: "Cash on delivery" },
@@ -48,8 +74,8 @@ function validPaymentMethod(pm: string | undefined) {
 
 export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?: string | null } = {}) {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const { items, subtotal, discountedTotal, couponCode, clearCart, cartHydrated, flushCart } = useCart();
+  const { isAuthenticated, isLoading, role, userEmail, userName } = useAuth();
+  const { items, subtotal, discountedTotal, couponCode, clearCart, cartHydrated, flushCart, updateQuantity } = useCart();
 
   const [fullName, setFullName] = useState("");
   const [phoneDial, setPhoneDial] = useState("+91");
@@ -79,20 +105,36 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const ensureRazorpayScript = useCallback(async () => {
+    if (window.Razorpay) return true;
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      await new Promise<void>((resolve, reject) => {
+        if (window.Razorpay) return resolve();
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Razorpay script failed")), { once: true });
+      });
+      return Boolean(window.Razorpay);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://checkout.razorpay.com/v1/checkout.js";
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Razorpay script failed"));
+      document.body.appendChild(s);
+    });
+    return Boolean(window.Razorpay);
+  }, []);
+
   const paymentOptions = useMemo(() => {
     if (allowCod) return [...ALL_PAYMENT_OPTIONS];
     return ALL_PAYMENT_OPTIONS.filter((o) => o.value !== "CASH_ON_DELIVERY");
   }, [allowCod]);
 
-  const email = session?.user?.email ?? "";
+  const email = userEmail ?? "";
 
-  const isStaff = useMemo(
-    () =>
-      session?.user?.role === "ADMIN" ||
-      session?.user?.role === "SUB_ADMIN" ||
-      session?.user?.role === "TECH_SUPPORT",
-    [session?.user?.role]
-  );
+  const isStaff = useMemo(() => role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT", [role]);
 
   const hasSaved = profileAddresses.length > 0;
   const hasHome = useMemo(() => profileAddresses.some((a) => a.kind === "home"), [profileAddresses]);
@@ -101,6 +143,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     () => [...new Set(items.map((i) => i.productId))].sort().join(","),
     [items]
   );
+  const couponProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
 
   useEffect(() => {
     if (!cartHydrated) return;
@@ -135,14 +178,14 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
   }, [allowCod]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (!isLoading && !isAuthenticated) {
       flushCart();
       router.replace("/auth/signin?callbackUrl=" + encodeURIComponent("/checkout"));
     }
-  }, [flushCart, router, status]);
+  }, [flushCart, isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (!isAuthenticated) return;
     void fetch("/api/user/profile")
       .then((r) => r.json())
       .then(
@@ -182,7 +225,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
       )
       .catch(() => {})
       .finally(() => setProfileLoaded(true));
-  }, [status]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (addressMode === "saved") {
@@ -212,17 +255,17 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
 
   const prefilledName = useRef(false);
   useEffect(() => {
-    if (session?.user?.name && !prefilledName.current) {
-      setFullName(session.user.name);
+    if (userName && !prefilledName.current) {
+      setFullName(userName);
       prefilledName.current = true;
     }
-  }, [session?.user?.name]);
+  }, [userName]);
 
   useEffect(() => {
-    if (status === "authenticated" && isStaff) {
+    if (isAuthenticated && isStaff) {
       router.replace("/admin");
     }
-  }, [isStaff, router, status]);
+  }, [isAuthenticated, isStaff, router]);
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
@@ -342,7 +385,12 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
           saveAddress: savePayload
         })
       });
-      const data = (await res.json()) as { orderId?: string; error?: string; message?: string };
+      const data = (await res.json()) as {
+        orderId?: string;
+        error?: string;
+        message?: string;
+        requiresOnlinePayment?: boolean;
+      };
       if (!res.ok) {
         if (res.status === 409 && data.error === "HOME_EXISTS") {
           setError(data.message ?? "Confirm replacing your saved home address, then submit again.");
@@ -352,8 +400,77 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
         setError(typeof data.error === "string" ? data.error : "Checkout failed");
         return;
       }
-      clearCart();
-      router.push(`/checkout/confirmation?orderId=${data.orderId}`);
+      if (!data.orderId) {
+        setError("Order could not be initialized.");
+        return;
+      }
+
+      if (!data.requiresOnlinePayment) {
+        clearCart();
+        router.push(`/checkout/confirmation?orderId=${data.orderId}`);
+        return;
+      }
+
+      const canLaunch = await ensureRazorpayScript();
+      if (!canLaunch || !window.Razorpay) {
+        setError("Could not load Razorpay. Please try again.");
+        return;
+      }
+
+      const rpInitRes = await fetch("/api/payments/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: data.orderId })
+      });
+      const rpInit = (await rpInitRes.json()) as {
+        error?: string;
+        keyId?: string;
+        razorpayOrderId?: string;
+        amount?: number;
+        currency?: string;
+      };
+      if (!rpInitRes.ok || !rpInit.keyId || !rpInit.razorpayOrderId || !rpInit.amount || !rpInit.currency) {
+        setError(rpInit.error ?? "Could not initialize Razorpay payment.");
+        return;
+      }
+
+      const razorpay = new window.Razorpay({
+        key: rpInit.keyId,
+        amount: rpInit.amount,
+        currency: rpInit.currency,
+        name: "Magenta Crown",
+        description: "Order payment",
+        order_id: rpInit.razorpayOrderId,
+        prefill: {
+          name: fullName.trim(),
+          email: email.trim(),
+          contact: phoneCombined
+        },
+        notes: { orderId: data.orderId },
+        handler: async (resp) => {
+          const verifyRes = await fetch("/api/payments/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: data.orderId,
+              razorpayOrderId: resp.razorpay_order_id,
+              razorpayPaymentId: resp.razorpay_payment_id,
+              razorpaySignature: resp.razorpay_signature
+            })
+          });
+          const verifyData = (await verifyRes.json()) as { ok?: boolean; error?: string };
+          if (!verifyRes.ok || !verifyData.ok) {
+            setError(verifyData.error ?? "Payment verification failed.");
+            return;
+          }
+          clearCart();
+          router.push(`/checkout/confirmation?orderId=${data.orderId}`);
+        },
+        modal: {
+          ondismiss: () => setError("Payment was cancelled. You can retry.")
+        }
+      });
+      razorpay.open();
     } catch {
       setError("Network error");
     } finally {
@@ -361,7 +478,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     }
   }
 
-  if (status === "loading") {
+  if (isLoading) {
     return (
       <main className="min-h-screen bg-[#f8f5f6] py-10">
         <div className="section-shell max-w-3xl text-sm text-zinc-500">Loading…</div>
@@ -369,7 +486,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     );
   }
 
-  if (status === "authenticated" && !cartHydrated) {
+  if (isAuthenticated && !cartHydrated) {
     return (
       <main className="min-h-screen bg-[#f8f5f6] py-10">
         <div className="section-shell max-w-3xl text-sm text-zinc-500">Loading your bag…</div>
@@ -377,7 +494,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     );
   }
 
-  if (status === "unauthenticated") {
+  if (!isAuthenticated) {
     return (
       <main className="min-h-screen bg-[#f8f5f6] py-10">
         <div className="section-shell max-w-3xl text-sm text-zinc-600">
@@ -422,6 +539,57 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
         ) : (
           <form onSubmit={onSubmit} className="mt-8 space-y-6 rounded-2xl border border-zinc-200 bg-white p-6">
             <div>
+              <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Items in bag</h3>
+                <ul className="mt-3 space-y-2">
+                  {items.map((line) => {
+                    const img =
+                      line.imageUrl ??
+                      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=200&q=80";
+                    return (
+                      <li key={line.lineKey} className="flex items-center gap-3 rounded-lg bg-white p-2">
+                        <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded-md bg-zinc-100">
+                          <Image
+                            src={img}
+                            alt={line.name}
+                            fill
+                            sizes="48px"
+                            className="object-contain"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-1 text-sm font-medium text-zinc-900">{line.name}</p>
+                          <p className="text-xs font-semibold text-crown-800">Rs {line.price}</p>
+                        </div>
+                        <div className="inline-flex items-stretch rounded-full border border-zinc-300 bg-white">
+                          <button
+                            type="button"
+                            aria-label="Decrease quantity"
+                            onClick={() => updateQuantity(line.lineKey, line.quantity - 1)}
+                            className="flex h-8 w-8 items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50"
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          <span className="flex min-w-[2.25rem] items-center justify-center border-x border-zinc-300 px-1 text-sm font-semibold tabular-nums">
+                            {line.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Increase quantity"
+                            disabled={line.maxStock != null && line.quantity >= line.maxStock}
+                            onClick={() => updateQuantity(line.lineKey, line.quantity + 1)}
+                            className="flex h-8 w-8 items-center justify-center rounded-r-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
               <h2 className="text-sm font-semibold text-zinc-900">Contact & shipping</h2>
               <p className="mt-1 text-xs text-zinc-500">
                 Inventory is reserved only when your order is placed. Totals and promo are confirmed on the server.
@@ -697,18 +865,15 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
               </p>
             </div>
 
+            <BagPromoSection productIds={couponProductIds} />
+
             <div className="border-t border-zinc-200 pt-4">
               <div className="flex justify-between text-sm text-zinc-600">
                 <span>Subtotal</span>
-                <span>Rs {subtotal.toFixed(0)}</span>
+                <span className="font-semibold text-zinc-900">Rs {subtotal.toFixed(0)}</span>
               </div>
-              {couponCode ? (
-                <div className="mt-1 flex justify-between text-sm text-green-700">
-                  <span>Promo ({couponCode})</span>
-                  <span>− Rs {(subtotal - discountedTotal).toFixed(0)}</span>
-                </div>
-              ) : null}
-              <div className="mt-3 flex justify-between text-lg font-semibold text-zinc-900">
+              <BagPromoAppliedRow discountAmount={subtotal - discountedTotal} />
+              <div className="mt-3 flex justify-between text-xl font-bold text-zinc-900">
                 <span>Order total</span>
                 <span>Rs {discountedTotal.toFixed(0)}</span>
               </div>

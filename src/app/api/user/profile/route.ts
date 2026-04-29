@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
+import {
+  getSupabaseUserFromRequest,
+  resolveAppUserIdFromSupabaseUser,
+  unauthorized
+} from "@/lib/supabase-server-auth";
 
 const KINDS = new Set(["home", "work", "other"]);
 
@@ -48,20 +52,22 @@ function normalizeAddresses(raw: unknown): Prisma.InputJsonValue {
   return out as unknown as Prisma.InputJsonValue;
 }
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(req: Request) {
+  const user = await getSupabaseUserFromRequest(req);
+  if (!user) return unauthorized();
+  const userId = await resolveAppUserIdFromSupabaseUser(user);
+  if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const u = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: {
       name: true,
       email: true,
       phone: true,
       age: true,
-      addresses: true
+      addresses: true,
+      deletionRequestedAt: true,
+      deletionScheduledFor: true
     }
   });
 
@@ -74,15 +80,67 @@ export async function GET() {
     email: u.email ?? "",
     phone: u.phone ?? "",
     age: u.age ?? null,
-    addresses: Array.isArray(u.addresses) ? u.addresses : []
+    addresses: Array.isArray(u.addresses) ? u.addresses : [],
+    deletionRequestedAt: u.deletionRequestedAt?.toISOString() ?? null,
+    deletionScheduledFor: u.deletionScheduledFor?.toISOString() ?? null
+  });
+}
+
+export async function POST(req: Request) {
+  const user = await getSupabaseUserFromRequest(req);
+  if (!user) return unauthorized();
+
+  const email = user.email?.trim().toLowerCase();
+  if (!email) return NextResponse.json({ error: "Supabase user has no email." }, { status: 400 });
+
+  const existingUserId = await resolveAppUserIdFromSupabaseUser(user);
+  const targetId = existingUserId ?? user.id;
+  const u = await prisma.user.upsert({
+    where: { id: targetId },
+    update: {
+      email,
+      name:
+        typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()
+          ? user.user_metadata.name.trim()
+          : undefined
+    },
+    create: {
+      id: targetId,
+      email,
+      name:
+        typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()
+          ? user.user_metadata.name.trim()
+          : email.split("@")[0] ?? "Customer",
+      role: "CUSTOMER",
+      onboardingComplete: true
+    },
+    select: {
+      name: true,
+      email: true,
+      phone: true,
+      age: true,
+      addresses: true,
+      deletionRequestedAt: true,
+      deletionScheduledFor: true
+    }
+  });
+
+  return NextResponse.json({
+    name: u.name ?? "",
+    email: u.email ?? "",
+    phone: u.phone ?? "",
+    age: u.age ?? null,
+    addresses: Array.isArray(u.addresses) ? u.addresses : [],
+    deletionRequestedAt: u.deletionRequestedAt?.toISOString() ?? null,
+    deletionScheduledFor: u.deletionScheduledFor?.toISOString() ?? null
   });
 }
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getSupabaseUserFromRequest(req);
+  if (!user) return unauthorized();
+  const userId = await resolveAppUserIdFromSupabaseUser(user);
+  if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as {
     name?: string;
@@ -121,7 +179,7 @@ export async function PATCH(req: Request) {
   }
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId },
     data
   });
 

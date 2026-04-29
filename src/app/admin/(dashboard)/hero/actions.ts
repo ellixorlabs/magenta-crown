@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
-import { DEFAULT_HERO_SLIDES } from "@/lib/hero-data";
+import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { parseHeroTransition } from "@/lib/hero-transition";
 import { prisma } from "@/lib/prisma";
 

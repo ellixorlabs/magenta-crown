@@ -14,6 +14,7 @@ export function GlassBackButton() {
   return (
     <button
       type="button"
+      data-mc-glass-back
       aria-label="Go back"
       onClick={() => {
         if (typeof window !== "undefined" && window.history.length > 1) {

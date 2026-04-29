@@ -23,6 +23,7 @@ type Props = {
   defaultUrlsText: string;
   defaultListImageIndex: number;
   defaultListImagePosition: string;
+  productId?: string;
   textareaName?: string;
 };
 
@@ -30,6 +31,7 @@ export function AdminProductImageFields({
   defaultUrlsText,
   defaultListImageIndex,
   defaultListImagePosition,
+  productId,
   textareaName = "imageUrls"
 }: Props) {
   const [text, setText] = useState(defaultUrlsText);
@@ -60,8 +62,8 @@ export function AdminProductImageFields({
           <div>
             <h4 className="text-sm font-semibold text-zinc-900">Product images</h4>
             <p className="mt-1 text-xs text-zinc-500">
-              Upload files (saved under <span className="font-mono">/public/uploads/products</span>) or paste CDN URLs
-              below. Thumbnails update instantly.
+              Upload JPEG/PNG (auto-compressed to WebP and stored in Supabase bucket{" "}
+              <span className="font-mono">product-images</span>).
             </p>
           </div>
           <label className="cursor-pointer rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-100">
@@ -80,6 +82,7 @@ export function AdminProductImageFields({
                   for (const f of Array.from(files)) {
                     const fd = new FormData();
                     fd.append("file", f);
+                    if (productId) fd.append("productId", productId);
                     const res = await fetch("/api/admin/product-image", { method: "POST", body: fd });
                     const data = (await res.json()) as { url?: string; error?: string };
                     if (!res.ok) throw new Error(data.error ?? "Upload failed");
@@ -108,22 +111,39 @@ export function AdminProductImageFields({
         {urls.length > 0 ? (
           <div className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:thin]">
             {urls.map((u, i) => (
-              <button
-                key={`${u}-${i}`}
-                type="button"
-                onClick={() => setIdx(i)}
-                className={`relative block h-24 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition ${
-                  i === Math.min(idx, urls.length - 1) ? "border-crown-700 ring-2 ring-crown-500/30" : "border-zinc-200"
-                }`}
-              >
-                {/* Native img: admin pastes arbitrary hosts; next/image can block or hang on unknown remotes. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt="" loading="lazy" className="h-full w-full object-cover" />
-              </button>
+              <div key={`${u}-${i}`} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={`block h-24 w-20 overflow-hidden rounded-lg border-2 transition ${
+                    i === Math.min(idx, urls.length - 1)
+                      ? "border-crown-700 ring-2 ring-crown-500/30"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  {/* Native img: admin pastes arbitrary hosts; next/image can block or hang on unknown remotes. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </button>
+                <button
+                  type="button"
+                  className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-700 text-xs font-bold text-white shadow hover:bg-red-800"
+                  onClick={() => {
+                    setText((t) => {
+                      const nextUrls = parseUrls(t).map(normalizeAdminImageUrl).filter((_, j) => j !== i);
+                      setIdx((cur) => Math.max(0, Math.min(cur, Math.max(0, nextUrls.length - 1))));
+                      return nextUrls.join("\n");
+                    });
+                  }}
+                  aria-label="Remove image"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-xs text-zinc-400">No images yet — upload or paste URLs.</p>
+          <p className="mt-4 text-xs text-zinc-400">No images yet — upload product images.</p>
         )}
       </div>
 
@@ -198,20 +218,12 @@ export function AdminProductImageFields({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <input type="hidden" name={textareaName} value={text} />
         <div>
-          <label className="text-xs font-semibold text-zinc-600">Image URLs (one per line or commas)</label>
-          <textarea
-            name={textareaName}
-            required
-            rows={4}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              const next = parseUrls(e.target.value);
-              setIdx((i) => Math.min(i, Math.max(0, next.length - 1)));
-            }}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono text-xs"
-          />
+          <label className="text-xs font-semibold text-zinc-600">Uploaded images</label>
+          <div className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-500">
+            {urls.length > 0 ? `${urls.length} image(s) uploaded` : "Upload at least one image to continue."}
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold text-zinc-600">Preview &amp; focus</p>

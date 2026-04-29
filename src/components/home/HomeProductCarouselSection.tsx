@@ -111,7 +111,7 @@ export function HomeProductCarouselSection({
                 {products.map((product) => (
                   <div
                     key={product.id}
-                    className="w-[min(260px,calc(100vw-8rem))] shrink-0 snap-start sm:w-[min(280px,38vw)] lg:w-[min(260px,calc((100%-6rem)/5))]"
+                    className="w-[min(260px,100%)] max-w-full shrink-0 snap-start sm:w-[min(280px,38vw)] lg:w-[min(260px,calc((100%-6rem)/5))]"
                   >
                     <ProductCard
                       product={product}

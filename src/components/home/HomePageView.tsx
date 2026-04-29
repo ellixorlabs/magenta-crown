@@ -1,11 +1,12 @@
 import type { Product } from "@prisma/client";
 import { LandingHero } from "@/components/features/LandingHero";
+import { HomeCategoryCirclesSection } from "@/components/home/HomeCategoryCirclesSection";
 import { HomeHeroReadyBridge } from "@/components/home/HomeHeroReadyBridge";
 import { HomeProductCarouselSection } from "@/components/home/HomeProductCarouselSection";
 import { HomeProductGridSection } from "@/components/home/HomeProductGridSection";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { HeroTransitionId } from "@/lib/hero-transition";
-import type { HeroSlideVM } from "@/lib/hero-data";
+import type { HeroSlideVM } from "@/lib/hero-public";
 import type { DynamicProductSection, HomePagePayloadV2 } from "@/lib/home-page-types";
 
 type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
@@ -42,6 +43,16 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
     <main className="bg-transparent">
       <HomeHeroReadyBridge hasHero={hasHero} />
       {hasHero && <LandingHero slides={heroSlides} transition={heroTransition} />}
+      {payload.categoryCircles.enabled && payload.categoryCircles.items.length > 0 ? (
+        <SectionReveal transition="fade">
+          <HomeCategoryCirclesSection
+            eyebrow={payload.categoryCircles.eyebrow}
+            title={payload.categoryCircles.title}
+            shape={payload.categoryCircles.shape}
+            items={payload.categoryCircles.items}
+          />
+        </SectionReveal>
+      ) : null}
 
       {sortedSections.map((section) => {
         const products = resolveSectionProducts(section, productById);

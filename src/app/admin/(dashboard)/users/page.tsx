@@ -12,6 +12,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   await requireStaff("/admin/users");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
+  const rolePriority = {
+    ADMIN: 0,
+    SUB_ADMIN: 1,
+    TECH_SUPPORT: 2,
+    CUSTOMER: 3
+  } as const;
 
   const users = await prisma.user.findMany({
     where: q
@@ -34,6 +40,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
       createdAt: true,
       lastLoginAt: true
     }
+  });
+  const usersSorted = [...users].sort((a, b) => {
+    const roleDelta = rolePriority[a.role] - rolePriority[b.role];
+    if (roleDelta !== 0) return roleDelta;
+    return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
   return (
@@ -78,7 +89,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 </td>
               </tr>
             ) : (
-              users.map((u) => (
+              usersSorted.map((u) => (
                 <tr key={u.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80">
                   <td className="px-4 py-3">
                     <Link href={`/admin/users/${u.id}`} className="font-medium text-admin-800 underline-offset-2 hover:underline">

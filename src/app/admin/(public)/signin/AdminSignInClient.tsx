@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function Inner() {
   const searchParams = useSearchParams();
@@ -17,22 +17,54 @@ function Inner() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      email: email.trim().toLowerCase(),
-      password,
-      redirect: false,
-      callbackUrl
-    });
-    setLoading(false);
-    if (res?.error) {
-      setError("Invalid staff credentials.");
-      return;
+    try {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        setError("Supabase is not configured. Add keys in .env and restart dev server.");
+        return;
+      }
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password
+      });
+      if (loginError) {
+        setError("Invalid staff credentials.");
+        return;
+      }
+
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) {
+        setError("Could not establish session.");
+        return;
+      }
+      await fetch("/api/auth/sync-user", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const me = (await (await fetch("/api/auth/session", { cache: "no-store" })).json()) as {
+        session?: { user?: { role?: string } } | null;
+      };
+      const staff =
+        me.session?.user?.role === "ADMIN" || me.session?.user?.role === "SUB_ADMIN";
+      if (!staff) {
+        await supabase.auth.signOut();
+        await fetch("/api/auth/session", { method: "DELETE" });
+        setError("This account is not allowed for admin panel.");
+        return;
+      }
+      window.location.href = callbackUrl;
+    } finally {
+      setLoading(false);
     }
-    window.location.href = callbackUrl;
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-zinc-950 via-[#1a0a12] to-zinc-900 px-4 py-16 text-white">
+    <main className="relative min-h-dvh overflow-x-hidden overflow-y-auto bg-gradient-to-br from-zinc-950 via-[#1a0a12] to-zinc-900 px-4 py-12 text-white sm:py-16">
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
         style={{
@@ -41,7 +73,7 @@ function Inner() {
         }}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-md">
+      <div className="relative z-10 mx-auto w-full min-w-0 max-w-md pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)]">
         <div className="mb-10 text-center">
           <p className="text-[10px] uppercase tracking-[0.45em] text-white/50">Magenta Crown</p>
           <h1 className="mt-3 font-[family-name:var(--font-heading)] text-3xl font-semibold tracking-wide">
@@ -56,7 +88,31 @@ function Inner() {
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 py-3 text-sm font-medium text-white transition hover:bg-white/15"
-            onClick={() => signIn("google", { callbackUrl })}
+            onClick={async () => {
+              setError(null);
+              setLoading(true);
+              try {
+                const supabase = await getSupabaseClientOrNull();
+                if (!supabase) {
+                  setError("Supabase is not configured. Add keys in .env and restart dev server.");
+                  return;
+                }
+                const origin = window.location.origin.replace(/\/+$/, "");
+                const redirectTo = `${origin}/auth/callback`;
+                const { error } = await supabase.auth.signInWithOAuth({
+                  provider: "google",
+                  options: {
+                    redirectTo,
+                    queryParams: {
+                      prompt: "select_account"
+                    }
+                  }
+                });
+                if (error) setError(error.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
           >
             Continue with Google
           </button>
@@ -73,7 +129,7 @@ function Inner() {
               <input
                 type="email"
                 required
-                className="mt-1 w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-white/30"
+                className="mt-1 w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2.5 text-base text-white placeholder:text-white/30 sm:text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
@@ -84,7 +140,7 @@ function Inner() {
               <input
                 type="password"
                 required
-                className="mt-1 w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-white/30"
+                className="mt-1 w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2.5 text-base text-white placeholder:text-white/30 sm:text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -114,7 +170,7 @@ function Inner() {
 
 export function AdminSignInClient() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-zinc-950" />}>
       <Inner />
     </Suspense>
   );

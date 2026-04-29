@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { createProduct } from "./actions";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
+import { AdminProductVideoFields } from "@/components/admin/AdminProductVideoFields";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
 
@@ -70,7 +71,12 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
       </div>
 
       <form action={createProduct} className="mt-6 grid gap-3 sm:grid-cols-2">
-        <AdminProductImageFields defaultUrlsText="" defaultListImageIndex={0} defaultListImagePosition="center" />
+        <AdminProductImageFields
+          defaultUrlsText=""
+          defaultListImageIndex={0}
+          defaultListImagePosition="center"
+          productId="draft"
+        />
 
         <Field label="Name" name="name" required />
         <Field label="Slug (optional, URL-friendly)" name="slug" placeholder="e.g. ruby-silk-saree" />
@@ -141,13 +147,16 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
             placeholder="silk, bridal, red"
           />
         </div>
+        <Field
+          label="NEW badge duration (days, only when tag includes 'new')"
+          name="newTagDurationDays"
+          type="number"
+          defaultValue="21"
+        />
 
         <ProductFeaturedCouponPicker coupons={coupons} selectedIds={[]} />
 
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Video URLs (optional)</label>
-          <textarea name="videoUrls" rows={2} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-xs" />
-        </div>
+        <AdminProductVideoFields defaultUrlsText="" productId="draft" />
         <Field label="Fit notes" name="fitNotes" />
         <Field label="Care instructions" name="careInstructions" />
         <div className="sm:col-span-2">

@@ -28,11 +28,26 @@ model User {
   addresses            Json?
   paymentMethods       Json?
   lastLoginAt          DateTime?
+  deletionRequestedAt  DateTime?
+  deletionScheduledFor DateTime?
   accounts             Account[]
   wishlist             Product[] @relation("UserWishlist")
   orders               Order[]
   reviews              Review[]
   createdAt            DateTime  @default(now())
+  passwordResetTokens  PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
 }
 
 // NextAuth / Auth.js — links OAuth providers to users
@@ -85,11 +100,18 @@ model Product {
   /** CSS object-position for list/card/PDP fit (e.g. center, center 20%, 50% 30%). */
   listImagePosition String          @default("center")
   videoUrls        String[]         @default([])
+  /** "NEW" overlay visibility cutoff (only applies when tags include `new`). */
+  newTagExpiresAt  DateTime?
   featuredCoupons  ProductFeaturedCoupon[]
   wishedBy         User[]           @relation("UserWishlist")
   orderItems       OrderItem[]
   reviews          Review[]
   createdAt        DateTime         @default(now())
+
+  /** List / “latest” queries + category filters (Postgres; works on Supabase the same). */
+  @@index([createdAt])
+  @@index([category])
+  @@index([category, createdAt])
 }
 
 /** Stock is per (color + size). Single source of truth for inventory. */
@@ -104,6 +126,7 @@ model ProductVariant {
   orderItems OrderItem[]
 
   @@unique([productId, size, color])
+  @@index([productId])
 }
 
 model Review {

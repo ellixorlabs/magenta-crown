@@ -77,11 +77,7 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
   );
 
   const onFilterClick = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
-      document.getElementById("shop-sidebar-filters")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      openFilters();
-    }
+    openFilters();
   }, [openFilters]);
 
   const sortValue = searchParams.get("sort") ?? "new";
@@ -102,7 +98,7 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
   );
 
   return (
-    <div className="mb-6 flex flex-col gap-4 border-b border-zinc-200/80 pb-5 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-3 lg:gap-4">
+    <div className="mb-6 flex flex-col gap-4 border-b border-zinc-200/80 pb-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:gap-4">
       <button
         type="button"
         onClick={onFilterClick}
@@ -164,6 +160,8 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
           onChange={(e) => {
             const p = new URLSearchParams(searchParams.toString());
             p.set("sort", e.target.value);
+            // Sort changes invalidate the current page.
+            p.set("page", "1");
             const q = p.toString();
             router.push(q ? `${basePath}?${q}` : basePath, { scroll: false });
           }}

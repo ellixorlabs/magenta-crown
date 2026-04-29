@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdminNavItem } from "@/lib/admin-nav";
 import { ADMIN_NAV, LogOut } from "@/lib/admin-nav";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function sectionIsActive(item: AdminNavItem, pathname: string | null) {
   if (!item.activePathPrefixes?.length || !pathname) return false;
@@ -17,7 +17,8 @@ function sectionIsActive(item: AdminNavItem, pathname: string | null) {
 function childIsActive(pathname: string | null, childHref: string) {
   if (!pathname) return false;
   if (pathname === childHref) return true;
-  if (childHref === "/admin/inventory" && pathname.startsWith("/admin/inventory/")) return true;
+  // Keep inventory submenu precise: only highlight the exact leaf page.
+  if (childHref === "/admin/inventory" || childHref === "/admin/inventory/new") return false;
   return pathname.startsWith(`${childHref}/`);
 }
 
@@ -61,6 +62,24 @@ export function AdminAppShell({
   const [navOpen, setNavOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // If any storefront sheet left body locked, unblock scroll in admin.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     if (!profileOpen) return;
     const onDoc = (e: MouseEvent) => {
       if (profileWrapRef.current?.contains(e.target as Node)) return;
@@ -85,7 +104,7 @@ export function AdminAppShell({
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] lg:flex">
+    <div className="h-dvh overflow-x-hidden bg-[#f4f6f9] lg:flex">
       {mobileOpen && (
         <button
           type="button"
@@ -96,7 +115,7 @@ export function AdminAppShell({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-zinc-200/90 bg-white shadow-xl transition-transform duration-200 ease-out lg:relative lg:z-0 lg:min-h-screen lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(100%,16rem)] max-w-[85vw] flex-col border-r border-zinc-200/90 bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-xl transition-transform duration-200 ease-out lg:relative lg:z-0 lg:min-h-dvh lg:w-64 lg:max-w-none lg:pb-0 lg:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
       >
@@ -191,8 +210,8 @@ export function AdminAppShell({
         </nav>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-zinc-200/90 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex h-dvh min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-zinc-200/90 bg-white/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -260,7 +279,7 @@ export function AdminAppShell({
                   id="admin-profile-menu"
                   role="menu"
                   aria-labelledby="admin-profile-menu-button"
-                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg"
+                  className="absolute right-0 z-50 mt-2 w-[min(13rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg sm:w-52"
                 >
                   <Link
                     href="/"
@@ -277,7 +296,12 @@ export function AdminAppShell({
                     type="button"
                     role="menuitem"
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                    onClick={() => void signOut({ callbackUrl: "/" })}
+                    onClick={async () => {
+                      const supabase = await getSupabaseClientOrNull();
+                      await supabase?.auth.signOut();
+                      await fetch("/api/auth/session", { method: "DELETE" });
+                      window.location.href = "/";
+                    }}
                   >
                     <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                     Log out
@@ -288,7 +312,9 @@ export function AdminAppShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:p-6 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

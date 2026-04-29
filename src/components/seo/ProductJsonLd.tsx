@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import type { Product, ProductVariant } from "@prisma/client";
@@ -42,10 +43,5 @@ export function ProductJsonLd({ product }: { product: Row }) {
     }
   };
 
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
-  );
+  return <Script id={`product-jsonld-${product.id}`} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
 }

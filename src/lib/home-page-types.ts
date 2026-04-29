@@ -133,11 +133,28 @@ export type DynamicProductSection = {
   viewAllHref?: string;
 };
 
+export type HomeCategoryCircleItem = {
+  id: string;
+  label: string;
+  imageUrl: string;
+  targetType: "category" | "shopFilter" | "customUrl";
+  targetValue: string;
+};
+
+export type HomeCategoryCircleShape = "circle" | "square" | "rectangle";
+
 /** Current homepage config: hero toggle + fully dynamic product sections (DB). */
 export type HomePagePayloadV2 = {
   version: 2;
   /** Hero imagery still comes from HeroSlide admin; this only toggles visibility on the home page. */
   hero: { enabled: boolean };
+  categoryCircles: {
+    enabled: boolean;
+    eyebrow: string;
+    title: string;
+    shape: HomeCategoryCircleShape;
+    items: HomeCategoryCircleItem[];
+  };
   sections: DynamicProductSection[];
 };
 

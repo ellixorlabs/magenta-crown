@@ -33,7 +33,8 @@ export function SectionReveal({
       className={className}
       initial={p.initial}
       whileInView={p.animate}
-      viewport={{ once: true, margin: "-50px" }}
+      /** Positive root margin so below-the-fold sections still intersect on first paint; avoid negative margin (harder to trigger on mobile). */
+      viewport={{ once: true, amount: 0.08, margin: "0px 0px 120px 0px" }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}

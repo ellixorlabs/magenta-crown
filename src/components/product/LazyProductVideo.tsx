@@ -51,6 +51,11 @@ export function LazyProductVideo({ src, title = "Product video" }: Props) {
         onLoadedData={onLoaded}
         onCanPlay={onLoaded}
         playsInline
+        muted
+        controlsList="nodownload nofullscreen noremoteplayback"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
+        onDoubleClick={(e) => e.preventDefault()}
       />
     </div>
   );

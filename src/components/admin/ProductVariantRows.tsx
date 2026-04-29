@@ -34,6 +34,8 @@ type Props = { initial: ProductVariant[] };
 
 export function ProductVariantRows({ initial }: Props) {
   const [rows, setRows] = useState<Row[]>(() => rowsFromInitial(initial));
+  const [customSize, setCustomSize] = useState("");
+  const commonSizes = ["XS", "S", "M", "L", "XL", "XXL"];
 
   const json = useMemo(() => {
     const out: VariantRowJson[] = rows
@@ -50,6 +52,47 @@ export function ProductVariantRows({ initial }: Props) {
   return (
     <div className="sm:col-span-2">
       <input type="hidden" name="variantsJson" value={json} />
+      <div className="mb-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
+        <p className="text-xs font-semibold text-zinc-600">Quick sizes</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {commonSizes.map((size) => (
+            <button
+              key={size}
+              type="button"
+              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+              onClick={() =>
+                setRows((prev) => [
+                  ...prev,
+                  { key: newKey(), size, color: "", stock: 0, isActive: true }
+                ])
+              }
+            >
+              + {size}
+            </button>
+          ))}
+          <input
+            className="min-w-[130px] rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs"
+            placeholder="Custom size"
+            value={customSize}
+            onChange={(e) => setCustomSize(e.target.value)}
+          />
+          <button
+            type="button"
+            className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+            onClick={() => {
+              const s = customSize.trim();
+              if (!s) return;
+              setRows((prev) => [
+                ...prev,
+                { key: newKey(), size: s, color: "", stock: 0, isActive: true }
+              ]);
+              setCustomSize("");
+            }}
+          >
+            + Add size
+          </button>
+        </div>
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <label className="text-xs font-semibold text-zinc-600">Variants</label>

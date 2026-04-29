@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import type { Product } from "@prisma/client";
 import { auth } from "@/auth";
+import { HomePageView } from "@/components/home/HomePageView";
+import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
+import { prisma } from "@/lib/prisma";
+import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,29 +13,10 @@ export const metadata: Metadata = {
   description:
     "Luxury women's occasionwear — new arrivals, curated edits, and seasonal collections. Discover sarees, lehengas, and more at Magenta Crown."
 };
-import { HomePageView } from "@/components/home/HomePageView";
-import { prisma } from "@/lib/prisma";
-import { DEFAULT_HERO_SLIDES, getHeroCarouselSettings, getHeroSlidesForSite } from "@/lib/hero-data";
-import { getHomePagePayload } from "@/lib/get-home-page-config";
-
-type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
-
-async function loadProductsByIds(ids: string[]): Promise<Map<string, ProductRow>> {
-  const unique = [...new Set(ids.filter(Boolean))];
-  if (!unique.length) return new Map();
-  try {
-    const rows = await prisma.product.findMany({
-      where: { id: { in: unique } },
-      include: { variants: { select: { stock: true, isActive: true } } }
-    });
-    return new Map(rows.map((p) => [p.id, p]));
-  } catch {
-    return new Map();
-  }
-}
 
 export default async function HomePage() {
-  const session = await auth();
+  const [session, bundle] = await Promise.all([auth(), getHomePageDbBundle()]);
+
   let wishlistIds = new Set<string>();
   if (
     session?.user?.id &&
@@ -51,14 +35,7 @@ export default async function HomePage() {
     }
   }
 
-  const [payload, heroSlides, heroCarousel] = await Promise.all([
-    getHomePagePayload(),
-    getHeroSlidesForSite(),
-    getHeroCarouselSettings()
-  ]);
-
-  const allIds = payload.sections.flatMap((s) => s.productIds);
-  const productById = await loadProductsByIds(allIds);
+  const { payload, heroSlides, heroCarousel, productById } = bundle;
 
   const heroEnabled = payload.hero.enabled;
   const firstHeroBg =

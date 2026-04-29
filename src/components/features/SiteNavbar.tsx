@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
 import { ChevronDown, Heart, Menu, ShoppingBag, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
@@ -12,6 +10,7 @@ import { FALLBACK_MEGA, FALLBACK_PRIMARY } from "@/lib/default-nav";
 import { SiteNavbarMegaMenu } from "@/components/features/SiteNavbarMegaMenu";
 import { useCart } from "@/context/CartContext";
 import { useHeroReady } from "@/context/HeroReadyContext";
+import { useAuth } from "@/context/AuthContext";
 
 export type ServerNavLink = {
   label: string;
@@ -70,7 +69,7 @@ type Props = {
 export function SiteNavbar({ serverLinks }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data: session, status } = useSession();
+  const { isAuthenticated, isLoading, role, userName, userEmail, logout } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
   const { heroReady } = useHeroReady();
   const cartCount = cartItems.reduce((n, it) => n + it.quantity, 0);
@@ -86,6 +85,8 @@ export function SiteNavbar({ serverLinks }: Props) {
   const megaCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [drawerClosing, setDrawerClosing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -104,6 +105,21 @@ export function SiteNavbar({ serverLinks }: Props) {
     lockBodyScroll();
     return () => unlockBodyScroll();
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      setDrawerVisible(true);
+      setDrawerClosing(false);
+      return;
+    }
+    if (!drawerVisible) return;
+    setDrawerClosing(true);
+    const t = window.setTimeout(() => {
+      setDrawerVisible(false);
+      setDrawerClosing(false);
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [drawerVisible, mobileMenuOpen]);
 
   const clearMegaCloseTimer = useCallback(() => {
     if (megaCloseTimer.current) {
@@ -141,21 +157,36 @@ export function SiteNavbar({ serverLinks }: Props) {
   const HERO_THRESHOLD_PX = 88;
   /** Ignore measurements until hero has real layout (avoids boxed header on fresh load / streaming). */
   const MIN_HERO_HEIGHT_PX = 48;
+  /** Hysteresis so small scroll/bounce at the hero fold does not flip header modes every frame (reduces jank). */
+  const HERO_PAST_ENTER = HERO_THRESHOLD_PX - 40;
+  const HERO_PAST_EXIT = HERO_THRESHOLD_PX + 60;
+
+  const pastHeroLatchRef = useRef(false);
+  const measureRafRef = useRef<number | null>(null);
 
   const measureHero = useCallback(() => {
     if (!isHome) return;
     const el = document.getElementById("landing-hero");
     // Not mounted yet (streaming) or layout not ready — stay immersive, never assume "past hero".
     if (!el) {
+      pastHeroLatchRef.current = false;
       setPastHero(false);
       return;
     }
     const rect = el.getBoundingClientRect();
     if (rect.height < MIN_HERO_HEIGHT_PX) {
+      pastHeroLatchRef.current = false;
       setPastHero(false);
       return;
     }
-    setPastHero(rect.bottom < HERO_THRESHOLD_PX);
+    const bottom = rect.bottom;
+    if (!pastHeroLatchRef.current) {
+      if (bottom < HERO_PAST_ENTER) pastHeroLatchRef.current = true;
+    } else if (bottom > HERO_PAST_EXIT) {
+      pastHeroLatchRef.current = false;
+    }
+    const next = pastHeroLatchRef.current;
+    setPastHero((p) => (p === next ? p : next));
   }, [isHome]);
 
   useLayoutEffect(() => {
@@ -163,6 +194,7 @@ export function SiteNavbar({ serverLinks }: Props) {
       setPastHero(true);
       return;
     }
+    pastHeroLatchRef.current = false;
     setPastHero(false);
     measureHero();
   }, [isHome, measureHero]);
@@ -170,14 +202,21 @@ export function SiteNavbar({ serverLinks }: Props) {
   useEffect(() => {
     if (!isHome) return;
 
-    const onScroll = () => measureHero();
-    measureHero();
+    const scheduleMeasure = () => {
+      if (measureRafRef.current != null) return;
+      measureRafRef.current = requestAnimationFrame(() => {
+        measureRafRef.current = null;
+        measureHero();
+      });
+    };
+
+    scheduleMeasure();
 
     let ro: ResizeObserver | null = null;
     const attachRo = () => {
       const hero = document.getElementById("landing-hero");
       if (!hero || ro) return;
-      ro = new ResizeObserver(() => requestAnimationFrame(measureHero));
+      ro = new ResizeObserver(() => scheduleMeasure());
       ro.observe(hero);
     };
     attachRo();
@@ -186,7 +225,7 @@ export function SiteNavbar({ serverLinks }: Props) {
     if (!document.getElementById("landing-hero")) {
       mo = new MutationObserver(() => {
         requestAnimationFrame(() => {
-          measureHero();
+          scheduleMeasure();
           attachRo();
           if (document.getElementById("landing-hero") && mo) {
             mo.disconnect();
@@ -197,12 +236,16 @@ export function SiteNavbar({ serverLinks }: Props) {
       mo.observe(document.documentElement, { childList: true, subtree: true });
     }
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("scroll", scheduleMeasure, { passive: true });
+    window.addEventListener("resize", scheduleMeasure);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", scheduleMeasure);
+      window.removeEventListener("resize", scheduleMeasure);
+      if (measureRafRef.current != null) {
+        cancelAnimationFrame(measureRafRef.current);
+        measureRafRef.current = null;
+      }
       ro?.disconnect();
       mo?.disconnect();
     };
@@ -234,19 +277,30 @@ export function SiteNavbar({ serverLinks }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen, closeMobileMenu]);
 
-  /** Full-screen home loader owns the first paint — hide chrome until hero imagery is ready. */
-  if (isHome && !heroReady) {
+  const scrollHomeToHero = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>) => {
+      if (pathname !== "/") return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [pathname]
+  );
+
+  /**
+   * Keep SSR and first client render aligned on `/`:
+   * server hides chrome until hero ready; client must also hide on first paint,
+   * then reveal after hydration/state settle.
+   */
+  if (isHome && (!mounted || !heroReady)) {
     return null;
   }
 
   const immersive = isHome && !pastHero;
   const isLight = !immersive;
 
-  const isAuthed = status === "authenticated" && !!session?.user;
-  const isStaff =
-    session?.user?.role === "ADMIN" ||
-    session?.user?.role === "SUB_ADMIN" ||
-    session?.user?.role === "TECH_SUPPORT";
+  const isAuthed = isAuthenticated;
+  const isStaff = role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
 
   const megaEntries = Object.entries(mega);
 
@@ -254,30 +308,36 @@ export function SiteNavbar({ serverLinks }: Props) {
     ? "text-zinc-900 hover:text-crown-900"
     : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] hover:text-white";
 
+  /** Same width on home in both immersive and “past hero” modes so the bar does not morph width (major scroll jank). */
+  const homeBarShell =
+    "mx-auto w-full max-w-[min(1920px,calc(100vw-1rem))] sm:max-w-[min(1920px,calc(100vw-2rem))] rounded-2xl";
+
   /**
    * Hero: transparent (immersive). Else: warm frosted bar that matches page shell (#f4f0f2 family) — avoids a bright white
    * “floating card” that fights shop / main content. Dark glass unchanged for edge cases.
    */
   const shellClass = immersive
-    ? "pointer-events-auto w-full overflow-visible bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5"
-    : `pointer-events-auto mx-auto max-w-[min(1920px,calc(100vw-1rem))] overflow-visible rounded-2xl border shadow-lg backdrop-blur-xl backdrop-saturate-150 transition-[background,box-shadow,border-color] duration-300 sm:max-w-[min(1920px,calc(100vw-2rem))] ${
+    ? `pointer-events-auto ${homeBarShell} overflow-visible border border-transparent bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5`
+    : `pointer-events-auto ${homeBarShell} overflow-visible border shadow-lg backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow] duration-150 ${
         isLight
           ? "border-zinc-400/35 bg-gradient-to-br from-[#f2e8ec]/96 via-[#f4f0f2]/94 to-[#ebe3e7]/92 text-zinc-900 shadow-[0_14px_44px_-12px_rgba(55,28,38,0.12)] ring-1 ring-zinc-500/15"
           : "border-white/25 bg-gradient-to-br from-white/20 via-white/12 to-zinc-900/40 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.35)] ring-1 ring-white/20"
       }`;
 
   const mobileDrawer =
-    drawerMounted && mobileMenuOpen ? (
+    drawerMounted && drawerVisible ? (
       createPortal(
         <div id="site-mobile-menu" className="fixed inset-0 z-[25000] lg:hidden" role="dialog" aria-modal="true" aria-label="Site menu">
           <button
             type="button"
-            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            className={`absolute inset-0 backdrop-blur-[2px] transition-opacity duration-200 ${drawerClosing ? "bg-black/0 opacity-0" : "bg-black/45 opacity-100"}`}
             aria-label="Close menu"
             onClick={closeMobileMenu}
           />
           <div
-            className="absolute right-0 top-0 flex h-[100dvh] w-[min(100%,22rem)] flex-col border-l border-zinc-200/90 bg-white text-zinc-900 shadow-2xl"
+            className={`absolute right-0 top-0 flex h-[100dvh] w-[min(100%,22rem)] flex-col border-l border-zinc-200/90 bg-white text-zinc-900 shadow-2xl transition-all duration-200 ${
+              drawerClosing ? "translate-x-4 opacity-0" : "translate-x-0 opacity-100"
+            }`}
             style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3">
@@ -328,7 +388,7 @@ export function SiteNavbar({ serverLinks }: Props) {
               ))}
             </nav>
             <div className="shrink-0 border-t border-zinc-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {status === "loading" ? (
+              {isLoading ? (
                 <p className="px-3 py-2 text-sm text-zinc-500">…</p>
               ) : !isAuthed ? (
                 <Link
@@ -379,7 +439,9 @@ export function SiteNavbar({ serverLinks }: Props) {
                     className="mt-2 w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-900 hover:bg-zinc-100"
                     onClick={() => {
                       closeMobileMenu();
-                      void signOut({ callbackUrl: "/" });
+                      void logout().then(() => {
+                        window.location.href = "/";
+                      });
                     }}
                   >
                     Log out
@@ -396,17 +458,16 @@ export function SiteNavbar({ serverLinks }: Props) {
   return (
     <>
       <header
-        className={
-          immersive
-            ? "pointer-events-none fixed left-0 right-0 top-0 z-[5000] isolate"
-            : "pointer-events-none fixed left-0 right-0 top-0 z-[5000] isolate px-3 pt-3 sm:px-5 sm:pt-4"
-        }
+        data-site-navbar
+        className="pointer-events-none fixed left-0 right-0 top-0 z-[5000] isolate px-3 pt-3 sm:px-5 sm:pt-4"
       >
         <div className={shellClass}>
           <div
-            className={`section-shell relative flex w-full flex-nowrap items-center justify-between gap-2 sm:gap-3 ${immersive ? "py-1 sm:py-1.5" : "py-2.5 sm:py-3.5 lg:py-[1.125rem]"}`}
+            className={`section-shell relative flex w-full flex-nowrap items-center justify-between gap-2 sm:gap-3 ${
+              isHome ? "py-2 sm:py-2.5 lg:py-3" : immersive ? "py-1 sm:py-1.5" : "py-2.5 sm:py-3.5 lg:py-[1.125rem]"
+            }`}
           >
-            <Link href="/" className="relative z-[25] min-w-0 shrink-0 text-left">
+            <Link href="/" className="relative z-[25] min-w-0 shrink-0 text-left" onClick={scrollHomeToHero}>
               <span
                 className={`font-site-brand block whitespace-nowrap text-[11px] font-semibold leading-tight tracking-[0.16em] sm:text-base sm:tracking-[0.2em] lg:text-lg ${
                   isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
@@ -514,7 +575,7 @@ export function SiteNavbar({ serverLinks }: Props) {
                     <Menu className="h-6 w-6" strokeWidth={2} />
                   </button>
 
-                  {status === "loading" ? (
+                  {isLoading ? (
                     <span className={`hidden text-xs lg:inline ${isLight ? "text-zinc-500" : "text-white/80"}`}>…</span>
                   ) : !isAuthed ? (
                     <Link
@@ -538,23 +599,13 @@ export function SiteNavbar({ serverLinks }: Props) {
                       aria-haspopup="menu"
                       aria-expanded={accountOpen}
                     >
-                      {session.user?.image ? (
-                        <Image
-                          src={session.user.image}
-                          alt=""
-                          width={36}
-                          height={36}
-                          className="h-9 w-9 rounded-full border border-white/30 object-cover"
-                        />
-                      ) : (
-                        <span
-                          className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
-                            isLight ? "border-zinc-300 bg-zinc-100 text-zinc-800" : "border-white/60 bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                          }`}
-                        >
-                          {(session.user?.name ?? session.user?.email ?? "?").slice(0, 1)}
-                        </span>
-                      )}
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
+                          isLight ? "border-zinc-300 bg-zinc-100 text-zinc-800" : "border-white/60 bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
+                        }`}
+                      >
+                        {(userName ?? userEmail ?? "?").slice(0, 1)}
+                      </span>
                       <ChevronDown className="hidden h-4 w-4 sm:block" />
                       </button>
                     {accountOpen && (
@@ -611,7 +662,9 @@ export function SiteNavbar({ serverLinks }: Props) {
                             className={`block w-full px-4 py-2 text-left text-sm font-medium ${isLight ? "hover:bg-zinc-200/60" : "hover:bg-white/10"}`}
                             onClick={() => {
                               setAccountOpen(false);
-                              void signOut({ callbackUrl: "/" });
+                              void logout().then(() => {
+                                window.location.href = "/";
+                              });
                             }}
                           >
                             Log out

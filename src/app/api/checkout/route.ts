@@ -127,7 +127,7 @@ export async function POST(req: Request) {
 
     const paymentMethod = body.paymentMethod ?? "CARD";
     const isCod = paymentMethod === "CASH_ON_DELIVERY";
-    const orderStatus = isCod ? "PENDING" : "PAID";
+    const orderStatus = "PENDING";
 
     const addressSource = body.addressSource ?? "new";
     const saveRaw = body.saveAddress;
@@ -306,7 +306,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       orderId: order.id,
-      publicOrderRef: order.publicOrderRef ?? null
+      publicOrderRef: order.publicOrderRef ?? null,
+      requiresOnlinePayment: !isCod
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";

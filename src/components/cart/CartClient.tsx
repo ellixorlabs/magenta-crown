@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo } from "react";
 import type { Product } from "@prisma/client";
 import { EmptyState } from "@/components/empty/EmptyState";
-import { IMAGE_BLUR_DATA_URL } from "@/lib/image-blur";
+import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
 import { useCart } from "@/context/CartContext";
 import { ProductCard } from "@/components/features/ProductCard";
 import { getProductTotalStock } from "@/lib/variant-stock";
@@ -15,9 +15,8 @@ type Props = {
 };
 
 export function CartClient({ upsells }: Props) {
-  const { items, subtotal, discountedTotal, couponCode, applyCoupon, updateQuantity, removeItem } = useCart();
-  const [code, setCode] = useState("");
-  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const { items, subtotal, discountedTotal, updateQuantity, removeItem } = useCart();
+  const cartProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
 
   return (
     <main className="min-h-screen bg-[#f8f5f6] py-10">
@@ -53,8 +52,6 @@ export function CartClient({ upsells }: Props) {
                           fill
                           className="object-contain"
                           sizes="96px"
-                          placeholder="blur"
-                          blurDataURL={IMAGE_BLUR_DATA_URL}
                           loading="lazy"
                           unoptimized
                         />
@@ -67,8 +64,6 @@ export function CartClient({ upsells }: Props) {
                           fill
                           className="object-contain"
                           sizes="96px"
-                          placeholder="blur"
-                          blurDataURL={IMAGE_BLUR_DATA_URL}
                           loading="lazy"
                           unoptimized
                         />
@@ -89,7 +84,7 @@ export function CartClient({ upsells }: Props) {
                           {line.color && `Color ${line.color}`}
                         </p>
                       )}
-                      <p className="mt-1 text-sm text-crown-800">Rs {line.price}</p>
+                      <p className="mt-1 text-base font-semibold text-crown-800">Rs {line.price}</p>
                       <div className="mt-2 flex items-center gap-2">
                         <label className="text-xs text-zinc-500">Qty</label>
                         <input
@@ -122,14 +117,9 @@ export function CartClient({ upsells }: Props) {
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Summary</h2>
                 <div className="mt-4 flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span>Rs {subtotal.toFixed(0)}</span>
+                  <span className="font-semibold text-zinc-900">Rs {subtotal.toFixed(0)}</span>
                 </div>
-                {couponCode && (
-                  <div className="mt-2 flex justify-between text-sm text-green-700">
-                    <span>Promo ({couponCode})</span>
-                    <span>Applied</span>
-                  </div>
-                )}
+                <BagPromoAppliedRow />
                 <div className="mt-4 flex justify-between border-t border-zinc-200 pt-4 text-lg font-semibold">
                   <span>Total</span>
                   <span>Rs {discountedTotal.toFixed(0)}</span>
@@ -137,27 +127,7 @@ export function CartClient({ upsells }: Props) {
                 <p className="mt-3 text-xs text-zinc-500">
                   Delivery estimate: 5–7 business days within India (mock).
                 </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <input
-                    className="min-w-[min(100%,12rem)] flex-1 rounded-full border border-zinc-300 px-3 py-2 text-sm"
-                    placeholder="Promo code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-white"
-                    onClick={async () => {
-                      setCouponMsg(null);
-                      const r = await applyCoupon(code);
-                      if (!r.ok) setCouponMsg(r.message);
-                    }}
-                  >
-                    Apply
-                  </button>
-                </div>
-                {couponMsg && <p className="text-xs text-red-600">{couponMsg}</p>}
-                {couponCode && <p className="text-xs text-zinc-500">Promo applied at checkout (validated on server).</p>}
+                <BagPromoSection productIds={cartProductIds} />
                 <Link
                   href="/checkout"
                   className="mt-6 block w-full rounded-full bg-crown-800 py-3 text-center text-sm font-semibold text-white hover:bg-crown-900"

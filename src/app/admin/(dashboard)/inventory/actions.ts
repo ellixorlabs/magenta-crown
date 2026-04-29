@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 import { normColorKey, normPart } from "@/lib/product-variants";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { clearCacheByPrefix } from "@/lib/cache";
 
 function parseList(s: string) {
   return s
@@ -65,6 +66,27 @@ function parseFeaturedCouponIds(formData: FormData): string[] {
   }
 }
 
+function computeNewTagExpiresAt(
+  tags: string[],
+  durationRaw: FormDataEntryValue | null,
+  prev?: Date | null
+): Date | null {
+  const hasNewTag = tags.some((t) => t.trim().toLowerCase() === "new");
+  if (!hasNewTag) return null;
+
+  const duration = Number(String(durationRaw ?? "").trim());
+  if (Number.isFinite(duration) && duration > 0) {
+    return new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
+  }
+
+  if (prev && prev.getTime() > Date.now()) {
+    return prev;
+  }
+
+  // Safe default if admin didn't provide days but kept "new" tag.
+  return new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+}
+
 function productCommerceFields(formData: FormData) {
   const sizeRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
   const sizeChartImageUrl = sizeRaw ? normalizeAdminImageUrl(sizeRaw) : null;
@@ -103,6 +125,8 @@ export async function createProduct(formData: FormData) {
 
   const commerce = productCommerceFields(formData);
   const featuredIds = parseFeaturedCouponIds(formData);
+  const tags = parseList(String(formData.get("tags") ?? ""));
+  const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
 
   const created = await prisma.product.create({
     data: {
@@ -113,7 +137,8 @@ export async function createProduct(formData: FormData) {
       mrp: Number.isFinite(mrp) ? mrp : 0,
       discountedPrice: discountedPrice != null && Number.isFinite(discountedPrice) ? discountedPrice : null,
       category: String(formData.get("category") ?? "Uncategorized").trim() || "Uncategorized",
-      tags: parseList(String(formData.get("tags") ?? "")),
+      tags,
+      newTagExpiresAt,
       material: String(formData.get("material") ?? "").trim() || null,
       occasion: String(formData.get("occasion") ?? "").trim() || null,
       style: String(formData.get("style") ?? "").trim() || null,
@@ -152,13 +177,16 @@ export async function createProduct(formData: FormData) {
   revalidatePath("/shop");
   revalidatePath("/admin/inventory");
   revalidatePath(`/product/${created.slug}`);
+  // Public caches: homepage + product lists.
+  clearCacheByPrefix("products");
+  clearCacheByPrefix("homepage");
   redirect("/admin/inventory");
 }
 
 export async function updateProduct(formData: FormData) {
   const session = await requireStaff("/admin/inventory");
-  if (!isAdminRole(session.user.role)) {
-    throw new Error("Only admins can edit product details");
+  if (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN") {
+    throw new Error("Only staff can edit product details");
   }
 
   const id = String(formData.get("id") ?? "");
@@ -184,6 +212,16 @@ export async function updateProduct(formData: FormData) {
 
   const commerce = productCommerceFields(formData);
   const featuredIds = parseFeaturedCouponIds(formData);
+  const tags = parseList(String(formData.get("tags") ?? ""));
+  const current = await prisma.product.findUnique({
+    where: { id },
+    select: { newTagExpiresAt: true }
+  });
+  const newTagExpiresAt = computeNewTagExpiresAt(
+    tags,
+    formData.get("newTagDurationDays"),
+    current?.newTagExpiresAt ?? null
+  );
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.productVariant.deleteMany({ where: { productId: id } });
@@ -220,7 +258,8 @@ export async function updateProduct(formData: FormData) {
         mrp: Number.isFinite(mrp) ? mrp : 0,
         discountedPrice: discountedPrice != null && Number.isFinite(discountedPrice) ? discountedPrice : null,
         category: String(formData.get("category") ?? "Uncategorized").trim() || "Uncategorized",
-        tags: parseList(String(formData.get("tags") ?? "")),
+        tags,
+        newTagExpiresAt,
         material: String(formData.get("material") ?? "").trim() || null,
         occasion: String(formData.get("occasion") ?? "").trim() || null,
         style: String(formData.get("style") ?? "").trim() || null,
@@ -242,6 +281,9 @@ export async function updateProduct(formData: FormData) {
   revalidatePath(`/product/${updated.slug}`);
   revalidatePath("/admin/inventory");
   revalidatePath(`/admin/inventory/${id}`);
+  // Public caches: homepage + product lists.
+  clearCacheByPrefix("products");
+  clearCacheByPrefix("homepage");
 }
 
 export async function deleteProduct(
@@ -268,6 +310,9 @@ export async function deleteProduct(
   revalidatePath("/", "layout");
   revalidatePath("/shop");
   revalidatePath("/admin/inventory");
+  // Public caches: homepage + product lists.
+  clearCacheByPrefix("products");
+  clearCacheByPrefix("homepage");
   return { ok: true };
 }
 

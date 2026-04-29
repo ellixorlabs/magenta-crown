@@ -1,16 +1,32 @@
-import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
 import { randomId } from "@/lib/random-id";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-const MAX_BYTES = 3 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_INPUT_BYTES = 8 * 1024 * 1024;
+const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+const ALLOWED = new Set(["image/jpeg", "image/png"]);
+const BUCKET = "product-images";
+
+async function compressImageToWebp(input: Buffer): Promise<Buffer> {
+  // Keep trying lower quality until the output is around ~1–2MB.
+  for (const quality of [82, 76, 70, 64, 58, 52, 46]) {
+    const out = await sharp(input)
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+    if (out.length <= MAX_OUTPUT_BYTES) return out;
+  }
+  throw new Error("Unable to compress image below 2MB");
+}
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!isAdminRole(session?.user?.role)) {
+  const role = session?.user?.role;
+  if (!session?.user?.id || (!isAdminRole(role) && role !== "SUB_ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -21,32 +37,36 @@ export async function POST(req: Request) {
 
   const form = await req.formData();
   const file = form.get("file");
+  const productIdRaw = String(form.get("productId") ?? "").trim();
+  const productId = productIdRaw || "draft";
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File too large (max 3MB)" }, { status: 400 });
+  if (file.size > MAX_INPUT_BYTES) {
+    return NextResponse.json({ error: "File too large (max 8MB input)" }, { status: 400 });
   }
   if (!ALLOWED.has(file.type)) {
-    return NextResponse.json({ error: "Only JPEG, PNG, WebP, or GIF" }, { status: 400 });
+    return NextResponse.json({ error: "Only JPEG or PNG" }, { status: 400 });
   }
 
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : file.type === "image/gif"
-          ? "gif"
-          : "jpg";
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const input = Buffer.from(await file.arrayBuffer());
+    const webp = await compressImageToWebp(input);
+    const path = `${productId}/${Date.now()}-${randomId()}.webp`;
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  const dir = join(process.cwd(), "public", "uploads", "products");
-  await mkdir(dir, { recursive: true });
-  const name = `${randomId()}.${ext}`;
-  const diskPath = join(dir, name);
-  await writeFile(diskPath, buf);
+    const upload = await supabaseAdmin.storage.from(BUCKET).upload(path, webp, {
+      contentType: "image/webp",
+      upsert: false
+    });
+    if (upload.error) {
+      return NextResponse.json({ error: upload.error.message }, { status: 500 });
+    }
 
-  const url = `/uploads/products/${name}`;
-  return NextResponse.json({ url });
+    const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+    return NextResponse.json({ url: data.publicUrl });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Upload failed";
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
 }

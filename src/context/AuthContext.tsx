@@ -2,12 +2,14 @@
 
 import {
   createContext,
+  useEffect,
   useCallback,
   useContext,
   useMemo,
+  useState,
   type ReactNode
 } from "react";
-import { useSession, SessionProvider, signIn, signOut } from "next-auth/react";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 type Role = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
 
@@ -26,11 +28,97 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function AuthContextInner({ children }: { children: ReactNode }) {
-  const { data, status } = useSession();
-  const isLoading = status === "loading";
-  const isAuthenticated = status === "authenticated";
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [role, setRole] = useState<Role>("CUSTOMER");
+  const isAuthenticated = Boolean(userId);
 
-  const role = (data?.user?.role as Role | undefined) ?? "CUSTOMER";
+  const clearAuthState = useCallback(() => {
+    setUserId(null);
+    setUserEmail(null);
+    setUserName(null);
+    setRole("CUSTOMER");
+  }, []);
+
+  const refreshServerSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/session", { cache: "no-store" });
+      const data = (await res.json()) as {
+        session?: { user?: { id?: string; email?: string; name?: string | null; role?: Role } } | null;
+      };
+      const user = data.session?.user;
+      if (!user?.id) {
+        clearAuthState();
+        return;
+      }
+      setUserId(user.id);
+      setUserEmail(user.email ?? null);
+      setUserName(user.name ?? null);
+      setRole(user.role ?? "CUSTOMER");
+    } catch {
+      clearAuthState();
+    }
+  }, [clearAuthState]);
+
+  const syncServerCookie = useCallback(async (accessToken: string | null) => {
+    if (!accessToken) {
+      await fetch("/api/auth/session", { method: "DELETE" });
+      return;
+    }
+    await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let unsub: (() => void) | null = null;
+    (async () => {
+      try {
+        const supabase = await getSupabaseClientOrNull();
+        if (!supabase || !mounted) return;
+
+        const { data: sess } = await supabase.auth.getSession();
+        await syncServerCookie(sess.session?.access_token ?? null);
+        const { data } = await supabase.auth.getUser();
+        if (mounted) {
+          if (!data.user) {
+            clearAuthState();
+          } else {
+            setUserId(data.user.id);
+            setUserEmail(data.user.email ?? null);
+            setUserName((data.user.user_metadata?.name as string | undefined) ?? null);
+          }
+          await refreshServerSession();
+        }
+        const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+          if (!mounted) return;
+          await syncServerCookie(session?.access_token ?? null);
+          if (!session?.user) {
+            clearAuthState();
+          } else {
+            setUserId(session.user.id);
+            setUserEmail(session.user.email ?? null);
+            setUserName((session.user.user_metadata?.name as string | undefined) ?? null);
+            setRole("CUSTOMER");
+          }
+          await refreshServerSession();
+        });
+        unsub = () => sub.subscription.unsubscribe();
+      } catch {
+        clearAuthState();
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+      unsub?.();
+    };
+  }, [clearAuthState, refreshServerSession, syncServerCookie]);
   const hasRole = useCallback(
     (allowedRoles: Role[]) => allowedRoles.includes(role),
     [role]
@@ -38,32 +126,30 @@ function AuthContextInner({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      userId: data?.user?.id ?? null,
-      userName: data?.user?.name ?? null,
-      userEmail: data?.user?.email ?? null,
+      userId,
+      userName,
+      userEmail,
       role,
       isAuthenticated,
       isLoading,
       hasRole,
       login: async () => {
-        await signIn();
+        window.location.href = "/auth/signin";
       },
       logout: async () => {
-        await signOut();
+        const supabase = await getSupabaseClientOrNull();
+        await supabase?.auth.signOut();
+        await syncServerCookie(null);
       }
     }),
-    [data?.user?.email, data?.user?.id, data?.user?.name, hasRole, isAuthenticated, isLoading, role]
+    [hasRole, isAuthenticated, isLoading, role, syncServerCookie, userEmail, userId, userName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  return (
-    <SessionProvider>
-      <AuthContextInner>{children}</AuthContextInner>
-    </SessionProvider>
-  );
+  return <AuthContextInner>{children}</AuthContextInner>;
 }
 
 export function useAuth() {

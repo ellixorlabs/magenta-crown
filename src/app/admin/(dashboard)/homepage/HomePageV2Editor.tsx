@@ -5,7 +5,12 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
-import type { DynamicProductSection, HomePagePayloadV2, SectionTransition } from "@/lib/home-page-types";
+import type {
+  DynamicProductSection,
+  HomeCategoryCircleItem,
+  HomePagePayloadV2,
+  SectionTransition
+} from "@/lib/home-page-types";
 import { randomId } from "@/lib/random-id";
 import { saveHomePageConfig } from "./actions";
 
@@ -31,6 +36,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [productFilter, setProductFilter] = useState("");
   const [openSectionId, setOpenSectionId] = useState<string | null>(initial.sections[0]?.id ?? null);
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
+  const [draggingCircleId, setDraggingCircleId] = useState<string | null>(null);
 
   const filteredCatalog = useMemo(() => {
     const q = productFilter.trim().toLowerCase();
@@ -42,6 +49,10 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
         p.category.toLowerCase().includes(q)
     );
   }, [catalogProducts, productFilter]);
+  const categoryOptions = useMemo(
+    () => [...new Set(catalogProducts.map((p) => p.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [catalogProducts]
+  );
 
   const publish = useCallback(() => {
     setError(null);
@@ -100,6 +111,20 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
+  const reorderSectionByDrop = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setPayload((p) => {
+      const sorted = normalizeOrders(p.sections);
+      const from = sorted.findIndex((s) => s.id === fromId);
+      const to = sorted.findIndex((s) => s.id === toId);
+      if (from < 0 || to < 0) return p;
+      const copy = [...sorted];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(to, 0, moved!);
+      return { ...p, sections: normalizeOrders(copy) };
+    });
+  }, []);
+
   const patchSection = useCallback((id: string, patch: Partial<DynamicProductSection>) => {
     setPayload((p) => ({
       ...p,
@@ -127,6 +152,58 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     setError(null);
   }, []);
 
+  const addCircle = useCallback(() => {
+    setPayload((p) => ({
+      ...p,
+      categoryCircles: {
+        ...p.categoryCircles,
+        items: [
+          ...p.categoryCircles.items,
+          {
+            id: `circle-${randomId()}`,
+            label: "New circle",
+            imageUrl: "",
+            targetType: "customUrl",
+            targetValue: "/shop"
+          }
+        ]
+      }
+    }));
+  }, []);
+
+  const patchCircle = useCallback((id: string, patch: Partial<HomeCategoryCircleItem>) => {
+    setPayload((p) => ({
+      ...p,
+      categoryCircles: {
+        ...p.categoryCircles,
+        items: p.categoryCircles.items.map((it) => (it.id === id ? { ...it, ...patch } : it))
+      }
+    }));
+  }, []);
+
+  const removeCircle = useCallback((id: string) => {
+    setPayload((p) => ({
+      ...p,
+      categoryCircles: {
+        ...p.categoryCircles,
+        items: p.categoryCircles.items.filter((it) => it.id !== id)
+      }
+    }));
+  }, []);
+
+  const reorderCircleByDrop = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setPayload((p) => {
+      const from = p.categoryCircles.items.findIndex((it) => it.id === fromId);
+      const to = p.categoryCircles.items.findIndex((it) => it.id === toId);
+      if (from < 0 || to < 0) return p;
+      const copy = [...p.categoryCircles.items];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(to, 0, moved!);
+      return { ...p, categoryCircles: { ...p.categoryCircles, items: copy } };
+    });
+  }, []);
+
   return (
     <div className="min-w-0 max-w-full space-y-8 overflow-x-hidden">
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -144,6 +221,174 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
           />
           Show hero on homepage
         </label>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">Category circles</p>
+            <p className="mt-1 text-xs text-zinc-600">
+              Circular image links for categories or custom URLs.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              checked={payload.categoryCircles.enabled}
+              onChange={(e) =>
+                setPayload((p) => ({
+                  ...p,
+                  categoryCircles: { ...p.categoryCircles, enabled: e.target.checked }
+                }))
+              }
+            />
+            Enabled
+          </label>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <label className="block text-xs font-semibold text-zinc-600">
+            Eyebrow
+            <input
+              type="text"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={payload.categoryCircles.eyebrow}
+              onChange={(e) =>
+                setPayload((p) => ({
+                  ...p,
+                  categoryCircles: { ...p.categoryCircles, eyebrow: e.target.value }
+                }))
+              }
+            />
+          </label>
+          <label className="block text-xs font-semibold text-zinc-600">
+            Title
+            <input
+              type="text"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={payload.categoryCircles.title}
+              onChange={(e) =>
+                setPayload((p) => ({
+                  ...p,
+                  categoryCircles: { ...p.categoryCircles, title: e.target.value }
+                }))
+              }
+            />
+          </label>
+          <label className="block text-xs font-semibold text-zinc-600">
+            Shape
+            <select
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={payload.categoryCircles.shape}
+              onChange={(e) =>
+                setPayload((p) => ({
+                  ...p,
+                  categoryCircles: {
+                    ...p.categoryCircles,
+                    shape: e.target.value as "circle" | "square" | "rectangle"
+                  }
+                }))
+              }
+            >
+              <option value="circle">Circle</option>
+              <option value="square">Square</option>
+              <option value="rectangle">Rectangle</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 space-y-3">
+          {payload.categoryCircles.items.map((it) => (
+            <div
+              key={it.id}
+              draggable
+              onDragStart={() => setDraggingCircleId(it.id)}
+              onDragEnd={() => setDraggingCircleId(null)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggingCircleId) reorderCircleByDrop(draggingCircleId, it.id);
+              }}
+              className={`rounded-xl border bg-zinc-50/60 p-3 ${draggingCircleId === it.id ? "border-crown-400" : "border-zinc-200"}`}
+            >
+              <div className="grid gap-3 sm:grid-cols-4">
+                <label className="block text-xs font-semibold text-zinc-600">
+                  Label
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    value={it.label}
+                    onChange={(e) => patchCircle(it.id, { label: e.target.value })}
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-zinc-600">
+                  Image URL
+                  <input
+                    type="url"
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    value={it.imageUrl}
+                    onChange={(e) => patchCircle(it.id, { imageUrl: e.target.value })}
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-zinc-600">
+                  Redirect type
+                  <select
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    value={it.targetType}
+                    onChange={(e) =>
+                      patchCircle(it.id, {
+                        targetType: e.target.value as "category" | "shopFilter" | "customUrl"
+                      })
+                    }
+                  >
+                    <option value="category">Category</option>
+                    <option value="shopFilter">Shop filter</option>
+                    <option value="customUrl">Custom URL</option>
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-zinc-600">
+                  Redirect value
+                  {it.targetType === "category" ? (
+                    <select
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                      value={it.targetValue}
+                      onChange={(e) => patchCircle(it.id, { targetValue: e.target.value })}
+                    >
+                      <option value="">Select category</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                      value={it.targetValue}
+                      onChange={(e) => patchCircle(it.id, { targetValue: e.target.value })}
+                      placeholder={it.targetType === "shopFilter" ? "sort=new or category=Sarees" : "/shop"}
+                    />
+                  )}
+                </label>
+              </div>
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-red-600 hover:underline"
+                  onClick={() => removeCircle(it.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addCircle}
+            className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-800 hover:bg-zinc-50"
+          >
+            + Add circle
+          </button>
+        </div>
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -173,7 +418,18 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
 
       <ul className="min-w-0 space-y-4">
         {normalizeOrders(payload.sections).map((section, index, arr) => (
-          <li key={section.id} className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <li
+            key={section.id}
+            draggable
+            onDragStart={() => setDraggingSectionId(section.id)}
+            onDragEnd={() => setDraggingSectionId(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (draggingSectionId) reorderSectionByDrop(draggingSectionId, section.id);
+            }}
+            className={`min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm ${draggingSectionId === section.id ? "border-crown-400" : "border-zinc-200"}`}
+          >
             <div className="flex min-w-0 flex-wrap items-stretch gap-0 border-b border-zinc-100 bg-zinc-50/80">
               <div className="flex shrink-0 border-r border-zinc-200">
                 <button

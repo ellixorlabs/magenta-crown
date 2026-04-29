@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 /**
@@ -13,9 +14,15 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
 
   const skipTopPad = isHome || isAuthImmersive;
 
+  useEffect(() => {
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [pathname]);
+
   return (
     <div
-      className={`relative z-0 min-w-0 ${skipTopPad ? "" : "pt-[8.75rem] sm:pt-[9.25rem]"}`}
+      className={`relative z-0 min-w-0 bg-[#f4f0f2] ${skipTopPad ? "" : "pt-[7.5rem] sm:pt-[8rem]"}`}
     >
       {children}
     </div>

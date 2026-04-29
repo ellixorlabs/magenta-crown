@@ -28,6 +28,40 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/*
+ * Full-bleed overlays: declare larger-than-needed fallbacks first; end with 100dvh so it wins
+ * over 100svh (svh last caused short sheets on some mobile WebKit builds).
+ */
+.mc-viewport-fill {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100svh;
+  min-height: 100dvh;
+}
+
+/* Full-screen loader: paint on `document.body` (avoids fixed + transformed ancestors). lvh covers max mobile viewport. */
+.mc-loader-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100svh;
+  min-height: 100dvh;
+  min-height: 100lvh;
+}
+
+/* Full-bleed loaders (home intro + route transitions) sit above main content; hide fixed chrome so it doesn’t stack on top. */
+html.mc-hide-site-chrome [data-site-navbar],
+html.mc-hide-site-chrome [data-mc-glass-back] {
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 body {

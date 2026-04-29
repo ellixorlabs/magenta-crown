@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function Inner() {
   const searchParams = useSearchParams();
@@ -20,18 +20,39 @@ function Inner() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      email: email.trim().toLowerCase(),
-      password,
-      redirect: false,
-      callbackUrl
-    });
-    setLoading(false);
-    if (res?.error) {
-      setError("Invalid email or password.");
-      return;
+    try {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        setError("Supabase is not configured. Add keys in .env and restart dev server.");
+        return;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password
+      });
+      if (signInError) {
+        setError(signInError.message || "Invalid email or password.");
+        return;
+      }
+
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (token) {
+        await fetch("/api/auth/sync-user", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+
+      window.location.href = callbackUrl;
+    } catch {
+      setError("Could not sign in.");
+    } finally {
+      setLoading(false);
     }
-    window.location.href = callbackUrl;
   }
 
   return (
@@ -58,7 +79,7 @@ function Inner() {
             <input
               type="email"
               required
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-400"
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -69,11 +90,16 @@ function Inner() {
             <input
               type="password"
               required
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-400"
+              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
+          </div>
+          <div className="-mt-2 text-right">
+            <Link href="/auth/forgot-password" className="text-xs font-semibold text-crown-800 underline underline-offset-2">
+              Forgot password?
+            </Link>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button

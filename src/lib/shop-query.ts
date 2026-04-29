@@ -14,6 +14,20 @@ function parseGridCols(raw: string | undefined): 2 | 3 | 4 | 5 | 6 | null {
 }
 
 export function parseShopSearchParams(sp: Record<string, string | string[] | undefined>) {
+  function parsePage(raw: string | string[] | undefined, fallback: number): number {
+    const v =
+      typeof raw === "string"
+        ? raw
+        : Array.isArray(raw) && typeof raw[0] === "string"
+          ? raw[0]
+          : undefined;
+    const n = v ? Number.parseInt(v, 10) : fallback;
+    if (!Number.isFinite(n) || n < 1) return fallback;
+    return n;
+  }
+
+  const DEFAULT_PAGE_SIZE = 24;
+
   return {
     category: firstString(sp.category),
     occasion: firstString(sp.occasion),
@@ -27,7 +41,12 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
     cols: parseGridCols(firstString(sp.cols)),
     view: firstString(sp.view),
     /** When "1", only show products that have at least one active variant with stock &gt; 0 (default: show entire catalog, including zero stock). */
-    hideOutOfStock: firstString(sp.hideOutOfStock)
+    hideOutOfStock: firstString(sp.hideOutOfStock),
+    page: parsePage(sp.page, 1),
+    pageSize: Math.min(
+      48,
+      Math.max(6, parsePage(sp.pageSize, DEFAULT_PAGE_SIZE))
+    )
   };
 }
 

@@ -13,6 +13,22 @@ function isPayloadV2(x: unknown): x is HomePagePayloadV2 {
   if (typeof o.hero !== "object" || o.hero === null) return false;
   const h = o.hero as Record<string, unknown>;
   if (typeof h.enabled !== "boolean") return false;
+  if (typeof o.categoryCircles !== "object" || o.categoryCircles === null) return false;
+  const cc = o.categoryCircles as Record<string, unknown>;
+  if (typeof cc.enabled !== "boolean") return false;
+  if (typeof cc.eyebrow !== "string") return false;
+  if (typeof cc.title !== "string") return false;
+  if (cc.shape !== "circle" && cc.shape !== "square" && cc.shape !== "rectangle") return false;
+  if (!Array.isArray(cc.items)) return false;
+  for (const it of cc.items) {
+    if (typeof it !== "object" || it === null) return false;
+    const i = it as Record<string, unknown>;
+    if (typeof i.id !== "string") return false;
+    if (typeof i.label !== "string") return false;
+    if (typeof i.imageUrl !== "string") return false;
+    if (i.targetType !== "category" && i.targetType !== "shopFilter" && i.targetType !== "customUrl") return false;
+    if (typeof i.targetValue !== "string") return false;
+  }
   if (!Array.isArray(o.sections)) return false;
   for (const s of o.sections) {
     if (typeof s !== "object" || s === null) return false;
@@ -42,7 +58,24 @@ function normalizePayloadV2(p: HomePagePayloadV2): HomePagePayloadV2 {
     eyebrow: s.eyebrow.trim(),
     productIds: [...new Set(s.productIds.filter(Boolean))]
   }));
-  return { version: 2, hero: { enabled: p.hero.enabled }, sections };
+  return {
+    version: 2,
+    hero: { enabled: p.hero.enabled },
+    categoryCircles: {
+      enabled: p.categoryCircles.enabled,
+      eyebrow: p.categoryCircles.eyebrow.trim(),
+      title: p.categoryCircles.title.trim(),
+      shape: p.categoryCircles.shape,
+      items: p.categoryCircles.items.slice(0, 12).map((it) => ({
+        id: it.id.trim(),
+        label: it.label.trim(),
+        imageUrl: it.imageUrl.trim(),
+        targetType: it.targetType,
+        targetValue: it.targetValue.trim()
+      }))
+    },
+    sections
+  };
 }
 
 export async function saveHomePageConfig(payload: unknown) {

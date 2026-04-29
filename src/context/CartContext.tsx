@@ -39,6 +39,7 @@ type CartContextValue = {
   /** True after local/session storage has been read (avoid empty flash on checkout). */
   cartHydrated: boolean;
   couponCode: string | null;
+  discountPct: number;
   subtotal: number;
   discountedTotal: number;
   addItem: (item: Omit<CartItem, "lineKey"> & { lineKey?: string }) => void;
@@ -143,6 +144,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       cartHydrated,
       couponCode,
+      discountPct,
       subtotal,
       discountedTotal,
       flushCart: () => {

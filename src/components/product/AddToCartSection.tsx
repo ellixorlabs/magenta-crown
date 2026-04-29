@@ -4,10 +4,10 @@ import Link from "next/link";
 import { Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
 import type { Coupon, Product, ProductVariant } from "@prisma/client";
 import { makeLineKey } from "@/lib/cart-line";
 import { getProductDisplayImage } from "@/lib/product-image-display";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { getVariantAvailable, isSingleDefaultSku, lineInBagQuantity } from "@/lib/variant-stock";
 import {
@@ -48,23 +48,14 @@ function pctOff(mrp: number, sale: number | null | undefined) {
 export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
   const router = useRouter();
   const variants = product.variants as VariantForUi[];
-  const [uiReady, setUiReady] = useState(false);
-  const { data: session } = useSession();
+  const { role } = useAuth();
   const { addItem, items, updateQuantity, clearCart } = useCart();
 
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
-  const [qty, setQty] = useState(1);
 
-  useEffect(() => {
-    setUiReady(true);
-  }, []);
-
-  const isStaff =
-    session?.user?.role === "ADMIN" ||
-    session?.user?.role === "SUB_ADMIN" ||
-    session?.user?.role === "TECH_SUPPORT";
+  const isStaff = role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
 
   const price = product.discountedPrice ?? product.mrp;
   const singleDefault = useMemo(() => isSingleDefaultSku(product.variants), [product.variants]);
@@ -133,13 +124,6 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
   const inBag = lineInBagQuantity(items, product.id, lineSize, lineColor);
   const remaining = Math.max(0, available - inBag);
 
-  useEffect(() => {
-    setQty((q) => {
-      if (remaining <= 0) return 1;
-      return Math.min(Math.max(1, q), remaining);
-    });
-  }, [remaining, selectedVariant?.id]);
-
   const lineKey = useMemo(
     () => makeLineKey(product.id, lineSize, lineColor),
     [product.id, lineSize, lineColor]
@@ -169,23 +153,14 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
     [product.featuredCoupons]
   );
 
-  const canBuy = uiReady && (singleDefault || (Boolean(selectedVariant) && available > 0));
-
-  const bumpQty = (d: number) => {
-    setQty((q) => {
-      if (remaining <= 0) return 1;
-      const cap = remaining;
-      const next = q + d;
-      return Math.min(cap, Math.max(1, next));
-    });
-  };
+  const canBuy = singleDefault || (Boolean(selectedVariant) && available > 0);
 
   const pushItemsToCart = useCallback(() => {
     if (!selectedVariant && !singleDefault) return;
     const vid = singleDefault ? product.variants[0]?.id : selectedVariant?.id;
     if (!vid) return;
-    const q = Math.min(qty, Math.max(1, remaining));
     if (remaining <= 0) return;
+    const q = Math.min(1, remaining);
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -208,19 +183,19 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
     product.id,
     product.name,
     product.slug,
-    qty,
     remaining,
     selectedVariant,
     singleDefault,
     product.variants
   ]);
 
-  const goCheckout = (pm: string) => {
-    clearCart();
+  const goBuyNow = useCallback(() => {
+    if (!selectedVariant && !singleDefault) return;
     const vid = singleDefault ? product.variants[0]?.id : selectedVariant?.id;
     if (!vid) return;
-    const q = Math.min(qty, Math.max(1, remaining));
     if (remaining <= 0) return;
+    const q = Math.min(inBag > 0 ? inBag : 1, Math.max(1, remaining));
+    clearCart();
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -233,8 +208,25 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
       variantId: vid,
       maxStock: available
     });
-    router.push(`/checkout?pm=${encodeURIComponent(pm)}`);
-  };
+    router.push("/checkout");
+  }, [
+    addItem,
+    available,
+    clearCart,
+    img,
+    inBag,
+    lineColor,
+    lineSize,
+    price,
+    product.id,
+    product.name,
+    product.slug,
+    remaining,
+    router,
+    selectedVariant,
+    singleDefault,
+    product.variants
+  ]);
 
   if (isStaff) {
     return (
@@ -277,14 +269,10 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
   const codOk = product.codEnabled !== false;
 
   return (
-    <div
-      className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6"
-      aria-busy={!uiReady}
-      data-add-to-cart-ready={uiReady ? "true" : "false"}
-    >
+    <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <span className="text-2xl font-semibold text-crown-800">Rs {price}</span>
+          <span className="text-3xl font-bold text-crown-800">Rs {price}</span>
           {product.discountedPrice != null && (
             <span className="text-lg text-zinc-400 line-through">Rs {product.mrp}</span>
           )}
@@ -343,7 +331,7 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
                 <button
                   key={row.size}
                   type="button"
-                  disabled={!uiReady || row.disabled}
+                  disabled={row.disabled}
                   onClick={() => {
                     if (row.disabled) return;
                     setSelectedSize(row.size);
@@ -374,7 +362,7 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
                 <button
                   key={`${row.label}-${row.color}`}
                   type="button"
-                  disabled={!uiReady || row.disabled}
+                  disabled={row.disabled}
                   onClick={() => {
                     if (row.disabled) return;
                     setSelectedColor(row.color);
@@ -402,93 +390,66 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
         <p className="text-sm font-medium text-zinc-600">Select a size{colorDim ? " and color" : ""} to continue.</p>
       )}
 
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Quantity</p>
-        <div className="mt-2 inline-flex items-stretch rounded-full border border-zinc-300 bg-white">
-          <button
-            type="button"
-            aria-label="Decrease quantity"
-            disabled={!uiReady || qty <= 1}
-            onClick={() => bumpQty(-1)}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Minus className="h-5 w-5" strokeWidth={2} />
-          </button>
-          <span className="flex min-w-[3rem] items-center justify-center border-x border-zinc-300 px-2 text-base font-semibold tabular-nums text-zinc-900">
-            {qty}
-          </span>
-          <button
-            type="button"
-            aria-label="Increase quantity"
-            disabled={!uiReady || qty >= Math.max(1, remaining)}
-            onClick={() => bumpQty(1)}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-r-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2} />
-          </button>
-        </div>
-        <p className="mt-2 text-sm text-zinc-500">
-          {available <= 0 ? "Out of stock" : `${remaining} left for this option`}
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <div className="flex flex-col gap-3">
         {inBag === 0 ? (
           <button
             type="button"
             onClick={pushItemsToCart}
             disabled={!canBuy || remaining <= 0}
-            className="w-full min-w-[200px] flex-1 rounded-full bg-crown-800 py-3 text-sm font-semibold text-white transition hover:bg-crown-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-8"
+            className="w-full rounded-full bg-crown-800 py-3 text-sm font-semibold text-white transition hover:bg-crown-900 disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-md"
           >
-            {!uiReady ? "Loading…" : !canBuy || remaining <= 0 ? "Select options" : "Add to cart"}
+            {!canBuy || remaining <= 0 ? "Select options" : "Add to cart"}
           </button>
         ) : (
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-crown-800">In cart</span>
-            <div className="inline-flex items-stretch rounded-full border border-zinc-300 bg-white">
+          <div className="flex w-full max-w-md flex-wrap items-center gap-2">
+            <div className="inline-flex min-w-[200px] flex-1 items-stretch self-start rounded-full border border-zinc-300 bg-white">
               <button
                 type="button"
                 aria-label="Decrease quantity in bag"
-                disabled={!uiReady || inBag <= 0}
                 onClick={() => updateQuantity(lineKey, inBag - 1)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50"
               >
                 <Minus className="h-5 w-5" strokeWidth={2} />
               </button>
-              <span className="flex min-w-[3rem] items-center justify-center border-x border-zinc-300 px-2 text-base font-semibold tabular-nums text-zinc-900">
+              <span className="flex min-w-[3rem] flex-1 items-center justify-center border-x border-zinc-300 px-2 text-base font-semibold tabular-nums text-zinc-900">
                 {inBag}
               </span>
               <button
                 type="button"
                 aria-label="Increase quantity in bag"
-                disabled={!uiReady || inBag >= available}
+                disabled={inBag >= available}
                 onClick={() => updateQuantity(lineKey, inBag + 1)}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-r-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus className="h-5 w-5" strokeWidth={2} />
               </button>
             </div>
+            <button
+              type="button"
+              disabled={inBag <= 0}
+              onClick={() => router.push("/checkout")}
+              className="min-h-[44px] min-w-[200px] flex-1 rounded-full border border-zinc-300 bg-white px-6 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Proceed to checkout
+            </button>
           </div>
         )}
 
+        {canBuy && available > 0 ? (
+          <p className="text-sm text-zinc-500">{`${remaining} left for this option`}</p>
+        ) : null}
+
         <button
           type="button"
-          disabled={!canBuy || remaining <= 0}
-          onClick={() => goCheckout("UPI")}
-          className="w-full min-w-[160px] flex-1 rounded-full border border-crown-800 py-3 text-sm font-semibold text-crown-900 transition hover:bg-crown-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-6"
+          disabled={!canBuy || (remaining <= 0 && inBag <= 0)}
+          onClick={goBuyNow}
+          className="w-full rounded-full border border-crown-800 py-3 text-sm font-semibold text-crown-900 transition hover:bg-crown-50 disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-md"
         >
-          Buy now — UPI
+          Buy now
         </button>
-        {codOk && (
-          <button
-            type="button"
-            disabled={!canBuy || remaining <= 0}
-            onClick={() => goCheckout("CASH_ON_DELIVERY")}
-            className="w-full min-w-[160px] flex-1 rounded-full border border-zinc-300 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-6"
-          >
-            Buy now — COD
-          </button>
-        )}
+        <p className="text-xs text-zinc-500">
+          {codOk ? "Choose UPI or cash on delivery at checkout." : "This product is prepaid at checkout (UPI)."}
+        </p>
       </div>
 
       <p className="text-xs text-zinc-500">
