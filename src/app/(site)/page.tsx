@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { HomePageView } from "@/components/home/HomePageView";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +25,12 @@ export default async function HomePage() {
     session.user.role !== "TECH_SUPPORT"
   ) {
     try {
-      const u = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { wishlist: { select: { id: true } } }
-      });
-      wishlistIds = new Set(u?.wishlist.map((w) => w.id) ?? []);
+      const supabase = getSupabaseServiceRoleClient();
+      const { data: links, error } = await (supabase.from("_UserWishlist") as any)
+        .select("A")
+        .eq("B", session.user.id);
+      if (error) throw new Error(error.message);
+      wishlistIds = new Set(((links ?? []) as Array<{ A: string }>).map((w) => w.A));
     } catch {
       /* offline DB — show page without wishlist state */
     }

@@ -1,7 +1,7 @@
-import type { HeaderNavLink } from "@prisma/client";
+import type { HeaderNavLinkRow } from "@/lib/db/app-types";
 
 /** Used when the database has no active header links yet */
-export const FALLBACK_PRIMARY: Pick<HeaderNavLink, "label" | "href" | "group">[] = [
+export const FALLBACK_PRIMARY: Pick<HeaderNavLinkRow, "label" | "href" | "group">[] = [
   { label: "New arrivals", href: "/shop?sort=new", group: null },
   { label: "Shop all", href: "/shop", group: null }
 ];

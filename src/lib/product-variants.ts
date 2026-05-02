@@ -1,13 +1,13 @@
-import type { ProductVariant } from "@prisma/client";
+import type { ProductVariantRow } from "@/lib/db/app-types";
 
 /** Legacy placeholder in DB; treated as “no color” in UI. */
 export const DEFAULT_COLOR = "Default";
 export const DEFAULT_SIZE = "One size";
 
-export type VariantForUi = Pick<ProductVariant, "id" | "color" | "size" | "stock" | "isActive">;
+export type VariantForUi = Pick<ProductVariantRow, "id" | "color" | "size" | "stock" | "isActive">;
 
 /** Minimal shape for aggregating catalog stock (e.g. partial Prisma selects). */
-export type VariantStockSlice = Pick<ProductVariant, "stock" | "isActive">;
+export type VariantStockSlice = Pick<ProductVariantRow, "stock" | "isActive">;
 
 export function normPart(s: string | null | undefined) {
   return (s ?? "").trim();
@@ -21,7 +21,7 @@ export function normColorKey(s: string | null | undefined) {
 }
 
 /** Value to store in cart / lineKey for “no color” variants (matches `normColorKey`). */
-export function cartColorFromVariant(v: Pick<ProductVariant, "color"> | undefined) {
+export function cartColorFromVariant(v: Pick<ProductVariantRow, "color"> | undefined) {
   if (!v) return "";
   return normColorKey(v.color) === "" ? "" : normPart(v.color);
 }

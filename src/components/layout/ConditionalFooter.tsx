@@ -23,6 +23,11 @@ export function ConditionalFooter() {
     return null;
   }
 
+  /** Order success page ships its own footer strip + avoids stacking two footers. */
+  if (pathname === "/checkout/confirmation") {
+    return null;
+  }
+
   /** Hide until hero reports ready — avoids footer flashing above the fold before the full-screen loader hydrates. */
   if (pathname === "/" && !heroReady) {
     return null;

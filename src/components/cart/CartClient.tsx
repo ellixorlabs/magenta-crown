@@ -3,15 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
-import type { Product } from "@prisma/client";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
+import type { ProductRow } from "@/lib/db/app-types";
 import { useCart } from "@/context/CartContext";
 import { ProductCard } from "@/components/features/ProductCard";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
 type Props = {
-  upsells: (Product & { variants?: { stock: number; isActive: boolean }[] })[];
+  upsells: (ProductRow & { variants?: { stock: number; isActive: boolean }[] })[];
 };
 
 export function CartClient({ upsells }: Props) {
@@ -38,9 +38,7 @@ export function CartClient({ upsells }: Props) {
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
             <ul className="space-y-4">
               {items.map((line) => {
-                const img =
-                  line.imageUrl ??
-                  "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=200&q=80";
+                const img = line.imageUrl ?? "/branding/mc-loader-logo.png";
                 const productHref = line.slug ? `/product/${line.slug}` : null;
                 return (
                   <li key={line.lineKey} className="flex gap-4 rounded-2xl border border-zinc-200 bg-white p-4">

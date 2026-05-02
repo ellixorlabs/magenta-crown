@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const MAX_IDS = 40;
 
@@ -24,14 +24,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ coupons: [] as { code: string; discountPct: number }[] });
   }
 
-  const rows = await prisma.productFeaturedCoupon.findMany({
-    where: { productId: { in: productIds } },
-    include: { coupon: true }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: rows, error } = await (supabase.from("ProductFeaturedCoupon") as any)
+    .select("coupon:Coupon(code,discountPct,isActive)")
+    .in("productId", productIds);
+  if (error) {
+    return NextResponse.json({ error: "Could not load coupons" }, { status: 500 });
+  }
 
   const byCode = new Map<string, { code: string; discountPct: number }>();
-  for (const row of rows) {
+  for (const row of rows ?? []) {
     const c = row.coupon;
+    if (!c) continue;
     if (!c.isActive) continue;
     byCode.set(c.code, { code: c.code, discountPct: c.discountPct });
   }

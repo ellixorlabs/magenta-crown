@@ -10,9 +10,11 @@ import { usePathname } from "next/navigation";
 export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const isHome = pathname === "/";
-  const isAuthImmersive = pathname === "/auth/signin" || pathname === "/auth/signup";
+  const isAuthImmersive = pathname.startsWith("/auth/");
+  const isAccountArea = pathname.startsWith("/account/");
 
   const skipTopPad = isHome || isAuthImmersive;
+  const shellBg = isAccountArea ? "bg-[#f8f5f6]" : "bg-white";
 
   useEffect(() => {
     if (pathname === "/") {
@@ -22,7 +24,7 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
 
   return (
     <div
-      className={`relative z-0 min-w-0 bg-[#f4f0f2] ${skipTopPad ? "" : "pt-[7.5rem] sm:pt-[8rem]"}`}
+      className={`relative z-0 min-w-0 ${shellBg} ${skipTopPad ? "" : "pt-[7.5rem] sm:pt-[8rem]"}`}
     >
       {children}
     </div>

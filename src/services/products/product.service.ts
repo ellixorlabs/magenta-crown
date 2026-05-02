@@ -1,7 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { discountPercentOffMrp, effectiveSalePrice } from "@/lib/pricing";
 import { getCache, setCache } from "@/lib/cache";
 
@@ -20,44 +19,23 @@ export type ListProductsParams = {
   sort: ProductListSort;
 };
 
-const listSelect = {
-  id: true,
-  slug: true,
-  name: true,
-  category: true,
-  mrp: true,
-  discountedPrice: true,
-  imageUrls: true,
-  listImageIndex: true,
-  listImagePosition: true,
-  createdAt: true,
-  newTagExpiresAt: true,
-  variants: { select: { stock: true, isActive: true } }
-} satisfies Prisma.ProductSelect;
+export type ProductListRow = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  mrp: number;
+  discountedPrice: number | null;
+  imageUrls: string[];
+  listImageIndex: number;
+  listImagePosition: string;
+  createdAt: string | Date;
+  newTagExpiresAt: string | Date | null;
+  variants: { stock: number; isActive: boolean }[];
+};
 
-export type ProductListRow = Prisma.ProductGetPayload<{ select: typeof listSelect }>;
-
-function buildWhere(input: Pick<ListProductsParams, "category" | "q">): Prisma.ProductWhereInput {
-  const where: Prisma.ProductWhereInput = {};
-  if (input.category?.trim()) {
-    where.category = input.category.trim();
-  }
-  if (input.q?.trim()) {
-    where.name = { contains: input.q.trim(), mode: "insensitive" };
-  }
-  return where;
-}
-
-function orderByForSort(sort: ProductListSort): Prisma.ProductOrderByWithRelationInput[] {
-  switch (sort) {
-    case "price_asc":
-      return [{ mrp: "asc" }, { id: "asc" }];
-    case "price_desc":
-      return [{ mrp: "desc" }, { id: "desc" }];
-    case "newest":
-    default:
-      return [{ createdAt: "desc" }, { id: "desc" }];
-  }
+function toDate(value: string | Date | null | undefined) {
+  return value instanceof Date ? value : new Date(value ?? 0);
 }
 
 /** Compact list row for JSON APIs (limits image array size for mobile payloads). */
@@ -82,9 +60,9 @@ export function toProductListItemDto(p: ProductListRow) {
     imageUrls: urls.slice(0, 4),
     listImageIndex: p.listImageIndex,
     listImagePosition: p.listImagePosition,
-    newTagExpiresAt: p.newTagExpiresAt?.toISOString() ?? null,
+    newTagExpiresAt: p.newTagExpiresAt ? toDate(p.newTagExpiresAt).toISOString() : null,
     inStock: totalStock > 0,
-    createdAt: p.createdAt.toISOString()
+    createdAt: toDate(p.createdAt).toISOString()
   };
 }
 
@@ -118,23 +96,25 @@ export async function listProductsForApi(input: ListProductsParams) {
   const page = Math.max(1, input.page);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, input.pageSize));
   const skip = (page - 1) * pageSize;
-  const where = buildWhere(input);
-  const orderBy = orderByForSort(input.sort);
+  const supabase = getSupabaseServiceRoleClient();
 
   const cacheKey = `products:list?page=${page}&pageSize=${pageSize}&category=${input.category ?? ""}&q=${input.q ?? ""}&sort=${input.sort}`;
   const hit = getCache<{ items: ReturnType<typeof toProductListItemDto>[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }>(cacheKey);
   if (hit) return hit;
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.product.count({ where }),
-    prisma.product.findMany({
-      where,
-      orderBy,
-      skip,
-      take: pageSize,
-      select: listSelect
-    })
-  ]);
+  let query = (supabase.from("Product") as any).select(
+    "id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)",
+    { count: "exact" }
+  );
+  if (input.category?.trim()) query = query.eq("category", input.category.trim());
+  if (input.q?.trim()) query = query.ilike("name", `%${input.q.trim()}%`);
+  if (input.sort === "price_asc") query = query.order("mrp", { ascending: true }).order("id", { ascending: true });
+  else if (input.sort === "price_desc") query = query.order("mrp", { ascending: false }).order("id", { ascending: false });
+  else query = query.order("createdAt", { ascending: false }).order("id", { ascending: false });
+  const { data, error, count } = await query.range(skip, skip + pageSize - 1);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as ProductListRow[];
+  const total = count ?? 0;
 
   const items = rows.map(toProductListItemDto);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -146,47 +126,23 @@ export async function listProductsForApi(input: ListProductsParams) {
   return payload;
 }
 
-const detailSelect = {
-  id: true,
-  slug: true,
-  name: true,
-  description: true,
-  story: true,
-  mrp: true,
-  discountedPrice: true,
-  category: true,
-  tags: true,
-  material: true,
-  occasion: true,
-  style: true,
-  fitNotes: true,
-  careInstructions: true,
-  sizeChartImageUrl: true,
-  codEnabled: true,
-  prepaidOfferText: true,
-  pricingFootnote: true,
-  imageUrls: true,
-  listImageIndex: true,
-  listImagePosition: true,
-  videoUrls: true,
-  createdAt: true,
-  variants: {
-    where: { isActive: true },
-    select: { id: true, color: true, size: true, stock: true, isActive: true },
-    orderBy: [{ color: "asc" }, { size: "asc" }]
-  }
-} satisfies Prisma.ProductSelect;
-
 export async function getProductByIdForApi(id: string) {
-  const product = await prisma.product.findUnique({
-    where: { id },
-    select: detailSelect
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: product, error } = await (supabase.from("Product") as any)
+    .select(
+      "id,slug,name,description,story,mrp,discountedPrice,category,tags,material,occasion,style,fitNotes,careInstructions,sizeChartImageUrl,codEnabled,prepaidOfferText,pricingFootnote,imageUrls,listImageIndex,listImagePosition,videoUrls,createdAt,variants:ProductVariant(id,color,size,stock,isActive)"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
   if (!product) return null;
+  const activeVariants = ((product.variants ?? []) as Array<{ id: string; color: string; size: string; stock: number; isActive: boolean }>)
+    .filter((v) => v.isActive)
+    .sort((a, b) => a.color.localeCompare(b.color) || a.size.localeCompare(b.size));
 
   const mrp = product.mrp;
   const salePrice = effectiveSalePrice(mrp, product.discountedPrice);
-  const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
+  const totalStock = activeVariants.reduce((s, v) => s + v.stock, 0);
 
   return {
     id: product.id,
@@ -213,8 +169,8 @@ export async function getProductByIdForApi(id: string) {
     listImagePosition: product.listImagePosition,
     videoUrls: product.videoUrls,
     inStock: totalStock > 0,
-    createdAt: product.createdAt.toISOString(),
-    variants: product.variants.map((v) => ({
+    createdAt: toDate(product.createdAt).toISOString(),
+    variants: activeVariants.map((v) => ({
       id: v.id,
       color: v.color,
       size: v.size,
@@ -230,11 +186,14 @@ export async function getLatestProductsForApi(limit: number) {
   const hit = getCache<{ items: ReturnType<typeof toProductListItemDto>[] }>(cacheKey);
   if (hit) return hit;
 
-  const rows = await prisma.product.findMany({
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take,
-    select: listSelect
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data, error } = await (supabase.from("Product") as any)
+    .select("id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)")
+    .order("createdAt", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(take);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as ProductListRow[];
   const payload = { items: rows.map(toProductListItemDto) };
   setCache(cacheKey, payload, LATEST_TTL_MS);
   return payload;
@@ -246,20 +205,15 @@ export async function getLatestProductsForApi(limit: number) {
  */
 export async function getProductsByIdsForApi(ids: string[]) {
   if (ids.length === 0) return [];
-  const rows = await prisma.product.findMany({
-    where: { id: { in: ids } },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      imageUrls: true,
-      mrp: true,
-      discountedPrice: true
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: rows, error } = await (supabase.from("Product") as any)
+    .select("id,slug,name,imageUrls,mrp,discountedPrice")
+    .in("id", ids);
+  if (error) throw new Error(error.message);
   const order = new Map(ids.map((id, i) => [id, i]));
-  rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return rows.map((p) => ({
+  const list = ((rows ?? []) as Array<{ id: string; slug: string; name: string; imageUrls: string[]; mrp: number; discountedPrice: number | null }>)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return list.map((p) => ({
     id: p.id,
     slug: p.slug,
     name: p.name,

@@ -1,4 +1,4 @@
-import type { ProductVariant } from "@prisma/client";
+import type { ProductVariantRow } from "@/lib/db/app-types";
 import { makeLineKey } from "@/lib/cart-line";
 import {
   availableQty,
@@ -10,12 +10,12 @@ import {
 
 export { getProductTotalStock } from "@/lib/product-variants";
 
-export function isSingleDefaultSku(variants: Pick<ProductVariant, "color" | "size">[]): boolean {
+export function isSingleDefaultSku(variants: Pick<ProductVariantRow, "color" | "size">[]): boolean {
   return isSingleDefaultVariant(variants as VariantForUi[]);
 }
 
 export function getVariantAvailable(
-  variants: Pick<ProductVariant, "color" | "size" | "stock" | "isActive">[],
+  variants: Pick<ProductVariantRow, "color" | "size" | "stock" | "isActive">[],
   size: string,
   color: string
 ): number {

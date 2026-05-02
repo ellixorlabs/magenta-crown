@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import type { UserRow } from "@/lib/db/app-types";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
 import {
@@ -9,9 +9,15 @@ import {
   unauthorized
 } from "@/lib/supabase-server-auth";
 
+type ProfileRow = UserRow & {
+  addresses: unknown;
+  deletionRequestedAt: string | Date | null;
+  deletionScheduledFor: string | Date | null;
+};
+
 const KINDS = new Set(["home", "work", "other"]);
 
-function normalizeAddresses(raw: unknown): Prisma.InputJsonValue {
+function normalizeAddresses(raw: unknown): SavedAddress[] {
   if (!Array.isArray(raw)) {
     throw new Error("addresses must be an array");
   }
@@ -49,7 +55,7 @@ function normalizeAddresses(raw: unknown): Prisma.InputJsonValue {
   if (homeCount > 1) {
     throw new Error("Only one home address is allowed.");
   }
-  return out as unknown as Prisma.InputJsonValue;
+  return out;
 }
 
 export async function GET(req: Request) {
@@ -58,20 +64,14 @@ export async function GET(req: Request) {
   const userId = await resolveAppUserIdFromSupabaseUser(user);
   if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const u = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      name: true,
-      email: true,
-      phone: true,
-      age: true,
-      addresses: true,
-      deletionRequestedAt: true,
-      deletionScheduledFor: true
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: u, error } = await supabase
+    .from("User")
+    .select("name,email,phone,age,addresses,deletionRequestedAt,deletionScheduledFor")
+    .eq("id", userId)
+    .maybeSingle<ProfileRow>();
 
-  if (!u) {
+  if (error || !u) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -81,8 +81,8 @@ export async function GET(req: Request) {
     phone: u.phone ?? "",
     age: u.age ?? null,
     addresses: Array.isArray(u.addresses) ? u.addresses : [],
-    deletionRequestedAt: u.deletionRequestedAt?.toISOString() ?? null,
-    deletionScheduledFor: u.deletionScheduledFor?.toISOString() ?? null
+    deletionRequestedAt: u.deletionRequestedAt ? new Date(u.deletionRequestedAt).toISOString() : null,
+    deletionScheduledFor: u.deletionScheduledFor ? new Date(u.deletionScheduledFor).toISOString() : null
   });
 }
 
@@ -93,37 +93,32 @@ export async function POST(req: Request) {
   const email = user.email?.trim().toLowerCase();
   if (!email) return NextResponse.json({ error: "Supabase user has no email." }, { status: 400 });
 
+  const supabase = getSupabaseServiceRoleClient();
   const existingUserId = await resolveAppUserIdFromSupabaseUser(user);
   const targetId = existingUserId ?? user.id;
-  const u = await prisma.user.upsert({
-    where: { id: targetId },
-    update: {
-      email,
-      name:
-        typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()
-          ? user.user_metadata.name.trim()
-          : undefined
-    },
-    create: {
-      id: targetId,
-      email,
-      name:
-        typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()
-          ? user.user_metadata.name.trim()
-          : email.split("@")[0] ?? "Customer",
-      role: "CUSTOMER",
-      onboardingComplete: true
-    },
-    select: {
-      name: true,
-      email: true,
-      phone: true,
-      age: true,
-      addresses: true,
-      deletionRequestedAt: true,
-      deletionScheduledFor: true
-    }
-  });
+  const metaName =
+    typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()
+      ? user.user_metadata.name.trim()
+      : null;
+  const fallbackName = email.split("@")[0] ?? "Customer";
+  const upsert = await ((supabase
+    .from("User") as any)
+    .upsert(
+      {
+        id: targetId,
+        email,
+        name: metaName ?? fallbackName,
+        role: "CUSTOMER",
+        onboardingComplete: true
+      },
+      { onConflict: "id" }
+    )
+    .select("name,email,phone,age,addresses,deletionRequestedAt,deletionScheduledFor")
+    .single());
+  if (upsert.error) {
+    return NextResponse.json({ error: "Failed to sync profile" }, { status: 500 });
+  }
+  const u = upsert.data as ProfileRow;
 
   return NextResponse.json({
     name: u.name ?? "",
@@ -131,8 +126,8 @@ export async function POST(req: Request) {
     phone: u.phone ?? "",
     age: u.age ?? null,
     addresses: Array.isArray(u.addresses) ? u.addresses : [],
-    deletionRequestedAt: u.deletionRequestedAt?.toISOString() ?? null,
-    deletionScheduledFor: u.deletionScheduledFor?.toISOString() ?? null
+    deletionRequestedAt: u.deletionRequestedAt ? new Date(u.deletionRequestedAt).toISOString() : null,
+    deletionScheduledFor: u.deletionScheduledFor ? new Date(u.deletionScheduledFor).toISOString() : null
   });
 }
 
@@ -149,7 +144,7 @@ export async function PATCH(req: Request) {
     addresses?: unknown;
   };
 
-  const data: Prisma.UserUpdateInput = {};
+  const data: Record<string, unknown> = {};
 
   if (body.name !== undefined) {
     data.name = body.name.trim() || null;
@@ -178,10 +173,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data
-  });
+  const updated = await (getSupabaseServiceRoleClient().from("User") as any).update(data).eq("id", userId);
+  if (updated.error) {
+    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

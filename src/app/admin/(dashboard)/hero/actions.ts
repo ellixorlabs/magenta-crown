@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { parseHeroTransition } from "@/lib/hero-transition";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 async function requireHeroAdmin() {
   const session = await requireStaff("/admin/hero");
@@ -32,16 +32,17 @@ export async function saveHeroSlide(formData: FormData) {
   }
 
   const existingId = typeof id === "string" && id.length > 0 ? id : null;
+  const supabase = getSupabaseServiceRoleClient();
 
   if (existingId) {
-    await prisma.heroSlide.update({
-      where: { id: existingId },
-      data: { imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder }
-    });
+    const { error } = await (supabase.from("HeroSlide") as any)
+      .update({ imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder })
+      .eq("id", existingId);
+    if (error) throw new Error(error.message);
   } else {
-    await prisma.heroSlide.create({
-      data: { imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder }
-    });
+    const { error } = await (supabase.from("HeroSlide") as any)
+      .insert({ imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder });
+    if (error) throw new Error(error.message);
   }
   revalidatePath("/", "layout");
   revalidatePath("/");
@@ -52,7 +53,8 @@ export async function deleteHeroSlide(formData: FormData) {
   await requireHeroAdmin();
   const id = formData.get("id") as string | null;
   if (!id) return;
-  await prisma.heroSlide.delete({ where: { id } }).catch(() => {});
+  const supabase = getSupabaseServiceRoleClient();
+  await (supabase.from("HeroSlide") as any).delete().eq("id", id);
   revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/admin/hero");
@@ -62,11 +64,12 @@ export async function updateHeroCarouselTransition(formData: FormData) {
   await requireHeroAdmin();
   const raw = String(formData.get("transition") ?? "").trim();
   const transition = parseHeroTransition(raw);
-  await prisma.heroCarouselSettings.upsert({
-    where: { id: "default" },
-    create: { id: "default", transition },
-    update: { transition }
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("HeroCarouselSettings") as any).upsert({
+    id: "default",
+    transition
   });
+  if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/admin/hero");
@@ -74,22 +77,24 @@ export async function updateHeroCarouselTransition(formData: FormData) {
 
 export async function seedDefaultHeroSlides() {
   await requireHeroAdmin();
-  const count = await prisma.heroSlide.count();
-  if (count > 0) return;
+  const supabase = getSupabaseServiceRoleClient();
+  const countRes = await (supabase.from("HeroSlide") as any).select("id", { count: "exact", head: true });
+  if ((countRes.count ?? 0) > 0) return;
   let i = 0;
+  const rows = [];
   for (const s of DEFAULT_HERO_SLIDES) {
-    await prisma.heroSlide.create({
-      data: {
-        sortOrder: i++,
-        imageUrl: s.bg,
-        eyebrow: s.label,
-        line1: s.line1,
-        accent: s.accent,
-        sub1: s.sub[0] ?? "",
-        sub2: s.sub[1] ?? ""
-      }
+    rows.push({
+      sortOrder: i++,
+      imageUrl: s.bg,
+      eyebrow: s.label,
+      line1: s.line1,
+      accent: s.accent,
+      sub1: s.sub[0] ?? "",
+      sub2: s.sub[1] ?? ""
     });
   }
+  const { error } = await (supabase.from("HeroSlide") as any).insert(rows);
+  if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/admin/hero");

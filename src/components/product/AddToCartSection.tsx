@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Coupon, Product, ProductVariant } from "@prisma/client";
 import { makeLineKey } from "@/lib/cart-line";
+import type { CouponRow, ProductRow, ProductVariantRow } from "@/lib/db/app-types";
 import { getProductDisplayImage } from "@/lib/product-image-display";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -23,12 +23,13 @@ import {
 } from "@/lib/product-variants";
 import { SizeChartModal } from "@/components/product/SizeChartModal";
 
-type FeaturedCoupon = { coupon: Pick<Coupon, "code" | "discountPct" | "isActive"> };
+type FeaturedCoupon = { coupon: Pick<CouponRow, "code" | "discountPct" | "isActive"> };
 
-export type ProductPdp = Product & {
-  variants: ProductVariant[];
+export type ProductPdp = ProductRow & {
+  variants: ProductVariantRow[];
   featuredCoupons?: FeaturedCoupon[];
   sizeChartImageUrl?: string | null;
+  globalSizeChartImageUrl?: string | null;
   codEnabled?: boolean;
   prepaidOfferText?: string | null;
   pricingFootnote?: string | null;
@@ -133,7 +134,8 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
 
   const showSizeUi = !singleDefault && sizeRows.length > 0;
   const showColorUi = !singleDefault && colorDim && selectedSize && colorRows.length > 0;
-  const showSizeChart = Boolean(product.sizeChartImageUrl?.trim());
+  const effectiveSizeChartUrl = product.sizeChartImageUrl?.trim() || product.globalSizeChartImageUrl?.trim() || "";
+  const showSizeChart = Boolean(effectiveSizeChartUrl);
 
   const currentColorRow = colorRows.find((r) => r.color === selectedColor);
   const showOtherColorHint =
@@ -266,8 +268,6 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
     product.pricingFootnote?.trim() ||
     "Product is inclusive of all taxes. Shipping will be calculated during checkout.";
 
-  const codOk = product.codEnabled !== false;
-
   return (
     <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -314,7 +314,7 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Size</label>
-            {showSizeChart && product.sizeChartImageUrl && (
+            {showSizeChart && effectiveSizeChartUrl && (
               <button
                 type="button"
                 onClick={() => setSizeChartOpen(true)}
@@ -448,7 +448,7 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
           Buy now
         </button>
         <p className="text-xs text-zinc-500">
-          {codOk ? "Choose UPI or cash on delivery at checkout." : "This product is prepaid at checkout (UPI)."}
+          Choose UPI or cash on delivery at checkout.
         </p>
       </div>
 
@@ -456,10 +456,10 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
         Delivery & returns: Free shipping over Rs 5,000. Easy exchanges within 14 days.
       </p>
 
-      {showSizeChart && product.sizeChartImageUrl && (
+      {showSizeChart && effectiveSizeChartUrl && (
         <SizeChartModal
           open={sizeChartOpen}
-          imageUrl={product.sizeChartImageUrl}
+          imageUrl={effectiveSizeChartUrl}
           productName={product.name}
           onClose={() => setSizeChartOpen(false)}
         />

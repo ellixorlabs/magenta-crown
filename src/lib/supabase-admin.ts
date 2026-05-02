@@ -1,21 +1,23 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase-env";
 
 let cached:
   | ReturnType<typeof createClient>
   | null = null;
 
-export function getSupabaseAdmin() {
+export function getSupabaseServiceRoleClient() {
   if (cached) return cached;
-  const url = process.env.SUPABASE_URL?.trim();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) {
+  const cfg = getSupabaseServiceRoleConfig();
+  if (!cfg) {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
-  cached = createClient(url, key, {
+  cached = createClient(cfg.url, cfg.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   return cached;
 }
+
+export const getSupabaseAdmin = getSupabaseServiceRoleClient;
 

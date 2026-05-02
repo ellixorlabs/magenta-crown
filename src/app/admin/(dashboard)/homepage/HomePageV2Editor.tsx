@@ -1,11 +1,13 @@
 "use client";
 
-import type { Product } from "@prisma/client";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
+import type { ProductRow } from "@/lib/db/app-types";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
 import type {
+  DynamicHomeSection,
+  DynamicPromoBannerSection,
   DynamicProductSection,
   HomeCategoryCircleItem,
   HomePagePayloadV2,
@@ -14,14 +16,14 @@ import type {
 import { randomId } from "@/lib/random-id";
 import { saveHomePageConfig } from "./actions";
 
-export type CatalogProduct = Pick<Product, "id" | "name" | "slug" | "category">;
+export type CatalogProduct = Pick<ProductRow, "id" | "name" | "slug" | "category">;
 
 type Props = {
   initial: HomePagePayloadV2;
   catalogProducts: CatalogProduct[];
 };
 
-function normalizeOrders(sections: DynamicProductSection[]): DynamicProductSection[] {
+function normalizeOrders(sections: DynamicHomeSection[]): DynamicHomeSection[] {
   const sorted = [...sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
   return sorted.map((s, i) => ({ ...s, order: i }));
 }
@@ -34,7 +36,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     sections: normalizeOrders(initial.sections)
   }));
   const [error, setError] = useState<string | null>(null);
-  const [productFilter, setProductFilter] = useState("");
+  const [productFilter, setProductFilter] = useState<string>("");
   const [openSectionId, setOpenSectionId] = useState<string | null>(initial.sections[0]?.id ?? null);
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [draggingCircleId, setDraggingCircleId] = useState<string | null>(null);
@@ -89,6 +91,27 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
+  const addPromoBannerSection = useCallback(() => {
+    setPayload((p) => {
+      const next: DynamicPromoBannerSection = {
+        id: `section-${randomId()}`,
+        type: "promoBanner",
+        enabled: true,
+        order: p.sections.length,
+        transition: "fade",
+        title: "Shop by the Occasion",
+        subtitle: "Elegance crafted for your special moments.",
+        imageUrl: "",
+        targetHref: "/shop",
+        gradientFrom: "#7f1530",
+        gradientTo: "#a0173c"
+      };
+      const sections = normalizeOrders([...p.sections, next]);
+      setOpenSectionId(next.id);
+      return { ...p, sections };
+    });
+  }, []);
+
   const removeSection = useCallback((id: string) => {
     if (!confirm("Remove this section from the homepage?")) return;
     setPayload((p) => ({
@@ -125,10 +148,12 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
-  const patchSection = useCallback((id: string, patch: Partial<DynamicProductSection>) => {
-    setPayload((p) => ({
+  const patchSection = useCallback((id: string, patch: Partial<DynamicHomeSection>) => {
+    setPayload((p): HomePagePayloadV2 => ({
       ...p,
-      sections: p.sections.map((s) => (s.id === id ? { ...s, ...patch } : s))
+      sections: p.sections.map((s) =>
+        s.id === id ? ({ ...s, ...patch } as DynamicHomeSection) : s
+      )
     }));
   }, []);
 
@@ -137,6 +162,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
       ...p,
       sections: p.sections.map((s) => {
         if (s.id !== sectionId) return s;
+        if (s.type === "promoBanner") return s;
         if (checked) {
           if (s.productIds.includes(productId)) return s;
           return { ...s, productIds: [...s.productIds, productId] };
@@ -203,6 +229,34 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
       return { ...p, categoryCircles: { ...p.categoryCircles, items: copy } };
     });
   }, []);
+
+  const uploadPromoImage = useCallback(async (sectionId: string, file: File | null) => {
+    if (!file) return;
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("sectionId", sectionId);
+      const res = await fetch("/api/admin/homepage-image", { method: "POST", body: form });
+      const json = (await res.json()) as { url?: string; error?: string };
+      const url = typeof json.url === "string" ? json.url.trim() : "";
+      if (!res.ok || !url) {
+        throw new Error(json.error || "Upload failed.");
+      }
+      const nextPayload: HomePagePayloadV2 = {
+        ...payload,
+        sections: payload.sections.map((s): DynamicHomeSection => {
+          if (s.id !== sectionId || s.type !== "promoBanner") return s;
+          return { ...s, imageUrl: url };
+        })
+      };
+      setPayload(nextPayload);
+      await saveHomePageConfig(nextPayload);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    }
+  }, [payload, router]);
 
   return (
     <div className="min-w-0 max-w-full space-y-8 overflow-x-hidden">
@@ -401,6 +455,13 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
         </button>
         <button
           type="button"
+          onClick={addPromoBannerSection}
+          className="rounded-full border border-crown-300 bg-white px-5 py-2.5 text-sm font-semibold text-crown-900 hover:bg-crown-50"
+        >
+          + Add promo banner
+        </button>
+        <button
+          type="button"
           onClick={resetDefaults}
           className="rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-sm text-zinc-800 hover:bg-zinc-50"
         >
@@ -457,10 +518,12 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                 onClick={() => setOpenSectionId((o) => (o === section.id ? null : section.id))}
               >
                 <p className="break-words text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  {section.type === "carousel" ? "Carousel" : "Grid"} · order {section.order}
+                  {section.type === "carousel" ? "Carousel" : section.type === "grid" ? "Grid" : "Promo banner"} · order {section.order}
                 </p>
                 <p className="break-words font-medium text-zinc-900">{section.title}</p>
-                <p className="text-xs text-zinc-500">{section.productIds.length} product(s)</p>
+                <p className="text-xs text-zinc-500">
+                  {section.type === "promoBanner" ? "Gradient image banner" : `${section.productIds.length} product(s)`}
+                </p>
               </button>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-l border-zinc-200 px-3 py-2">
                 <label className="flex items-center gap-1.5 text-xs text-zinc-600">
@@ -499,8 +562,9 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     <input
                       type="text"
                       className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                      value={section.eyebrow}
-                      onChange={(e) => patchSection(section.id, { eyebrow: e.target.value })}
+                      value={section.type === "promoBanner" ? "" : section.eyebrow}
+                      onChange={(e) => patchSection(section.id, { eyebrow: e.target.value } as Partial<DynamicHomeSection>)}
+                      disabled={section.type === "promoBanner"}
                     />
                   </label>
                 </div>
@@ -510,10 +574,46 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     <select
                       className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                       value={section.type}
-                      onChange={(e) => patchSection(section.id, { type: e.target.value as "carousel" | "grid" })}
+                      onChange={(e) => {
+                        const nextType = e.target.value as DynamicHomeSection["type"];
+                        setPayload((p) => ({
+                          ...p,
+                          sections: p.sections.map((s) => {
+                            if (s.id !== section.id || s.type === nextType) return s;
+                            if (nextType === "promoBanner") {
+                              return {
+                                id: s.id,
+                                type: "promoBanner",
+                                enabled: s.enabled,
+                                order: s.order,
+                                transition: s.transition,
+                                title: s.title,
+                                subtitle: "",
+                                imageUrl: "",
+                                targetHref: s.type === "promoBanner" ? s.targetHref : s.viewAllHref || "/shop",
+                                gradientFrom: "#7f1530",
+                                gradientTo: "#a0173c"
+                              } as DynamicPromoBannerSection;
+                            }
+                            const prevViewAll = s.type === "promoBanner" ? s.targetHref : s.viewAllHref;
+                            return {
+                              id: s.id,
+                              title: s.title,
+                              eyebrow: s.type === "promoBanner" ? "Shop" : s.eyebrow,
+                              type: nextType,
+                              enabled: s.enabled,
+                              order: s.order,
+                              productIds: [],
+                              transition: s.transition,
+                              viewAllHref: prevViewAll || "/shop"
+                            } as DynamicProductSection;
+                          })
+                        }));
+                      }}
                     >
                       <option value="carousel">Carousel</option>
                       <option value="grid">Grid</option>
+                      <option value="promoBanner">Promo banner</option>
                     </select>
                   </label>
                   <label className="block min-w-0 text-xs font-semibold text-zinc-600">
@@ -532,52 +632,126 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     </select>
                   </label>
                 </div>
-                <label className="block text-xs font-semibold text-zinc-600">
-                  View all link (optional)
-                  <input
-                    type="text"
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono text-xs"
-                    placeholder="/shop"
-                    value={section.viewAllHref ?? ""}
-                    onChange={(e) => patchSection(section.id, { viewAllHref: e.target.value.trim() || undefined })}
-                  />
-                </label>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-zinc-700">Products</p>
-                  <p className="mt-0.5 break-words text-xs leading-relaxed text-zinc-500">
-                    Check products to include. Order follows selection order on first add; use list order for display
-                    sequence.
-                  </p>
-                  <input
-                    type="search"
-                    className="mt-2 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                    placeholder="Filter by name, slug, category…"
-                    value={productFilter}
-                    onChange={(e) => setProductFilter(e.target.value)}
-                  />
-                  <div className="mt-3 max-h-[min(360px,50vh)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-zinc-200 bg-zinc-50/50 p-2">
-                    <ul className="min-w-0 divide-y divide-zinc-100">
-                      {filteredCatalog.map((p) => (
-                        <li key={p.id} className="flex min-w-0 items-start gap-3 py-2 pl-1 pr-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-400"
-                            checked={section.productIds.includes(p.id)}
-                            onChange={(e) => toggleProduct(section.id, p.id, e.target.checked)}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-sm font-medium text-zinc-900">{p.name}</p>
-                            <p className="break-all text-xs text-zinc-500">{p.category} · {p.slug}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {filteredCatalog.length === 0 && (
-                      <p className="py-6 text-center text-sm text-zinc-500">No products match this filter.</p>
-                    )}
+                {section.type === "promoBanner" ? (
+                  <div className="space-y-4">
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      Subtitle
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                        value={section.subtitle ?? ""}
+                        onChange={(e) => patchSection(section.id, { subtitle: e.target.value })}
+                      />
+                    </label>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-xs font-semibold text-zinc-600">
+                        Gradient from
+                        <input
+                          type="color"
+                          className="mt-1 h-10 w-full rounded-lg border border-zinc-300 px-1 py-1"
+                          value={section.gradientFrom}
+                          onChange={(e) => patchSection(section.id, { gradientFrom: e.target.value })}
+                        />
+                      </label>
+                      <label className="block text-xs font-semibold text-zinc-600">
+                        Gradient to
+                        <input
+                          type="color"
+                          className="mt-1 h-10 w-full rounded-lg border border-zinc-300 px-1 py-1"
+                          value={section.gradientTo}
+                          onChange={(e) => patchSection(section.id, { gradientTo: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      Redirect URL
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono text-xs"
+                        placeholder="/shop?occasion=Wedding"
+                        value={section.targetHref}
+                        onChange={(e) => patchSection(section.id, { targetHref: e.target.value })}
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      Upload banner image
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="mt-1 block w-full text-sm"
+                        onChange={(e) => void uploadPromoImage(section.id, e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      Image URL
+                      <input
+                        type="url"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                        value={section.imageUrl}
+                        onChange={(e) => patchSection(section.id, { imageUrl: e.target.value })}
+                      />
+                    </label>
+                    {section.imageUrl ? (
+                      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- admin runtime URLs */}
+                        <img
+                          src={section.imageUrl}
+                          alt="Promo banner preview"
+                          className="h-40 w-full rounded-xl object-cover"
+                        />
+                      </div>
+                    ) : null}
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      View all link (optional)
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono text-xs"
+                        placeholder="/shop"
+                        value={section.viewAllHref ?? ""}
+                        onChange={(e) => patchSection(section.id, { viewAllHref: e.target.value.trim() || undefined })}
+                      />
+                    </label>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-zinc-700">Products</p>
+                      <p className="mt-0.5 break-words text-xs leading-relaxed text-zinc-500">
+                        Check products to include. Order follows selection order on first add; use list order for display
+                        sequence.
+                      </p>
+                      <input
+                        type="search"
+                        className="mt-2 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                        placeholder="Filter by name, slug, category…"
+                        value={productFilter}
+                        onChange={(e) => setProductFilter(e.target.value)}
+                      />
+                      <div className="mt-3 max-h-[min(360px,50vh)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-zinc-200 bg-zinc-50/50 p-2">
+                        <ul className="min-w-0 divide-y divide-zinc-100">
+                          {filteredCatalog.map((p) => (
+                            <li key={p.id} className="flex min-w-0 items-start gap-3 py-2 pl-1 pr-2">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-400"
+                                checked={section.productIds.includes(p.id)}
+                                onChange={(e) => toggleProduct(section.id, p.id, e.target.checked)}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words text-sm font-medium text-zinc-900">{p.name}</p>
+                                <p className="break-all text-xs text-zinc-500">{p.category} · {p.slug}</p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {filteredCatalog.length === 0 && (
+                          <p className="py-6 text-center text-sm text-zinc-500">No products match this filter.</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </li>

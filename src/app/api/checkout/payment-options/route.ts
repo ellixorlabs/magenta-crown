@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 type Body = { productIds?: string[] };
 
@@ -10,14 +10,18 @@ export async function POST(req: Request) {
     if (ids.length === 0) {
       return NextResponse.json({ allowCod: true });
     }
-    const products = await prisma.product.findMany({
-      where: { id: { in: ids } },
-      select: { codEnabled: true }
-    });
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: products, error } = await (supabase
+      .from("Product") as any)
+      .select("id,codEnabled")
+      .in("id", ids);
+    if (error || !products) {
+      return NextResponse.json({ allowCod: false });
+    }
     if (products.length !== ids.length) {
       return NextResponse.json({ allowCod: false });
     }
-    const allowCod = products.every((p) => p.codEnabled);
+    const allowCod = (products as Array<{ codEnabled: boolean }>).every((p) => p.codEnabled);
     return NextResponse.json({ allowCod });
   } catch {
     return NextResponse.json({ allowCod: false });

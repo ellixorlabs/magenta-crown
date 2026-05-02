@@ -46,6 +46,10 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // In local dev, bypass server-side optimization fetches so external hosts
+    // that block hotlinking (or resolve via NAT64/private ranges) still render.
+    unoptimized: process.env.NODE_ENV === "development",
+    dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
     remotePatterns: [
       {
         protocol: "https",

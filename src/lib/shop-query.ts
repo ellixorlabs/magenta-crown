@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-
 export function firstString(v: string | string[] | undefined): string | undefined {
   if (typeof v === "string") return v;
   if (Array.isArray(v) && typeof v[0] === "string") return v[0];
@@ -29,6 +27,7 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
   const DEFAULT_PAGE_SIZE = 24;
 
   return {
+    q: firstString(sp.q),
     category: firstString(sp.category),
     occasion: firstString(sp.occasion),
     style: firstString(sp.style),
@@ -50,70 +49,61 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
   };
 }
 
-export function buildProductWhere(sp: Record<string, string | string[] | undefined>): Prisma.ProductWhereInput {
-  const p = parseShopSearchParams(sp);
-  const clauses: Prisma.ProductWhereInput[] = [];
+type ProductLike = {
+  category?: string | null;
+  occasion?: string | null;
+  style?: string | null;
+  material?: string | null;
+  mrp?: number | null;
+  variants?: Array<{ color?: string | null; size?: string | null; isActive?: boolean | null; stock?: number | null }>;
+};
 
-  if (p.category) clauses.push({ category: { equals: p.category, mode: "insensitive" } });
-  if (p.occasion) clauses.push({ occasion: { equals: p.occasion, mode: "insensitive" } });
-  if (p.style) clauses.push({ style: { equals: p.style, mode: "insensitive" } });
-  if (p.material) clauses.push({ material: { contains: p.material, mode: "insensitive" } });
-  if (p.color) {
-    clauses.push({
-      variants: {
-        some: {
-          color: { equals: p.color, mode: "insensitive" },
-          isActive: true
-        }
-      }
-    });
-  }
-  if (p.size) {
-    clauses.push({
-      variants: {
-        some: {
-          size: { equals: p.size, mode: "insensitive" },
-          isActive: true
-        }
-      }
-    });
-  }
+export function buildProductWhere(sp: Record<string, string | string[] | undefined>) {
+  const p = parseShopSearchParams(sp);
+  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
   const min = p.minPrice ? Number(p.minPrice) : undefined;
   const max = p.maxPrice ? Number(p.maxPrice) : undefined;
-  if ((min != null && !Number.isNaN(min)) || (max != null && !Number.isNaN(max))) {
-    const mrp: Prisma.FloatFilter = {};
-    if (min != null && !Number.isNaN(min)) mrp.gte = min;
-    if (max != null && !Number.isNaN(max)) mrp.lte = max;
-    clauses.push({ mrp });
-  }
-
   const hideOos = p.hideOutOfStock === "1" || p.hideOutOfStock === "true";
-  if (hideOos) {
-    clauses.push({
-      variants: {
-        some: {
-          isActive: true,
-          stock: { gt: 0 }
-        }
-      }
-    });
-  }
 
-  if (clauses.length === 0) return {};
-  return { AND: clauses };
+  return (product: ProductLike) => {
+    if (p.category && norm(product.category) !== norm(p.category)) return false;
+    if (p.occasion && norm(product.occasion) !== norm(p.occasion)) return false;
+    if (p.style && norm(product.style) !== norm(p.style)) return false;
+    if (p.material && !norm(product.material).includes(norm(p.material))) return false;
+
+    const variants = product.variants ?? [];
+    if (
+      p.color &&
+      !variants.some((v) => !!v.isActive && norm(v.color) === norm(p.color))
+    ) return false;
+    if (
+      p.size &&
+      !variants.some((v) => !!v.isActive && norm(v.size) === norm(p.size))
+    ) return false;
+
+    const mrp = Number(product.mrp ?? 0);
+    if (min != null && !Number.isNaN(min) && mrp < min) return false;
+    if (max != null && !Number.isNaN(max) && mrp > max) return false;
+
+    if (hideOos && !variants.some((v) => !!v.isActive && Number(v.stock ?? 0) > 0)) return false;
+    return true;
+  };
 }
 
-export function buildProductOrderBy(sort: string): Prisma.ProductOrderByWithRelationInput {
+type SortableProduct = { mrp?: number; name?: string | null; createdAt?: string | Date | null };
+
+export function buildProductOrderBy(sort: string) {
+  const dateTs = (v: string | Date | null | undefined) => (v instanceof Date ? v.getTime() : new Date(v ?? 0).getTime());
   switch (sort) {
     case "price-asc":
-      return { mrp: "asc" };
+      return (a: SortableProduct, b: SortableProduct) => Number(a.mrp ?? 0) - Number(b.mrp ?? 0);
     case "price-desc":
-      return { mrp: "desc" };
+      return (a: SortableProduct, b: SortableProduct) => Number(b.mrp ?? 0) - Number(a.mrp ?? 0);
     case "name":
-      return { name: "asc" };
+      return (a: SortableProduct, b: SortableProduct) => (a.name ?? "").localeCompare(b.name ?? "");
     case "new":
     default:
-      return { createdAt: "desc" };
+      return (a: SortableProduct, b: SortableProduct) => dateTs(b.createdAt) - dateTs(a.createdAt);
   }
 }

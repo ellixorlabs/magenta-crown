@@ -32,7 +32,7 @@ export function AuthGoogleSection({ callbackUrl }: Props) {
               return;
             }
             const origin = window.location.origin.replace(/\/+$/, "");
-            const redirectTo = `${origin}/auth/callback`;
+            const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`;
             const { error: oauthError } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {

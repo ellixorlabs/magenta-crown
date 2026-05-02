@@ -1,9 +1,8 @@
-import type { Product } from "@prisma/client";
+import type { ProductRow } from "@/lib/db/app-types";
 
-const FALLBACK =
-  "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK = "/branding/mc-loader-logo.png";
 
-export function getProductDisplayImage(product: Pick<Product, "imageUrls" | "listImageIndex">): {
+export function getProductDisplayImage(product: Pick<ProductRow, "imageUrls" | "listImageIndex">): {
   url: string;
   index: number;
 } {
@@ -13,7 +12,7 @@ export function getProductDisplayImage(product: Pick<Product, "imageUrls" | "lis
   return { url: urls[idx] ?? FALLBACK, index: idx };
 }
 
-export function getListImagePosition(product: Pick<Product, "listImagePosition">): string {
+export function getListImagePosition(product: Pick<ProductRow, "listImagePosition">): string {
   const p = product.listImagePosition?.trim();
   return p && p.length > 0 ? p : "center";
 }

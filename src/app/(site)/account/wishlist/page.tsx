@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { AccountSessionRecover } from "@/components/account/AccountSessionRecover";
 import { EmptyState } from "@/components/empty/EmptyState";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { ProductCard } from "@/components/features/ProductCard";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { getProductTotalStock } from "@/lib/variant-stock";
@@ -15,15 +15,24 @@ export const metadata = {
 export default async function WishlistPage() {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/auth/signin?callbackUrl=/account/wishlist");
+    return <AccountSessionRecover callbackPath="/account/wishlist" />;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { wishlist: { include: { variants: { select: { stock: true, isActive: true } } } } }
-  });
-
-  const items = user?.wishlist ?? [];
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: links, error: linksError } = await (supabase.from("_UserWishlist") as any)
+    .select("A")
+    .eq("B", session.user.id);
+  if (linksError) throw new Error(linksError.message);
+  const ids = [...new Set(((links ?? []) as Array<{ A: string }>).map((x) => x.A).filter(Boolean))];
+  let items: any[] = [];
+  if (ids.length > 0) {
+    const { data: products, error } = await (supabase.from("Product") as any)
+      .select("*,variants:ProductVariant(stock,isActive)")
+      .in("id", ids);
+    if (error) throw new Error(error.message);
+    const byId = new Map(((products ?? []) as any[]).map((p) => [p.id, p]));
+    items = ids.map((id) => byId.get(id)).filter(Boolean);
+  }
 
   return (
     <div>
@@ -43,7 +52,7 @@ export default async function WishlistPage() {
         </div>
       ) : (
         <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
-          {items.map((p) => (
+          {items.map((p: any) => (
             <ProductCard
               key={p.id}
               product={p}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { isValidCouponCodeFormat, normalizeCouponCode } from "@/lib/coupon";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export async function POST(req: Request) {
   try {
@@ -10,10 +10,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Enter a valid coupon code." }, { status: 400 });
     }
 
-    const coupon = await prisma.coupon.findFirst({
-      where: { code: key, isActive: true },
-      select: { code: true, discountPct: true }
-    });
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: coupon, error } = await supabase
+      .from("Coupon")
+      .select("code,discountPct")
+      .eq("code", key)
+      .eq("isActive", true)
+      .maybeSingle<{ code: string; discountPct: number }>();
+    if (error) {
+      return NextResponse.json({ error: "Could not validate coupon." }, { status: 500 });
+    }
 
     if (!coupon) {
       return NextResponse.json({ error: "This coupon code is not valid or inactive." }, { status: 404 });

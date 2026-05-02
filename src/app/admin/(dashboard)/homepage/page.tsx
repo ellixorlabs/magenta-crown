@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePagePayload } from "@/lib/get-home-page-config";
 import { HomePageEditorClient } from "./HomePageEditorClient";
 
@@ -12,19 +12,21 @@ export default async function AdminHomepageLayoutPage() {
     redirect("/admin");
   }
 
+  const supabase = getSupabaseServiceRoleClient();
   const [payload, catalogProducts, configMeta] = await Promise.all([
     getHomePagePayload(),
-    prisma.product.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, slug: true, category: true }
-    }),
-    prisma.homePageConfig.findUnique({
-      where: { id: "default" },
-      select: { updatedAt: true }
-    })
+    (supabase.from("Product") as any)
+      .select("id,name,slug,category")
+      .order("name", { ascending: true }),
+    (supabase.from("HomePageConfig") as any)
+      .select("updatedAt")
+      .eq("id", "default")
+      .maybeSingle()
   ]);
+  if (catalogProducts.error) throw new Error(catalogProducts.error.message);
+  if (configMeta.error) throw new Error(configMeta.error.message);
 
-  const editorKey = configMeta?.updatedAt?.toISOString() ?? "default";
+  const editorKey = configMeta.data?.updatedAt ? new Date(configMeta.data.updatedAt).toISOString() : "default";
 
   return (
     <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
@@ -36,7 +38,7 @@ export default async function AdminHomepageLayoutPage() {
           below to show or hide it on the home page.
         </p>
       </div>
-      <HomePageEditorClient key={editorKey} initial={payload} catalogProducts={catalogProducts} />
+      <HomePageEditorClient key={editorKey} initial={payload} catalogProducts={catalogProducts.data ?? []} />
     </div>
   );
 }

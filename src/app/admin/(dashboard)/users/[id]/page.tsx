@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import type { NextAppPageParams } from "@/types/next-app";
 import { requireStaff } from "@/lib/admin-auth";
 
 export const metadata = { title: "Customer | Admin" };
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = NextAppPageParams<{ id: string }>;
 
 function money(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
@@ -15,26 +16,21 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   await requireStaff("/admin/users");
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      orders: {
-        orderBy: { createdAt: "desc" },
-        include: {
-          items: {
-            include: {
-              product: { select: { name: true, slug: true } }
-            }
-          }
-        }
-      }
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: user, error } = await (supabase.from("User") as any)
+    .select("*,orders:Order(*,items:OrderItem(*,product:Product(name,slug)))")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (user?.orders) {
+    user.orders.sort((a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
 
   if (!user) notFound();
 
   const rawAddr = user.addresses;
   const addressList: unknown[] = Array.isArray(rawAddr) ? rawAddr : rawAddr != null ? [rawAddr] : [];
+  const orders = (user.orders ?? []) as any[];
 
   return (
     <div>
@@ -112,11 +108,11 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Order history</h3>
-        {user.orders.length === 0 ? (
+        {orders.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">No orders.</p>
         ) : (
           <ul className="mt-4 space-y-4">
-            {user.orders.map((o) => (
+            {orders.map((o: any) => (
               <li key={o.id} className="rounded-lg border border-zinc-100 p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-mono text-xs text-zinc-500">{o.id}</span>
@@ -139,7 +135,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                   </span>
                 </div>
                 <ul className="mt-3 space-y-1 border-t border-zinc-100 pt-3 text-sm text-zinc-700">
-                  {o.items.map((it) => (
+                  {(o.items ?? []).map((it: any) => (
                     <li key={it.id}>
                       {it.quantity}× {it.product.name}{" "}
                       <span className="text-zinc-500">({money(it.price)} ea.)</span>

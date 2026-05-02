@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -17,16 +18,37 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (!code) return;
+    const tokenHash = searchParams.get("token_hash");
+    const type = searchParams.get("type");
+
     void (async () => {
       const supabase = await getSupabaseClientOrNull();
       if (!supabase) {
         setError("Supabase is not configured. Add keys in .env and restart dev server.");
         return;
       }
-      await supabase.auth.exchangeCodeForSession(code).catch(() => {
-        setError("Invalid or expired reset link.");
-      });
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code).catch(() => {
+          setError("Invalid or expired reset link.");
+        });
+        return;
+      }
+
+      if (tokenHash) {
+        const otpType = type === "recovery" ? "recovery" : null;
+        if (!otpType) {
+          setError("Invalid reset link type.");
+          return;
+        }
+        await supabase.auth
+          .verifyOtp({
+            token_hash: tokenHash,
+            type: otpType as EmailOtpType
+          })
+          .catch(() => {
+            setError("Invalid or expired reset link.");
+          });
+      }
     })();
   }, [searchParams]);
 

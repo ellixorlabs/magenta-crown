@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { normalizePublicOrderRef } from "@/lib/order-public-ref";
 import { getRazorpayConfig } from "@/lib/razorpay";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 type RazorpayOrderResponse = {
   id: string;
@@ -21,17 +22,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Razorpay is not configured on server." }, { status: 500 });
     }
 
-    const body = (await req.json()) as { orderId?: string };
-    const orderId = body.orderId?.trim();
-    if (!orderId) {
-      return NextResponse.json({ error: "orderId is required." }, { status: 400 });
+    const body = (await req.json()) as { publicOrderRef?: string };
+    const ref = normalizePublicOrderRef(body.publicOrderRef);
+    if (!ref) {
+      return NextResponse.json({ error: "publicOrderRef is required." }, { status: 400 });
     }
 
-    const order = await prisma.order.findFirst({
-      where: { id: orderId, userId: session.user.id },
-      select: { id: true, totalAmount: true, publicOrderRef: true, status: true }
-    });
-    if (!order) {
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: order, error: orderError } = await supabase
+      .from("Order")
+      .select("id,totalAmount,publicOrderRef,status")
+      .eq("publicOrderRef", ref)
+      .eq("userId", session.user.id)
+      .maybeSingle<{ id: string; totalAmount: number; publicOrderRef: string | null; status: string }>();
+    if (orderError || !order) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
     if (order.status === "PAID") {
@@ -49,8 +53,8 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         amount,
         currency: "INR",
-        receipt: order.publicOrderRef ?? order.id.slice(0, 24),
-        notes: { orderId: order.id }
+        receipt: ref.replace(/^#/, "").slice(0, 40),
+        notes: { publicOrderRef: ref }
       })
     });
     const rpData = (await rpRes.json()) as RazorpayOrderResponse & { error?: { description?: string } };

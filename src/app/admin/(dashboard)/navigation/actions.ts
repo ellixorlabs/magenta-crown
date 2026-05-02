@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 
 export async function createNavLink(formData: FormData) {
@@ -15,15 +15,15 @@ export async function createNavLink(formData: FormData) {
 
   if (!label || !href) throw new Error("Label and href required");
 
-  await prisma.headerNavLink.create({
-    data: {
-      group: groupRaw || null,
-      label,
-      href,
-      sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
-      isActive: formData.get("isActive") === "on"
-    }
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("HeaderNavLink") as any).insert({
+    group: groupRaw || null,
+    label,
+    href,
+    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
+    isActive: formData.get("isActive") === "on"
   });
+  if (error) throw new Error(error.message);
   revalidatePath("/");
   revalidatePath("/admin/navigation");
 }
@@ -31,7 +31,9 @@ export async function createNavLink(formData: FormData) {
 export async function deleteNavLink(id: string) {
   const session = await requireStaff("/admin/navigation");
   if (!isAdminRole(session.user.role)) throw new Error("Admin only");
-  await prisma.headerNavLink.delete({ where: { id } });
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("HeaderNavLink") as any).delete().eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/");
   revalidatePath("/admin/navigation");
 }
@@ -39,7 +41,9 @@ export async function deleteNavLink(id: string) {
 export async function toggleNavLink(id: string, isActive: boolean) {
   const session = await requireStaff("/admin/navigation");
   if (!isAdminRole(session.user.role)) throw new Error("Admin only");
-  await prisma.headerNavLink.update({ where: { id }, data: { isActive } });
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("HeaderNavLink") as any).update({ isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/");
   revalidatePath("/admin/navigation");
 }

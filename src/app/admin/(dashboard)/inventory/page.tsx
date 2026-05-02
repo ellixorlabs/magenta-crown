@@ -2,16 +2,15 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getShopFilterOptions } from "@/lib/shop-filter-options";
 import { buildProductOrderBy, buildProductWhere, firstString, parseShopSearchParams } from "@/lib/shop-query";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { deleteProductForm } from "./actions";
+import type { NextAppPageSearch } from "@/types/next-app";
 
-type PageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+type PageProps = NextAppPageSearch<Record<string, string | string[] | undefined>>;
 
 export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const session = await auth();
@@ -22,20 +21,18 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const where = buildProductWhere(sp);
   const { sort } = parseShopSearchParams(sp);
   const orderBy = buildProductOrderBy(sort);
+  const supabase = getSupabaseServiceRoleClient();
 
   const [filterOptions, productsRaw] = await Promise.all([
     getShopFilterOptions(),
-    prisma.product.findMany({
-      where,
-      orderBy,
-      take: 300,
-      include: {
-        variants: { select: { stock: true, isActive: true } }
-      }
-    })
+    (supabase.from("Product") as any)
+      .select("*,variants:ProductVariant(stock,isActive,color,size)")
+      .limit(1000)
   ]);
+  if (productsRaw.error) throw new Error(productsRaw.error.message);
+  const filtered = (productsRaw.data ?? []).filter(where).sort(orderBy).slice(0, 300);
 
-  const products = [...productsRaw].sort(
+  const products = [...filtered].sort(
     (a, b) => getProductTotalStock(a.variants) - getProductTotalStock(b.variants)
   );
 

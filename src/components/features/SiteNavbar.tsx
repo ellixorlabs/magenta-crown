@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, Heart, Menu, ShoppingBag, X } from "lucide-react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent
+} from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { FALLBACK_MEGA, FALLBACK_PRIMARY } from "@/lib/default-nav";
@@ -11,6 +20,41 @@ import { SiteNavbarMegaMenu } from "@/components/features/SiteNavbarMegaMenu";
 import { useCart } from "@/context/CartContext";
 import { useHeroReady } from "@/context/HeroReadyContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWishlistCount } from "@/context/WishlistContext";
+
+const SiteNavbarWishlistLink = memo(function SiteNavbarWishlistLink({ isLight }: { isLight: boolean }) {
+  const { count, hydrated } = useWishlistCount();
+  const showBadge = hydrated && count > 0;
+  const badgeLabel = count > 99 ? "99+" : String(count);
+  return (
+    <Link
+      href="/account/wishlist"
+      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
+        isLight
+          ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
+          : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+      }`}
+      aria-label={
+        count > 0
+          ? `Wishlist — ${count > 99 ? "99+" : count} saved items`
+          : "Wishlist — view all saved items"
+      }
+      title="Wishlist"
+    >
+      <Heart className="h-6 w-6" strokeWidth={1.6} />
+      {showBadge && (
+        <span
+          className={`absolute -right-1 -top-1 flex h-5 min-w-[1.375rem] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+            isLight ? "bg-rose-600 text-white" : "bg-white text-rose-700 shadow-sm"
+          }`}
+          aria-hidden
+        >
+          {badgeLabel}
+        </span>
+      )}
+    </Link>
+  );
+});
 
 export type ServerNavLink = {
   label: string;
@@ -68,6 +112,7 @@ type Props = {
 
 export function SiteNavbar({ serverLinks }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, role, userName, userEmail, logout } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
@@ -76,6 +121,8 @@ export function SiteNavbar({ serverLinks }: Props) {
   /** Avoid hydration mismatch: cart lives in localStorage; only show count after client read. */
   const showCartBadge = cartHydrated && cartCount > 0;
   const [accountOpen, setAccountOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   /** Avoid session/cart UI hydration mismatch (server vs client session). */
   const [mounted, setMounted] = useState(false);
   /** On home: transparent bar over hero until user scrolls past `#landing-hero`, then floating pill. */
@@ -98,6 +145,10 @@ export function SiteNavbar({ serverLinks }: Props) {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    setSearchOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -313,15 +364,15 @@ export function SiteNavbar({ serverLinks }: Props) {
     "mx-auto w-full max-w-[min(1920px,calc(100vw-1rem))] sm:max-w-[min(1920px,calc(100vw-2rem))] rounded-2xl";
 
   /**
-   * Hero: transparent (immersive). Else: warm frosted bar that matches page shell (#f4f0f2 family) — avoids a bright white
-   * “floating card” that fights shop / main content. Dark glass unchanged for edge cases.
+   * Hero: transparent (immersive). Else: iOS-style “liquid glass” — low-opacity tint + heavy blur/saturation + edge highlight,
+   * not an opaque white card. Dark variant keeps stronger translucency over imagery.
    */
   const shellClass = immersive
     ? `pointer-events-auto ${homeBarShell} overflow-visible border border-transparent bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5`
-    : `pointer-events-auto ${homeBarShell} overflow-visible border shadow-lg backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow] duration-150 ${
+    : `pointer-events-auto ${homeBarShell} overflow-visible transition-[background-color,border-color,box-shadow] duration-200 will-change-[backdrop-filter] ${
         isLight
-          ? "border-zinc-400/35 bg-gradient-to-br from-[#f2e8ec]/96 via-[#f4f0f2]/94 to-[#ebe3e7]/92 text-zinc-900 shadow-[0_14px_44px_-12px_rgba(55,28,38,0.12)] ring-1 ring-zinc-500/15"
-          : "border-white/25 bg-gradient-to-br from-white/20 via-white/12 to-zinc-900/40 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.35)] ring-1 ring-white/20"
+          ? "border border-white/45 bg-gradient-to-b from-white/35 via-rose-50/12 to-white/10 text-zinc-900 shadow-[0_12px_44px_-14px_rgba(55,28,38,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] ring-1 ring-inset ring-white/40 backdrop-blur-3xl backdrop-saturate-200"
+          : "border border-white/30 bg-gradient-to-br from-white/18 via-white/10 to-zinc-950/45 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-inset ring-white/20 backdrop-blur-2xl backdrop-saturate-150"
       }`;
 
   const mobileDrawer =
@@ -483,30 +534,66 @@ export function SiteNavbar({ serverLinks }: Props) {
               onMouseLeave={scheduleMegaClose}
               aria-label="Primary"
             >
-              {primary.map((item) => (
-                <Link
-                  key={item.href + item.label}
-                  href={item.href}
-                  className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
-                  onMouseEnter={() => {
-                    clearMegaCloseTimer();
-                    setOpenMegaTitle(null);
-                  }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-              {megaEntries.map(([groupTitle, links]) => (
-                <SiteNavbarMegaMenu
-                  key={groupTitle}
-                  title={groupTitle}
-                  links={links}
-                  isLight={isLight}
-                  isOpen={openMegaTitle === groupTitle}
-                  onOpen={() => openMega(groupTitle)}
-                  onPanelPointerEnter={clearMegaCloseTimer}
-                />
-              ))}
+              {searchOpen ? (
+                <div className="flex w-full max-w-[min(920px,calc(100vw-17rem))] items-center gap-2">
+                  <input
+                    autoFocus
+                    type="search"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSearchOpen(false);
+                        return;
+                      }
+                      if (e.key !== "Enter") return;
+                      const q = searchValue.trim();
+                      const p = new URLSearchParams();
+                      if (q) p.set("q", q);
+                      p.set("page", "1");
+                      const qs = p.toString();
+                      router.push(qs ? `/shop?${qs}` : "/shop");
+                      setSearchOpen(false);
+                    }}
+                    placeholder="Search by name, tags, material, occasion..."
+                    className="w-full rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-crown-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSearchOpen(false)}
+                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {primary.map((item) => (
+                    <Link
+                      key={item.href + item.label}
+                      href={item.href}
+                      className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
+                      onMouseEnter={() => {
+                        clearMegaCloseTimer();
+                        setOpenMegaTitle(null);
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                  {megaEntries.map(([groupTitle, links]) => (
+                    <SiteNavbarMegaMenu
+                      key={groupTitle}
+                      title={groupTitle}
+                      links={links}
+                      isLight={isLight}
+                      isOpen={openMegaTitle === groupTitle}
+                      onOpen={() => openMega(groupTitle)}
+                      onPanelPointerEnter={clearMegaCloseTimer}
+                    />
+                  ))}
+                </>
+              )}
             </nav>
 
             <div
@@ -545,18 +632,7 @@ export function SiteNavbar({ serverLinks }: Props) {
                           </span>
                         )}
                       </Link>
-                      <Link
-                        href="/account/wishlist"
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
-                          isLight
-                            ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
-                            : "border-white/35 bg-white/10 text-white hover:bg-white/20"
-                        }`}
-                        aria-label="Wishlist — view all saved items"
-                        title="Wishlist"
-                      >
-                        <Heart className="h-6 w-6" strokeWidth={1.6} />
-                      </Link>
+                      <SiteNavbarWishlistLink isLight={isLight} />
                     </>
                   )}
 
@@ -574,6 +650,23 @@ export function SiteNavbar({ serverLinks }: Props) {
                   >
                     <Menu className="h-6 w-6" strokeWidth={2} />
                   </button>
+
+                  <Link
+                    href="/shop"
+                    className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] lg:flex ${
+                      isLight
+                        ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
+                        : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                    aria-label="Search products"
+                    title="Search products"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSearchOpen((o) => !o);
+                    }}
+                  >
+                    <Search className="h-5 w-5" strokeWidth={1.8} />
+                  </Link>
 
                   {isLoading ? (
                     <span className={`hidden text-xs lg:inline ${isLight ? "text-zinc-500" : "text-white/80"}`}>…</span>

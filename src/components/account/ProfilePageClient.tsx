@@ -3,33 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProfileFormClient } from "@/components/account/ProfileFormClient";
-import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+import { useAuth } from "@/context/AuthContext";
 
 export function ProfilePageClient() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
+  const { isAuthenticated, isLoading } = useAuth();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const supabase = await getSupabaseClientOrNull();
-      if (!supabase) {
-        router.replace("/auth/signin?callbackUrl=/account/profile");
-        return;
-      }
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.replace("/auth/signin?callbackUrl=/account/profile");
-        return;
-      }
-      if (mounted) setChecking(false);
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/auth/signin?callbackUrl=/account/profile");
+      return;
+    }
+    setReady(true);
+  }, [isAuthenticated, isLoading, router]);
 
-  if (checking) {
+  if (isLoading || !ready) {
     return <p className="text-sm text-zinc-500">Loading profile…</p>;
   }
 
@@ -44,27 +34,6 @@ export function ProfilePageClient() {
         <ProfileFormClient />
       </div>
 
-      <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Payment methods</h2>
-        <p className="mt-2 text-sm text-zinc-700">
-          Cards and UPI are handled at checkout by your payment provider — we never store full card numbers.
-        </p>
-      </section>
-
-      <p className="mt-8 text-sm">
-        <button
-          type="button"
-          className="text-crown-800 underline"
-          onClick={async () => {
-            const supabase = await getSupabaseClientOrNull();
-            if (!supabase) return;
-            await supabase.auth.signOut();
-            router.replace("/");
-          }}
-        >
-          Log out
-        </button>
-      </p>
     </div>
   );
 }

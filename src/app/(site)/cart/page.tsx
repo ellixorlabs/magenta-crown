@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { CartClient } from "@/components/cart/CartClient";
 
 export const metadata: Metadata = {
@@ -9,11 +9,12 @@ export const metadata: Metadata = {
 };
 
 export default async function CartPage() {
-  const upsells = await prisma.product.findMany({
-    take: 3,
-    orderBy: { createdAt: "desc" },
-    include: { variants: { select: { stock: true, isActive: true } } }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: upsells, error } = await (supabase.from("Product") as any)
+    .select("*,variants:ProductVariant(stock,isActive)")
+    .order("createdAt", { ascending: false })
+    .limit(3);
+  if (error) throw new Error(error.message);
 
   return <CartClient upsells={upsells} />;
 }

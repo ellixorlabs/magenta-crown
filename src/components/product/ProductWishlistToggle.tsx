@@ -1,8 +1,10 @@
 "use client";
 
 import { Heart } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useWishlistDispatch } from "@/context/WishlistContext";
+import { wishlistPostHeaders } from "@/lib/wishlist-client";
 
 type Props = {
   productId: string;
@@ -12,52 +14,52 @@ type Props = {
 };
 
 export function ProductWishlistToggle({ productId, initialWishlisted, className = "", variant = "default" }: Props) {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { userId } = useAuth();
+  const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    let unsub: (() => void) | null = null;
-    (async () => {
-      const supabase = await getSupabaseClientOrNull();
-      if (!supabase || !mounted) return;
-      supabase.auth.getUser().then(({ data }) => {
-        if (mounted) setUserId(data.user?.id ?? null);
-      });
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (mounted) setUserId(session?.user?.id ?? null);
-      });
-      unsub = () => sub.subscription.unsubscribe();
-    })();
-    return () => {
-      mounted = false;
-      unsub?.();
-    };
-  }, []);
+  const wishlistedRef = useRef(wishlisted);
+  const busyRef = useRef(false);
 
   const canWishlist = Boolean(userId);
 
+  useEffect(() => {
+    setWishlisted(initialWishlisted);
+  }, [initialWishlisted]);
+
+  useEffect(() => {
+    wishlistedRef.current = wishlisted;
+  }, [wishlisted]);
+
   const toggle = useCallback(async () => {
-    if (!canWishlist || busy) return;
-    setBusy(true);
-    const next = !wishlisted;
+    if (!canWishlist || busyRef.current) return;
+    const prev = wishlistedRef.current;
+    const next = !prev;
+    setWishlisted(next);
+    wishlistedRef.current = next;
+    applyOptimisticDelta(next ? 1 : -1);
+    busyRef.current = true;
     try {
-      const supabase = await getSupabaseClientOrNull();
-      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
       const res = await fetch("/api/user/wishlist", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
+        headers: await wishlistPostHeaders(),
         body: JSON.stringify({ productId, wishlist: next })
       });
-      if (res.ok) setWishlisted(next);
+      const data = (await res.json()) as { count?: number };
+      if (res.ok && typeof data.count === "number") {
+        setServerCount(data.count);
+      } else {
+        setWishlisted(prev);
+        wishlistedRef.current = prev;
+        applyOptimisticDelta(next ? -1 : 1);
+      }
+    } catch {
+      setWishlisted(prev);
+      wishlistedRef.current = prev;
+      applyOptimisticDelta(next ? -1 : 1);
     } finally {
-      setBusy(false);
+      busyRef.current = false;
     }
-  }, [busy, canWishlist, productId, wishlisted]);
+  }, [applyOptimisticDelta, canWishlist, productId, setServerCount]);
 
   if (!canWishlist) return null;
 
@@ -66,12 +68,11 @@ export function ProductWishlistToggle({ productId, initialWishlisted, className 
       type="button"
       aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
       onClick={toggle}
-      disabled={busy}
       className={`inline-flex items-center justify-center rounded-full ${
         variant === "overlay"
           ? "border border-zinc-200 bg-white p-2.5 text-zinc-700 shadow-md transition hover:border-crown-400 hover:text-crown-800"
           : "border border-zinc-200 bg-white p-3 text-zinc-700 shadow-sm transition hover:border-crown-400 hover:text-crown-800"
-      } disabled:opacity-50 ${className}`}
+      } ${className}`}
     >
       <Heart className={`h-6 w-6 ${wishlisted ? "fill-rose-500 text-rose-500" : ""}`} strokeWidth={1.5} />
     </button>

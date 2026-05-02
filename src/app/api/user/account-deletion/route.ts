@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import {
   getSupabaseUserFromRequest,
   resolveAppUserIdFromSupabaseUser,
   unauthorized
 } from "@/lib/supabase-server-auth";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const RETENTION_DAYS = 7;
 
@@ -20,15 +20,17 @@ export async function GET(req: Request) {
   const userId = await resolveAppUserIdFromSupabaseUser(user);
   if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const row = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { deletionRequestedAt: true, deletionScheduledFor: true }
-  });
-  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: row, error } = await supabase
+    .from("User")
+    .select("deletionRequestedAt,deletionScheduledFor")
+    .eq("id", userId)
+    .maybeSingle<{ deletionRequestedAt: string | null; deletionScheduledFor: string | null }>();
+  if (error || !row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({
-    deletionRequestedAt: row.deletionRequestedAt?.toISOString() ?? null,
-    deletionScheduledFor: row.deletionScheduledFor?.toISOString() ?? null
+    deletionRequestedAt: row.deletionRequestedAt ? new Date(row.deletionRequestedAt).toISOString() : null,
+    deletionScheduledFor: row.deletionScheduledFor ? new Date(row.deletionScheduledFor).toISOString() : null
   });
 }
 
@@ -39,13 +41,15 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { requestedAt, scheduledFor } = computeDeletionDates();
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      deletionRequestedAt: requestedAt,
-      deletionScheduledFor: scheduledFor
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase
+    .from("User") as any)
+    .update({
+      deletionRequestedAt: requestedAt.toISOString(),
+      deletionScheduledFor: scheduledFor.toISOString()
+    })
+    .eq("id", userId);
+  if (error) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
     ok: true,
     deletionRequestedAt: requestedAt.toISOString(),
@@ -59,13 +63,15 @@ export async function DELETE(req: Request) {
   const userId = await resolveAppUserIdFromSupabaseUser(user);
   if (!userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase
+    .from("User") as any)
+    .update({
       deletionRequestedAt: null,
       deletionScheduledFor: null
-    }
-  });
+    })
+    .eq("id", userId);
+  if (error) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 

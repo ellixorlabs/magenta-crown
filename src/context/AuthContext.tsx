@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode
 } from "react";
+import { clearAccountRecoverStorageKeys } from "@/lib/account-recover-storage";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 type Role = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
@@ -42,6 +43,8 @@ function AuthContextInner({ children }: { children: ReactNode }) {
     setRole("CUSTOMER");
   }, []);
 
+  /** Enrich client auth with server User row (role, name). Never clears client session — missing server
+   *  response is common right after cookie sync or if DB row lags; wiping here caused false logouts. */
   const refreshServerSession = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/session", { cache: "no-store" });
@@ -49,18 +52,16 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         session?: { user?: { id?: string; email?: string; name?: string | null; role?: Role } } | null;
       };
       const user = data.session?.user;
-      if (!user?.id) {
-        clearAuthState();
-        return;
-      }
+      if (!user?.id) return;
+      clearAccountRecoverStorageKeys();
       setUserId(user.id);
       setUserEmail(user.email ?? null);
       setUserName(user.name ?? null);
       setRole(user.role ?? "CUSTOMER");
     } catch {
-      clearAuthState();
+      /* keep Supabase-derived session; do not clear on network / transient errors */
     }
-  }, [clearAuthState]);
+  }, []);
 
   const syncServerCookie = useCallback(async (accessToken: string | null) => {
     if (!accessToken) {
@@ -83,14 +84,14 @@ function AuthContextInner({ children }: { children: ReactNode }) {
 
         const { data: sess } = await supabase.auth.getSession();
         await syncServerCookie(sess.session?.access_token ?? null);
-        const { data } = await supabase.auth.getUser();
+        const sessionUser = sess.session?.user ?? null;
         if (mounted) {
-          if (!data.user) {
+          if (!sessionUser) {
             clearAuthState();
           } else {
-            setUserId(data.user.id);
-            setUserEmail(data.user.email ?? null);
-            setUserName((data.user.user_metadata?.name as string | undefined) ?? null);
+            setUserId(sessionUser.id);
+            setUserEmail(sessionUser.email ?? null);
+            setUserName((sessionUser.user_metadata?.name as string | undefined) ?? null);
           }
           await refreshServerSession();
         }

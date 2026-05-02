@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { normalizePublicOrderRef } from "@/lib/order-public-ref";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import type { NextAppPageParams } from "@/types/next-app";
 
 type Addr = Record<string, unknown>;
 
@@ -28,21 +30,26 @@ function formatAddress(json: unknown): { lines: string[]; pairs: { k: string; v:
   return { lines, pairs };
 }
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = NextAppPageParams<{ orderRef: string }>;
 
 export default async function AdminOrderDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      items: { include: { product: { select: { name: true, slug: true } } } },
-      user: { select: { id: true, email: true, name: true } }
-    }
-  });
+  const { orderRef: orderRefParam } = await params;
+  const ref = normalizePublicOrderRef(orderRefParam);
+  if (!ref) {
+    notFound();
+  }
+
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: order, error } = await (supabase.from("Order") as any)
+    .select("*,items:OrderItem(*,product:Product(name,slug)),user:User(id,email,name)")
+    .eq("publicOrderRef", ref)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
 
   if (!order) {
     notFound();
   }
+  const lineItems = (order.items ?? []) as any[];
 
   const { lines: addrLines, pairs: addrPairs } = formatAddress(order.shippingAddress);
 
@@ -58,7 +65,6 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
               <span className="font-mono text-base text-zinc-600">Legacy order (no public ref)</span>
             )}
           </h2>
-          <p className="mt-1 font-mono text-xs text-zinc-400">Internal ID: {order.id}</p>
         </div>
         <Link
           href="/admin/orders"
@@ -162,7 +168,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
       <section className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-zinc-900">Line items</h3>
         <ul className="mt-4 divide-y divide-zinc-100 text-sm">
-          {order.items.map((item) => (
+          {lineItems.map((item: any) => (
             <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0">
               <div className="min-w-0">
                 <p className="font-medium text-zinc-900">{item.product.name}</p>

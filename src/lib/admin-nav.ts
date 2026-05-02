@@ -40,7 +40,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
     ]
   },
   { href: "/admin/coupons", label: "Coupons", icon: Percent, adminOnly: true },
-  { href: "/admin/navigation", label: "Header & menus", icon: Settings2, adminOnly: true }
+  { href: "/admin/navigation", label: "Header & menus", icon: Settings2, adminOnly: true },
+  { href: "/admin/others", label: "Others", icon: Settings2, adminOnly: true }
 ];
 
 export { LogOut };

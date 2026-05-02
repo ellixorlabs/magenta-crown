@@ -2,16 +2,12 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabasePublicConfig } from "@/lib/supabase-env";
 
 let cached: SupabaseClient | null = null;
 let initPromise: Promise<SupabaseClient | null> | null = null;
 
-type PublicConfig = {
-  url: string;
-  anonKey: string;
-};
-
-async function loadRuntimeConfig(): Promise<PublicConfig | null> {
+async function loadRuntimeConfig(): Promise<SupabasePublicConfig | null> {
   if (typeof window === "undefined") return null;
   try {
     const res = await fetch("/api/public/supabase-config", { cache: "no-store" });

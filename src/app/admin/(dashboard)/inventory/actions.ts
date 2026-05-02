@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 import { normColorKey, normPart } from "@/lib/product-variants";
+import { randomId } from "@/lib/random-id";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { clearCacheByPrefix } from "@/lib/cache";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 function parseList(s: string) {
   return s
@@ -88,13 +89,9 @@ function computeNewTagExpiresAt(
 }
 
 function productCommerceFields(formData: FormData) {
-  const sizeRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
-  const sizeChartImageUrl = sizeRaw ? normalizeAdminImageUrl(sizeRaw) : null;
   const prepaidOfferText = String(formData.get("prepaidOfferText") ?? "").trim() || null;
   const pricingFootnote = String(formData.get("pricingFootnote") ?? "").trim() || null;
-  const codVals = formData.getAll("codEnabled");
-  const codEnabled = codVals.includes("1") || codVals.includes("on") || codVals.includes("true");
-  return { sizeChartImageUrl, prepaidOfferText, pricingFootnote, codEnabled };
+  return { prepaidOfferText, pricingFootnote, codEnabled: true };
 }
 
 export async function createProduct(formData: FormData) {
@@ -128,8 +125,10 @@ export async function createProduct(formData: FormData) {
   const tags = parseList(String(formData.get("tags") ?? ""));
   const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
 
-  const created = await prisma.product.create({
-    data: {
+  const supabase = getSupabaseServiceRoleClient();
+  const createProductResult = await (supabase
+    .from("Product") as any)
+    .insert({
       ...(slugRaw ? { slug: slugRaw } : {}),
       name,
       description,
@@ -138,7 +137,7 @@ export async function createProduct(formData: FormData) {
       discountedPrice: discountedPrice != null && Number.isFinite(discountedPrice) ? discountedPrice : null,
       category: String(formData.get("category") ?? "Uncategorized").trim() || "Uncategorized",
       tags,
-      newTagExpiresAt,
+      newTagExpiresAt: newTagExpiresAt?.toISOString() ?? null,
       material: String(formData.get("material") ?? "").trim() || null,
       occasion: String(formData.get("occasion") ?? "").trim() || null,
       style: String(formData.get("style") ?? "").trim() || null,
@@ -148,27 +147,42 @@ export async function createProduct(formData: FormData) {
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
-      ...commerce,
-      variants: {
-        create: variantRows.map((r) => ({
-          size: r.size,
-          color: r.color,
-          stock: r.stock,
-          isActive: r.isActive
-        }))
-      }
-    }
-  });
+      ...commerce
+    })
+    .select("id,slug")
+    .single();
+  if (createProductResult.error) {
+    throw new Error(createProductResult.error.message);
+  }
+  const created = createProductResult.data;
+
+  const variantInsert = await (supabase.from("ProductVariant") as any).insert(
+    variantRows.map((r) => ({
+      id: randomId(),
+      productId: created.id,
+      size: r.size,
+      color: r.color,
+      stock: r.stock,
+      isActive: r.isActive
+    }))
+  );
+  if (variantInsert.error) {
+    // Temporary non-atomic flow: clean up product if variants fail.
+    await supabase.from("Product").delete().eq("id", created.id);
+    throw new Error(`Failed to save variants: ${variantInsert.error.message}`);
+  }
 
   if (featuredIds.length > 0) {
-    const valid = await prisma.coupon.findMany({
-      where: { id: { in: featuredIds } },
-      select: { id: true }
-    });
-    const ok = new Set(valid.map((v) => v.id));
+    const valid = await supabase.from("Coupon").select("id").in("id", featuredIds);
+    const ok = new Set((((valid.data ?? []) as Array<{ id: string }>)).map((v) => v.id));
     const rows = featuredIds.filter((id) => ok.has(id)).map((couponId) => ({ productId: created.id, couponId }));
     if (rows.length > 0) {
-      await prisma.productFeaturedCoupon.createMany({ data: rows, skipDuplicates: true });
+      const couponsInsert = await (supabase
+        .from("ProductFeaturedCoupon") as any)
+        .upsert(rows, { onConflict: "productId,couponId" });
+      if (couponsInsert.error) {
+        throw new Error(couponsInsert.error.message);
+      }
     }
   }
 
@@ -213,67 +227,83 @@ export async function updateProduct(formData: FormData) {
   const commerce = productCommerceFields(formData);
   const featuredIds = parseFeaturedCouponIds(formData);
   const tags = parseList(String(formData.get("tags") ?? ""));
-  const current = await prisma.product.findUnique({
-    where: { id },
-    select: { newTagExpiresAt: true }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const current = await supabase
+    .from("Product")
+    .select("newTagExpiresAt")
+    .eq("id", id)
+    .maybeSingle<{ newTagExpiresAt: string | null }>();
   const newTagExpiresAt = computeNewTagExpiresAt(
     tags,
     formData.get("newTagDurationDays"),
-    current?.newTagExpiresAt ?? null
+    current.data?.newTagExpiresAt ? new Date(current.data.newTagExpiresAt) : null
   );
 
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.productVariant.deleteMany({ where: { productId: id } });
-    await tx.productVariant.createMany({
-      data: variantRows.map((r) => ({
-        productId: id,
-        size: r.size,
-        color: r.color,
-        stock: r.stock,
-        isActive: r.isActive
-      }))
-    });
+  // Temporary non-atomic multi-step update while Prisma transactions are being removed.
+  const productUpdate = await (supabase
+    .from("Product") as any)
+    .update({
+      ...(slugRaw ? { slug: slugRaw } : {}),
+      name,
+      description,
+      story: String(formData.get("story") ?? "").trim() || null,
+      mrp: Number.isFinite(mrp) ? mrp : 0,
+      discountedPrice: discountedPrice != null && Number.isFinite(discountedPrice) ? discountedPrice : null,
+      category: String(formData.get("category") ?? "Uncategorized").trim() || "Uncategorized",
+      tags,
+      newTagExpiresAt: newTagExpiresAt?.toISOString() ?? null,
+      material: String(formData.get("material") ?? "").trim() || null,
+      occasion: String(formData.get("occasion") ?? "").trim() || null,
+      style: String(formData.get("style") ?? "").trim() || null,
+      fitNotes: String(formData.get("fitNotes") ?? "").trim() || null,
+      careInstructions: String(formData.get("careInstructions") ?? "").trim() || null,
+      imageUrls,
+      listImageIndex,
+      listImagePosition,
+      videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      ...commerce
+    })
+    .eq("id", id)
+    .select("slug")
+    .single();
+  if (productUpdate.error) {
+    throw new Error(productUpdate.error.message);
+  }
 
-    await tx.productFeaturedCoupon.deleteMany({ where: { productId: id } });
-    if (featuredIds.length > 0) {
-      const valid = await tx.coupon.findMany({
-        where: { id: { in: featuredIds } },
-        select: { id: true }
-      });
-      const ok = new Set(valid.map((v) => v.id));
-      const rows = featuredIds.filter((cid) => ok.has(cid)).map((couponId) => ({ productId: id, couponId }));
-      if (rows.length > 0) {
-        await tx.productFeaturedCoupon.createMany({ data: rows });
+  const variantsDelete = await supabase.from("ProductVariant").delete().eq("productId", id);
+  if (variantsDelete.error) {
+    throw new Error(`Failed to replace variants: ${variantsDelete.error.message}`);
+  }
+  const variantsInsert = await (supabase.from("ProductVariant") as any).insert(
+    variantRows.map((r) => ({
+      id: randomId(),
+      productId: id,
+      size: r.size,
+      color: r.color,
+      stock: r.stock,
+      isActive: r.isActive
+    }))
+  );
+  if (variantsInsert.error) {
+    throw new Error(`Failed to replace variants: ${variantsInsert.error.message}`);
+  }
+
+  const featuredDelete = await supabase.from("ProductFeaturedCoupon").delete().eq("productId", id);
+  if (featuredDelete.error) {
+    throw new Error(`Failed to replace featured coupons: ${featuredDelete.error.message}`);
+  }
+  if (featuredIds.length > 0) {
+    const valid = await supabase.from("Coupon").select("id").in("id", featuredIds);
+    const ok = new Set((((valid.data ?? []) as Array<{ id: string }>)).map((v) => v.id));
+    const rows = featuredIds.filter((cid) => ok.has(cid)).map((couponId) => ({ productId: id, couponId }));
+    if (rows.length > 0) {
+      const featuredInsert = await (supabase.from("ProductFeaturedCoupon") as any).insert(rows);
+      if (featuredInsert.error) {
+        throw new Error(`Failed to replace featured coupons: ${featuredInsert.error.message}`);
       }
     }
-
-    return tx.product.update({
-      where: { id },
-      data: {
-        ...(slugRaw ? { slug: slugRaw } : {}),
-        name,
-        description,
-        story: String(formData.get("story") ?? "").trim() || null,
-        mrp: Number.isFinite(mrp) ? mrp : 0,
-        discountedPrice: discountedPrice != null && Number.isFinite(discountedPrice) ? discountedPrice : null,
-        category: String(formData.get("category") ?? "Uncategorized").trim() || "Uncategorized",
-        tags,
-        newTagExpiresAt,
-        material: String(formData.get("material") ?? "").trim() || null,
-        occasion: String(formData.get("occasion") ?? "").trim() || null,
-        style: String(formData.get("style") ?? "").trim() || null,
-        fitNotes: String(formData.get("fitNotes") ?? "").trim() || null,
-        careInstructions: String(formData.get("careInstructions") ?? "").trim() || null,
-        imageUrls,
-        listImageIndex,
-        listImagePosition,
-        videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
-        ...commerce
-      },
-      select: { slug: true }
-    });
-  });
+  }
+  const updated = productUpdate.data;
 
   revalidatePath("/", "layout");
   revalidatePath("/");
@@ -293,8 +323,12 @@ export async function deleteProduct(
   if (!isAdminRole(session.user.role)) {
     return { ok: false, message: "Only admins can delete products." };
   }
-  const orderLines = await prisma.orderItem.count({ where: { productId } });
-  if (orderLines > 0) {
+  const supabase = getSupabaseServiceRoleClient();
+  const orderLines = await supabase
+    .from("OrderItem")
+    .select("id", { count: "exact", head: true })
+    .eq("productId", productId);
+  if ((orderLines.count ?? 0) > 0) {
     return {
       ok: false,
       message:
@@ -302,7 +336,10 @@ export async function deleteProduct(
     };
   }
   try {
-    await prisma.product.delete({ where: { id: productId } });
+    const remove = await supabase.from("Product").delete().eq("id", productId);
+    if (remove.error) {
+      throw new Error(remove.error.message);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Delete failed.";
     return { ok: false, message: msg };

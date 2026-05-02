@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { parseHeroTransition } from "@/lib/hero-transition";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { seedDefaultHeroSlides } from "./actions";
 import { HeroSlideForm } from "./HeroSlideForm";
 import { HeroTransitionForm } from "./HeroTransitionForm";
@@ -16,12 +16,16 @@ export default async function AdminHeroPage() {
     redirect("/admin");
   }
 
+  const supabase = getSupabaseServiceRoleClient();
   const [slides, heroSettings] = await Promise.all([
-    prisma.heroSlide.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.heroCarouselSettings.findUnique({ where: { id: "default" } })
+    (supabase.from("HeroSlide") as any).select("*").order("sortOrder", { ascending: true }),
+    (supabase.from("HeroCarouselSettings") as any).select("*").eq("id", "default").maybeSingle()
   ]);
+  if (slides.error) throw new Error(slides.error.message);
+  if (heroSettings.error) throw new Error(heroSettings.error.message);
+  const rows = (slides.data ?? []) as any[];
 
-  const currentTransition = parseHeroTransition(heroSettings?.transition);
+  const currentTransition = parseHeroTransition(heroSettings.data?.transition);
 
   return (
     <div className="space-y-8">
@@ -35,7 +39,7 @@ export default async function AdminHeroPage() {
         </p>
       </div>
 
-      {slides.length === 0 && (
+      {rows.length === 0 && (
         <form action={seedDefaultHeroSlides} className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6">
           <p className="text-sm text-zinc-600">
             No slides in the database yet. You can copy the three built-in slides into the database to edit them.
@@ -58,12 +62,12 @@ export default async function AdminHeroPage() {
       )}
 
       <div className="space-y-6">
-        {slides.map((s) => (
+        {rows.map((s: any) => (
           <HeroSlideForm key={s.id} slide={s} />
         ))}
       </div>
 
-      <HeroSlideForm defaultSortOrder={slides.length} />
+      <HeroSlideForm defaultSortOrder={rows.length} />
 
       <p className="text-xs text-zinc-500">
         Add your image host to <code className="rounded bg-zinc-200 px-1">next.config.ts</code> if images fail to load.{" "}

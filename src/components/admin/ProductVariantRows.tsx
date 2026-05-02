@@ -1,8 +1,8 @@
 "use client";
 
-import type { ProductVariant } from "@prisma/client";
 import { useMemo, useState } from "react";
 import { DEFAULT_COLOR } from "@/lib/product-variants";
+import type { ProductVariantRow } from "@/lib/db/app-types";
 
 export type VariantRowJson = { size: string; color: string; stock: number; isActive: boolean };
 
@@ -17,7 +17,7 @@ function displayColorFromDb(c: string) {
 
 type Row = VariantRowJson & { key: string };
 
-function rowsFromInitial(initial: ProductVariant[]): Row[] {
+function rowsFromInitial(initial: ProductVariantRow[]): Row[] {
   if (initial.length === 0) {
     return [{ key: newKey(), size: "", color: "", stock: 0, isActive: true }];
   }
@@ -30,7 +30,7 @@ function rowsFromInitial(initial: ProductVariant[]): Row[] {
   }));
 }
 
-type Props = { initial: ProductVariant[] };
+type Props = { initial: ProductVariantRow[] };
 
 export function ProductVariantRows({ initial }: Props) {
   const [rows, setRows] = useState<Row[]>(() => rowsFromInitial(initial));

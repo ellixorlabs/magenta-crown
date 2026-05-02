@@ -1,7 +1,6 @@
 import "server-only";
 
-import type { Product } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePagePayload } from "@/lib/get-home-page-config";
 import { getHeroCarouselSettings, getHeroSlidesForSite } from "@/lib/hero-data";
 import type { HeroSlideVM } from "@/lib/hero-public";
@@ -9,7 +8,7 @@ import type { HomePagePayloadV2 } from "@/lib/home-page-types";
 import type { HeroTransitionId } from "@/lib/hero-transition";
 import { getCache, setCache } from "@/lib/cache";
 
-type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
+type ProductRow = any;
 
 export type HomePageDbBundle = {
   payload: HomePagePayloadV2;
@@ -25,7 +24,13 @@ type CachedHomeBundle = {
   productByIdEntries: [string, ProductRow][];
 };
 
-const CACHE_KEY = "homepage:bundle";
+/** In-memory bundle key (must match `clearCache` in homepage CMS actions). */
+export const CACHE_KEY = "homepage_db_bundle";
+
+/** Alias for callers that imported the previous export name. */
+export const HOMEPAGE_BUNDLE_CACHE_KEY = CACHE_KEY;
+
+/** Homepage bundle TTL — keep in sync with product carousel freshness needs. */
 const TTL_MS = 60_000;
 
 async function loadUncachedBundle(): Promise<HomePageDbBundle> {
@@ -36,16 +41,23 @@ async function loadUncachedBundle(): Promise<HomePageDbBundle> {
     getHeroCarouselSettings()
   ]);
 
-  const allIds = [...new Set(payload.sections.flatMap((s) => s.productIds).filter(Boolean))];
+  const allIds = [
+    ...new Set(
+      payload.sections
+        .flatMap((s) => (s.type === "promoBanner" ? [] : s.productIds))
+        .filter(Boolean)
+    )
+  ];
 
   let productById = new Map<string, ProductRow>();
   if (allIds.length > 0) {
     try {
-      const rows = await prisma.product.findMany({
-        where: { id: { in: allIds } },
-        include: { variants: { select: { stock: true, isActive: true } } }
-      });
-      productById = new Map(rows.map((p) => [p.id, p]));
+      const supabase = getSupabaseServiceRoleClient();
+      const { data: rows, error } = await (supabase.from("Product") as any)
+        .select("*,variants:ProductVariant(stock,isActive)")
+        .in("id", allIds);
+      if (error) throw new Error(error.message);
+      productById = new Map((rows ?? []).map((p: any) => [p.id, p]));
     } catch {
       productById = new Map();
     }

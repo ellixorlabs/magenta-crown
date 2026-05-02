@@ -3,11 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 import { photonFeatureToAddress } from "@/lib/photon-address";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
@@ -37,10 +38,7 @@ declare global {
 
 const ALL_PAYMENT_OPTIONS = [
   { value: "CASH_ON_DELIVERY", label: "Cash on delivery" },
-  { value: "UPI", label: "UPI" },
-  { value: "CARD", label: "Credit / Debit card" },
-  { value: "NETBANKING", label: "Netbanking" },
-  { value: "WALLET", label: "Wallets" }
+  { value: "UPI", label: "UPI" }
 ] as const;
 
 const PHONE_DIAL_OPTIONS = [
@@ -67,15 +65,25 @@ function savedSummary(a: SavedAddress): string {
   return `${tag}: ${a.line1}, ${a.city} ${a.postalCode}`;
 }
 
-function validPaymentMethod(pm: string | undefined) {
+function validPaymentMethod(pm: string | undefined): "CASH_ON_DELIVERY" | "UPI" | null {
   if (!pm) return null;
-  return ALL_PAYMENT_OPTIONS.some((o) => o.value === pm) ? pm : null;
+  return pm === "CASH_ON_DELIVERY" || pm === "UPI" ? pm : null;
 }
 
 export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?: string | null } = {}) {
   const router = useRouter();
   const { isAuthenticated, isLoading, role, userEmail, userName } = useAuth();
-  const { items, subtotal, discountedTotal, couponCode, clearCart, cartHydrated, flushCart, updateQuantity } = useCart();
+  const {
+    items,
+    subtotal,
+    discountedTotal,
+    couponCode,
+    clearCart,
+    cartHydrated,
+    flushCart,
+    updateQuantity,
+    removeItem
+  } = useCart();
 
   const [fullName, setFullName] = useState("");
   const [phoneDial, setPhoneDial] = useState("+91");
@@ -93,15 +101,14 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
 
   const [profileAddresses, setProfileAddresses] = useState<SavedAddress[]>([]);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [addressMode, setAddressMode] = useState<"saved" | "new">("new");
+  const [addressMode, setAddressMode] = useState<"saved" | "new">("saved");
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
-  const [saveKind, setSaveKind] = useState<"none" | "home" | "work" | "other">("none");
+  const [saveKind, setSaveKind] = useState<"home" | "work" | "other">("home");
   const [otherLabel, setOtherLabel] = useState("");
-  const [replaceHomeConfirmed, setReplaceHomeConfirmed] = useState(false);
 
-  const [allowCod, setAllowCod] = useState(true);
-  const initialPm = validPaymentMethod(defaultPaymentMethod ?? undefined) ?? "CASH_ON_DELIVERY";
-  const [paymentMethod, setPaymentMethod] = useState(initialPm);
+  const [paymentMethod, setPaymentMethod] = useState<"" | "CASH_ON_DELIVERY" | "UPI">(() => {
+    return validPaymentMethod(defaultPaymentMethod ?? undefined) ?? "";
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,55 +134,14 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     return Boolean(window.Razorpay);
   }, []);
 
-  const paymentOptions = useMemo(() => {
-    if (allowCod) return [...ALL_PAYMENT_OPTIONS];
-    return ALL_PAYMENT_OPTIONS.filter((o) => o.value !== "CASH_ON_DELIVERY");
-  }, [allowCod]);
+  const paymentOptions = ALL_PAYMENT_OPTIONS;
 
   const email = userEmail ?? "";
 
   const isStaff = useMemo(() => role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT", [role]);
 
   const hasSaved = profileAddresses.length > 0;
-  const hasHome = useMemo(() => profileAddresses.some((a) => a.kind === "home"), [profileAddresses]);
-
-  const cartProductKey = useMemo(
-    () => [...new Set(items.map((i) => i.productId))].sort().join(","),
-    [items]
-  );
   const couponProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
-
-  useEffect(() => {
-    if (!cartHydrated) return;
-    const ids = cartProductKey ? cartProductKey.split(",") : [];
-    if (ids.length === 0) {
-      setAllowCod(true);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/checkout/payment-options", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productIds: ids })
-        });
-        const data = (await res.json()) as { allowCod?: boolean };
-        if (!cancelled) setAllowCod(data.allowCod !== false);
-      } catch {
-        if (!cancelled) setAllowCod(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cartHydrated, cartProductKey]);
-
-  useEffect(() => {
-    if (!allowCod) {
-      setPaymentMethod((pm) => (pm === "CASH_ON_DELIVERY" ? "UPI" : pm));
-    }
-  }, [allowCod]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -186,57 +152,81 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    void fetch("/api/user/profile")
-      .then((r) => r.json())
-      .then(
-        (d: {
-          addresses?: unknown;
-          phone?: string;
-        }) => {
-          const raw = Array.isArray(d.addresses) ? d.addresses : [];
-          const list: SavedAddress[] = [];
-          for (const x of raw) {
-            if (!x || typeof x !== "object") continue;
-            const o = x as Record<string, unknown>;
-            list.push({
-              id: typeof o.id === "string" && o.id ? o.id : randomId(),
-              kind: o.kind === "home" || o.kind === "work" || o.kind === "other" ? o.kind : undefined,
-              customLabel: o.customLabel != null ? String(o.customLabel) : undefined,
-              label: o.label != null ? String(o.label) : undefined,
-              line1: String(o.line1 ?? ""),
-              line2: o.line2 != null ? String(o.line2) : undefined,
-              city: String(o.city ?? ""),
-              state: String(o.state ?? ""),
-              postalCode: String(o.postalCode ?? ""),
-              country: o.country != null ? String(o.country) : undefined,
-              phone: o.phone != null ? String(o.phone) : undefined
-            });
-          }
-          setProfileAddresses(list);
-          if (list.length > 0) {
-            setAddressMode("saved");
-            setSelectedSavedId(list[0]!.id);
-          }
-          if (d.phone && typeof d.phone === "string") {
-            const digits = d.phone.replace(/\D/g, "");
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = await getSupabaseClientOrNull();
+        const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+        if (!token) {
+          if (!cancelled) setProfileLoaded(true);
+          return;
+        }
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          if (!cancelled) setProfileLoaded(true);
+          return;
+        }
+        const d = (await res.json()) as { addresses?: unknown; phone?: string };
+        if (cancelled) return;
+        const raw = Array.isArray(d.addresses) ? d.addresses : [];
+        const list: SavedAddress[] = [];
+        for (const x of raw) {
+          if (!x || typeof x !== "object") continue;
+          const o = x as Record<string, unknown>;
+          list.push({
+            id: typeof o.id === "string" && o.id ? o.id : randomId(),
+            kind: o.kind === "home" || o.kind === "work" || o.kind === "other" ? o.kind : undefined,
+            customLabel: o.customLabel != null ? String(o.customLabel) : undefined,
+            label: o.label != null ? String(o.label) : undefined,
+            line1: String(o.line1 ?? ""),
+            line2: o.line2 != null ? String(o.line2) : undefined,
+            city: String(o.city ?? ""),
+            state: String(o.state ?? ""),
+            postalCode: String(o.postalCode ?? ""),
+            country: o.country != null ? String(o.country) : undefined,
+            phone: o.phone != null ? String(o.phone) : undefined
+          });
+        }
+        setProfileAddresses(list);
+        if (list.length > 0) {
+          const first = list[0]!;
+          setAddressMode("saved");
+          setSelectedSavedId(first.id);
+          setStreet(first.line1);
+          setArea(first.line2 ?? "");
+          setTown(first.state ?? "");
+          setCity(first.city);
+          setPin(first.postalCode);
+          if (first.phone) {
+            const digits = first.phone.replace(/\D/g, "");
             if (digits.length >= 10) setPhoneLocal(digits.slice(-10));
           }
+        } else {
+          setAddressMode("new");
+          setSelectedSavedId(null);
         }
-      )
-      .catch(() => {})
-      .finally(() => setProfileLoaded(true));
+        if (d.phone && typeof d.phone === "string") {
+          const digits = d.phone.replace(/\D/g, "");
+          if (digits.length >= 10) setPhoneLocal(digits.slice(-10));
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setProfileLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (addressMode === "saved") {
-      setSaveKind("none");
-      setReplaceHomeConfirmed(false);
+      setSaveKind("home");
     }
   }, [addressMode]);
-
-  useEffect(() => {
-    if (saveKind !== "home") setReplaceHomeConfirmed(false);
-  }, [saveKind]);
 
   useEffect(() => {
     if (addressMode !== "saved" || !selectedSavedId) return;
@@ -319,6 +309,10 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
       setError("Your cart is empty.");
       return;
     }
+    if (!profileLoaded) {
+      setError("Please wait — loading your saved addresses.");
+      return;
+    }
     if (!email?.trim()) {
       setError("Your account must have an email for order confirmation. Update your profile or sign in with email.");
       return;
@@ -339,17 +333,15 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
       setError("Enter a name for your custom address label.");
       return;
     }
-    if (addressMode === "new" && saveKind === "home" && hasHome && !replaceHomeConfirmed) {
-      setError('A home address is already saved. Check "Replace existing home address" below, then place order again.');
+    if (paymentMethod !== "CASH_ON_DELIVERY" && paymentMethod !== "UPI") {
+      setError("Choose a payment method — cash on delivery or UPI.");
       return;
     }
-
     const savePayload =
-      addressMode === "new" && saveKind !== "none"
+      addressMode === "new"
         ? {
             kind: saveKind,
-            customLabel: saveKind === "other" ? otherLabel.trim() : undefined,
-            replaceHomeConfirmed: saveKind === "home" && hasHome ? replaceHomeConfirmed : false
+            customLabel: saveKind === "other" ? otherLabel.trim() : undefined
           }
         : undefined;
 
@@ -386,28 +378,24 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
         })
       });
       const data = (await res.json()) as {
-        orderId?: string;
+        publicOrderRef?: string | null;
         error?: string;
         message?: string;
         requiresOnlinePayment?: boolean;
       };
       if (!res.ok) {
-        if (res.status === 409 && data.error === "HOME_EXISTS") {
-          setError(data.message ?? "Confirm replacing your saved home address, then submit again.");
-          setLoading(false);
-          return;
-        }
         setError(typeof data.error === "string" ? data.error : "Checkout failed");
         return;
       }
-      if (!data.orderId) {
+      const publicOrderRef = typeof data.publicOrderRef === "string" ? data.publicOrderRef.trim() : "";
+      if (!publicOrderRef) {
         setError("Order could not be initialized.");
         return;
       }
 
       if (!data.requiresOnlinePayment) {
         clearCart();
-        router.push(`/checkout/confirmation?orderId=${data.orderId}`);
+        router.push(`/checkout/confirmation?orderRef=${encodeURIComponent(publicOrderRef)}`);
         return;
       }
 
@@ -420,7 +408,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
       const rpInitRes = await fetch("/api/payments/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: data.orderId })
+        body: JSON.stringify({ publicOrderRef })
       });
       const rpInit = (await rpInitRes.json()) as {
         error?: string;
@@ -430,7 +418,10 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
         currency?: string;
       };
       if (!rpInitRes.ok || !rpInit.keyId || !rpInit.razorpayOrderId || !rpInit.amount || !rpInit.currency) {
-        setError(rpInit.error ?? "Could not initialize Razorpay payment.");
+        setError(
+          rpInit.error ??
+            "Payment could not be started. Please try again, or use cash on delivery if available."
+        );
         return;
       }
 
@@ -446,13 +437,13 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
           email: email.trim(),
           contact: phoneCombined
         },
-        notes: { orderId: data.orderId },
+        notes: { publicOrderRef },
         handler: async (resp) => {
           const verifyRes = await fetch("/api/payments/razorpay/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              orderId: data.orderId,
+              publicOrderRef,
               razorpayOrderId: resp.razorpay_order_id,
               razorpayPaymentId: resp.razorpay_payment_id,
               razorpaySignature: resp.razorpay_signature
@@ -460,14 +451,20 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
           });
           const verifyData = (await verifyRes.json()) as { ok?: boolean; error?: string };
           if (!verifyRes.ok || !verifyData.ok) {
-            setError(verifyData.error ?? "Payment verification failed.");
+            setError(
+              verifyData.error ??
+                "Payment was unsuccessful. Your order was not completed. Please try paying again with UPI, or choose cash on delivery if available."
+            );
             return;
           }
           clearCart();
-          router.push(`/checkout/confirmation?orderId=${data.orderId}`);
+          router.push(`/checkout/confirmation?orderRef=${encodeURIComponent(publicOrderRef)}`);
         },
         modal: {
-          ondismiss: () => setError("Payment was cancelled. You can retry.")
+          ondismiss: () =>
+            setError(
+              "Payment was not completed. Tap “Proceed to payment” to try again, or switch to cash on delivery if available."
+            )
         }
       });
       razorpay.open();
@@ -518,10 +515,21 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
     );
   }
 
+  const proceedCtaLabel =
+    loading
+      ? "Processing…"
+      : paymentMethod === ""
+        ? "Choose payment method"
+        : paymentMethod === "CASH_ON_DELIVERY"
+          ? "Place order"
+          : "Proceed to payment";
+
   return (
     <main className="min-h-screen bg-[#f8f5f6] py-10">
-      <div className="section-shell max-w-3xl">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">Checkout</h1>
+      <div className="section-shell max-w-6xl">
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl">
+          Checkout
+        </h1>
         <p className="mt-2 text-sm text-zinc-600">
           Signed in as <span className="font-medium text-zinc-800">{email}</span>.{" "}
           <Link href="/auth/signin?callbackUrl=%2Fcheckout" className="text-crown-800 underline">
@@ -537,63 +545,150 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
             </Link>
           </p>
         ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-6 rounded-2xl border border-zinc-200 bg-white p-6">
-            <div>
-              <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Items in bag</h3>
-                <ul className="mt-3 space-y-2">
-                  {items.map((line) => {
-                    const img =
-                      line.imageUrl ??
-                      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=200&q=80";
-                    return (
-                      <li key={line.lineKey} className="flex items-center gap-3 rounded-lg bg-white p-2">
-                        <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded-md bg-zinc-100">
-                          <Image
-                            src={img}
-                            alt={line.name}
-                            fill
-                            sizes="48px"
-                            className="object-contain"
-                            unoptimized
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-1 text-sm font-medium text-zinc-900">{line.name}</p>
-                          <p className="text-xs font-semibold text-crown-800">Rs {line.price}</p>
-                        </div>
-                        <div className="inline-flex items-stretch rounded-full border border-zinc-300 bg-white">
-                          <button
-                            type="button"
-                            aria-label="Decrease quantity"
-                            onClick={() => updateQuantity(line.lineKey, line.quantity - 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50"
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          </button>
-                          <span className="flex min-w-[2.25rem] items-center justify-center border-x border-zinc-300 px-1 text-sm font-semibold tabular-nums">
-                            {line.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="Increase quantity"
-                            disabled={line.maxStock != null && line.quantity >= line.maxStock}
-                            onClick={() => updateQuantity(line.lineKey, line.quantity + 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-r-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+          <form
+            onSubmit={onSubmit}
+            className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-10"
+          >
+            <div className="min-w-0 space-y-8">
+              <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                <div className="border-b border-zinc-100 bg-zinc-50/90 px-4 py-3">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Order items</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-200 bg-white">
+                        <th className="px-4 py-3 font-semibold text-zinc-600">Item</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-base font-semibold text-zinc-700 md:text-lg">
+                          Price
+                        </th>
+                        <th className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-600">Qty</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-right text-base font-semibold text-zinc-700 md:text-lg">
+                          Subtotal
+                        </th>
+                        <th className="w-24 px-2 py-3 text-right font-semibold text-zinc-500">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((line) => {
+                        const img = line.imageUrl ?? "/branding/mc-loader-logo.png";
+                        const lineSubtotal = line.price * line.quantity;
+                        const productHref = line.slug ? `/product/${line.slug}` : null;
+                        return (
+                          <tr key={line.lineKey} className="border-b border-zinc-100 last:border-b-0">
+                            <td className="align-top min-w-0 max-w-[min(100%,36rem)] px-4 py-5">
+                              <div className="flex w-full min-w-0 gap-5">
+                                <div className="relative h-32 w-28 shrink-0 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50">
+                                  <Image
+                                    src={img}
+                                    alt={line.name}
+                                    fill
+                                    sizes="112px"
+                                    className="object-contain"
+                                    unoptimized
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-2 py-0.5">
+                                  <p className="text-lg font-bold leading-snug tracking-tight text-zinc-950 sm:text-xl md:text-2xl">
+                                    {line.name}
+                                  </p>
+                                  {(line.size || line.color) && (
+                                    <p className="max-w-xl text-sm leading-relaxed text-zinc-600 sm:text-base">
+                                      {line.size ? (
+                                        <>
+                                          <span className="font-medium text-zinc-500">Size </span>
+                                          <span className="font-bold text-zinc-900">{line.size}</span>
+                                        </>
+                                      ) : null}
+                                      {line.size && line.color ? (
+                                        <span className="mx-1.5 font-normal text-zinc-300">·</span>
+                                      ) : null}
+                                      {line.color ? (
+                                        <>
+                                          <span className="font-medium text-zinc-500">Color </span>
+                                          <span className="font-semibold text-zinc-800">{line.color}</span>
+                                        </>
+                                      ) : null}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-3 pt-1 md:hidden">
+                                    <span className="text-xs font-medium text-zinc-500">Rs {line.price} each</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="align-top whitespace-nowrap px-4 py-5 text-base font-semibold tabular-nums text-zinc-900 sm:text-lg md:text-xl">
+                              Rs {line.price.toFixed(0)}
+                            </td>
+                            <td className="align-top px-4 py-5">
+                              <div className="inline-flex items-stretch rounded-full border border-zinc-300 bg-white">
+                                <button
+                                  type="button"
+                                  aria-label="Decrease quantity"
+                                  onClick={() => updateQuantity(line.lineKey, line.quantity - 1)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-l-full text-zinc-800 transition hover:bg-zinc-50"
+                                >
+                                  <Minus className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                                <span className="flex min-w-[2.5rem] items-center justify-center border-x border-zinc-300 px-2 text-sm font-semibold tabular-nums">
+                                  {line.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Increase quantity"
+                                  disabled={line.maxStock != null && line.quantity >= line.maxStock}
+                                  onClick={() => updateQuantity(line.lineKey, line.quantity + 1)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-r-full text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Plus className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="align-top whitespace-nowrap px-4 py-5 text-right text-base font-bold tabular-nums text-zinc-950 sm:text-lg md:text-xl">
+                              Rs {lineSubtotal.toFixed(0)}
+                            </td>
+                            <td className="align-top px-2 py-5">
+                              <div className="flex justify-end gap-1">
+                                {productHref ? (
+                                  <Link
+                                    href={productHref}
+                                    className="rounded p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                                    aria-label="Edit on product page"
+                                  >
+                                    <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                                  </Link>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="rounded p-2 text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
+                                  aria-label="Remove from bag"
+                                  onClick={() => removeItem(line.lineKey)}
+                                >
+                                  <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
+              <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h2 className="text-sm font-semibold text-zinc-900">Contact & shipping</h2>
               <p className="mt-1 text-xs text-zinc-500">
                 Inventory is reserved only when your order is placed. Totals and promo are confirmed on the server.
               </p>
+
+              {!profileLoaded && (
+                <p className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-sm text-zinc-600">
+                  Loading your saved addresses…
+                </p>
+              )}
 
               {profileLoaded && hasSaved && (
                 <div className="mt-4 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
@@ -610,7 +705,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                   </label>
                   {addressMode === "saved" && (
                     <select
-                      className="ml-7 w-full max-w-lg rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+                      className="ml-7 w-full max-w-lg min-h-[2.75rem] rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-base leading-normal text-zinc-900"
                       value={selectedSavedId ?? ""}
                       onChange={(e) => setSelectedSavedId(e.target.value || null)}
                     >
@@ -629,74 +724,21 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                       checked={addressMode === "new"}
                       onChange={() => setAddressMode("new")}
                     />
-                    <span className="text-sm text-zinc-800">Enter a new address</span>
+                    <span className="text-sm text-zinc-800">Create new address</span>
                   </label>
                 </div>
               )}
 
-              {addressMode === "new" && (
-                <>
-                  <div className="relative mt-4">
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Search address
-                    </label>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                          />
-                        </svg>
-                      </span>
-                      <input
-                        type="search"
-                        autoComplete="off"
-                        className="w-full rounded-full border-2 border-zinc-200 bg-zinc-50 py-3 pl-12 pr-4 text-sm shadow-inner outline-none ring-crown-800/20 transition placeholder:text-zinc-400 focus:border-crown-700 focus:bg-white focus:ring-4"
-                        placeholder="Search street, area, landmark, or city…"
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value);
-                          setSuggestOpen(true);
-                        }}
-                        onFocus={() => setSuggestOpen(true)}
-                        onBlur={() => {
-                          setTimeout(() => {
-                            if (!skipSuggestClose.current) setSuggestOpen(false);
-                            skipSuggestClose.current = false;
-                          }, 180);
-                        }}
-                      />
-                    </div>
-                    {suggestOpen && suggestions.length > 0 && (
-                      <ul className="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-zinc-200 bg-white py-1 text-sm shadow-xl">
-                        {suggestions.map((f, i) => {
-                          const p = f.properties ?? {};
-                          const label =
-                            [p.name, p.street, p.city, p.postcode].filter(Boolean).join(", ") || `Result ${i + 1}`;
-                          return (
-                            <li key={i}>
-                              <button
-                                type="button"
-                                className="w-full px-4 py-2.5 text-left hover:bg-zinc-50"
-                                onMouseDown={() => {
-                                  skipSuggestClose.current = true;
-                                }}
-                                onClick={() => applySuggestion(f)}
-                              >
-                                {String(label)}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                </>
+              {profileLoaded && !hasSaved && (
+                <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Delivery address</p>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    No saved addresses yet. Enter your delivery details below.
+                  </p>
+                </div>
               )}
 
+              {profileLoaded && addressMode === "new" && (
               <div className="mt-4 grid gap-3">
                 <div>
                   <label className="text-xs font-semibold uppercase text-zinc-500">Full name</label>
@@ -741,6 +783,64 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                     />
                   </div>
                 </div>
+                <div className="relative col-span-full">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Search address
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      type="search"
+                      autoComplete="off"
+                      className="w-full rounded-full border-2 border-zinc-200 bg-zinc-50 py-3 pl-12 pr-4 text-sm shadow-inner outline-none ring-crown-800/20 transition placeholder:text-zinc-400 focus:border-crown-700 focus:bg-white focus:ring-4"
+                      placeholder="Search street, area, landmark, or city…"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setSuggestOpen(true);
+                      }}
+                      onFocus={() => setSuggestOpen(true)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          if (!skipSuggestClose.current) setSuggestOpen(false);
+                          skipSuggestClose.current = false;
+                        }, 180);
+                      }}
+                    />
+                  </div>
+                  {suggestOpen && suggestions.length > 0 && (
+                    <ul className="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-zinc-200 bg-white py-1 text-sm shadow-xl">
+                      {suggestions.map((f, i) => {
+                        const p = f.properties ?? {};
+                        const label =
+                          [p.name, p.street, p.city, p.postcode].filter(Boolean).join(", ") || `Result ${i + 1}`;
+                        return (
+                          <li key={i}>
+                            <button
+                              type="button"
+                              className="w-full px-4 py-2.5 text-left hover:bg-zinc-50"
+                              onMouseDown={() => {
+                                skipSuggestClose.current = true;
+                              }}
+                              onClick={() => applySuggestion(f)}
+                            >
+                              {String(label)}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
                 <input
                   required
                   className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
@@ -779,23 +879,12 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                   onChange={(e) => setPin(e.target.value)}
                 />
               </div>
+              )}
 
-              {addressMode === "new" && (
+              {profileLoaded && addressMode === "new" && (
                 <div className="mt-6 border-t border-zinc-200 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Save this address</p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Optional. One &quot;Home&quot; address per account. You can replace an existing home address below.
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Label this address</p>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="saveKind"
-                        checked={saveKind === "none"}
-                        onChange={() => setSaveKind("none")}
-                      />
-                      Don&apos;t save
-                    </label>
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -832,65 +921,78 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                       onChange={(e) => setOtherLabel(e.target.value)}
                     />
                   )}
-                  {saveKind === "home" && hasHome && (
-                    <label className="mt-3 flex items-start gap-2 text-sm text-zinc-800">
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={replaceHomeConfirmed}
-                        onChange={(e) => setReplaceHomeConfirmed(e.target.checked)}
-                      />
-                      <span>I understand this replaces my current saved home address.</span>
-                    </label>
-                  )}
                 </div>
               )}
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold uppercase text-zinc-500">Payment method</label>
-              <select
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                {paymentOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+            <aside className="space-y-4 lg:sticky lg:top-28">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Promo &amp; coupons</h2>
+                <div className="mt-4">
+                  <BagPromoSection productIds={couponProductIds} />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-6 shadow-sm">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Order summary</h2>
+
+                <div className="mt-5 space-y-0 border-b border-zinc-200/80 pb-4">
+                  <div className="flex items-baseline justify-between gap-4 text-sm">
+                    <span className="text-zinc-600">Subtotal (items)</span>
+                    <span className="min-w-[6.5rem] shrink-0 text-right text-base font-semibold tabular-nums text-zinc-900">
+                      Rs {subtotal.toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {couponCode ? (
+                  <div className="mt-4 border-t border-dashed border-zinc-300 pt-4">
+                    <BagPromoAppliedRow discountAmount={subtotal - discountedTotal} layout="bill" />
+                  </div>
+                ) : null}
+
+                <div
+                  className={`flex items-baseline justify-between gap-4 border-t border-zinc-200/80 pt-4 ${
+                    couponCode ? "mt-4" : ""
+                  }`}
+                >
+                  <span className="text-base font-semibold text-zinc-900">Total payable</span>
+                  <span className="min-w-[6.5rem] shrink-0 text-right text-xl font-bold tabular-nums tracking-tight text-zinc-950 sm:text-2xl">
+                    Rs {discountedTotal.toFixed(0)}
+                  </span>
+                </div>
+
+                <label className="mt-8 block text-xs font-semibold uppercase text-zinc-500">Payment method</label>
+                <select
+                  className="mt-1.5 w-full min-h-[2.75rem] rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-base leading-normal text-zinc-900"
+                  required
+                  value={paymentMethod}
+                  onChange={(e) =>
+                    setPaymentMethod(e.target.value as "" | "CASH_ON_DELIVERY" | "UPI")
+                  }
+                >
+                  <option value="" disabled>
+                    Select cash on delivery or UPI
                   </option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs text-zinc-500">
-                Online methods are simulated in this demo. COD orders stay pending until you confirm payment on dispatch.
-              </p>
-            </div>
+                  {paymentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
 
-            <BagPromoSection productIds={couponProductIds} />
+                {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
-            <div className="border-t border-zinc-200 pt-4">
-              <div className="flex justify-between text-sm text-zinc-600">
-                <span>Subtotal</span>
-                <span className="font-semibold text-zinc-900">Rs {subtotal.toFixed(0)}</span>
+                <button
+                  type="submit"
+                  disabled={loading || !profileLoaded || paymentMethod === ""}
+                  className="mt-6 w-full rounded-lg bg-crown-800 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-crown-900 disabled:opacity-50"
+                >
+                  {proceedCtaLabel}
+                </button>
               </div>
-              <BagPromoAppliedRow discountAmount={subtotal - discountedTotal} />
-              <div className="mt-3 flex justify-between text-xl font-bold text-zinc-900">
-                <span>Order total</span>
-                <span>Rs {discountedTotal.toFixed(0)}</span>
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">
-                Final amount is calculated on the server; invalid coupons are rejected at payment.
-              </p>
-            </div>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-crown-800 py-3 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
-            >
-              {loading ? "Placing order…" : "Place order"}
-            </button>
+            </aside>
           </form>
         )}
       </div>

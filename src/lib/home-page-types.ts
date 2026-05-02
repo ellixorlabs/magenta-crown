@@ -133,6 +133,22 @@ export type DynamicProductSection = {
   viewAllHref?: string;
 };
 
+export type DynamicPromoBannerSection = {
+  id: string;
+  type: "promoBanner";
+  enabled: boolean;
+  order: number;
+  transition: SectionTransition;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  targetHref: string;
+  gradientFrom: string;
+  gradientTo: string;
+};
+
+export type DynamicHomeSection = DynamicProductSection | DynamicPromoBannerSection;
+
 export type HomeCategoryCircleItem = {
   id: string;
   label: string;
@@ -155,7 +171,7 @@ export type HomePagePayloadV2 = {
     shape: HomeCategoryCircleShape;
     items: HomeCategoryCircleItem[];
   };
-  sections: DynamicProductSection[];
+  sections: DynamicHomeSection[];
 };
 
 export type HomePagePayload = HomePagePayloadV2;

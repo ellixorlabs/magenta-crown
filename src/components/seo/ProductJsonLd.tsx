@@ -1,9 +1,9 @@
 import Script from "next/script";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 import { getProductTotalStock } from "@/lib/variant-stock";
-import type { Product, ProductVariant } from "@prisma/client";
+import type { ProductRow, ProductVariantRow } from "@/lib/db/app-types";
 
-type Row = Product & { variants?: Pick<ProductVariant, "stock" | "isActive">[] };
+type Row = ProductRow & { variants?: Pick<ProductVariantRow, "stock" | "isActive">[] };
 
 /**
  * Schema.org Product JSON-LD for rich results (price, availability).

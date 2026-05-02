@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import type { Product } from "@prisma/client";
+import type { ProductRow } from "@/lib/db/app-types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/features/ProductCard";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
-type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
+type HomeProductRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
 
 type Props = {
   eyebrow: string;
   title: string;
-  products: ProductRow[];
+  products: HomeProductRow[];
   wishlistIds: Set<string>;
   viewAllHref: string;
   emptyMessage?: string;
@@ -65,17 +65,17 @@ export function HomeProductCarouselSection({
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
             <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
-              {title}
+              <Link href={viewAllHref} className="inline-flex items-center gap-2 hover:text-crown-900">
+                <span>{title}</span>
+                <span
+                  aria-hidden
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
+              </Link>
             </h2>
           </div>
-          {products.length > 0 ? (
-            <Link
-              href={viewAllHref}
-              className="text-sm font-medium text-crown-700 underline-offset-4 hover:underline"
-            >
-              View all
-            </Link>
-          ) : null}
         </div>
 
         {products.length === 0 ? (
@@ -138,16 +138,6 @@ export function HomeProductCarouselSection({
               </div>
             </div>
 
-            <div className="mt-10 flex justify-center">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  href={viewAllHref}
-                  className="inline-flex min-w-[min(100%,22rem)] items-center justify-center rounded-xl bg-crown-600 px-10 py-3.5 text-center text-sm font-bold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-crown-700"
-                >
-                  See more
-                </Link>
-              </motion.div>
-            </div>
           </>
         )}
       </div>

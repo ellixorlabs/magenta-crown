@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
 import type { HomePagePayloadV1, HomePagePayloadV2 } from "@/lib/home-page-types";
 import { migrateHomePageV1ToV2 } from "@/lib/migrate-home-page-v1-to-v2";
@@ -45,10 +45,20 @@ function isPayloadV2(x: unknown): x is HomePagePayloadV2 {
     if (typeof s !== "object" || s === null) return false;
     const sec = s as Record<string, unknown>;
     if (typeof sec.id !== "string") return false;
-    if (typeof sec.title !== "string") return false;
-    if (sec.type !== "carousel" && sec.type !== "grid") return false;
+    if (sec.type !== "carousel" && sec.type !== "grid" && sec.type !== "promoBanner") return false;
     if (typeof sec.enabled !== "boolean") return false;
     if (typeof sec.order !== "number") return false;
+    if (sec.type === "promoBanner") {
+      if (typeof sec.title !== "string") return false;
+      if (sec.subtitle != null && typeof sec.subtitle !== "string") return false;
+      if (typeof sec.imageUrl !== "string") return false;
+      if (typeof sec.targetHref !== "string") return false;
+      if (typeof sec.gradientFrom !== "string") return false;
+      if (typeof sec.gradientTo !== "string") return false;
+      continue;
+    }
+    if (typeof sec.title !== "string") return false;
+    if (typeof sec.eyebrow !== "string") return false;
     if (!Array.isArray(sec.productIds)) return false;
   }
   return true;
@@ -56,7 +66,27 @@ function isPayloadV2(x: unknown): x is HomePagePayloadV2 {
 
 function normalizePayloadV2(p: HomePagePayloadV2): HomePagePayloadV2 {
   const sorted = [...p.sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  const sections = sorted.map((s, i) => ({ ...s, order: i }));
+  const sections = sorted.map((s, i) => {
+    if (s.type === "promoBanner") {
+      return {
+        ...s,
+        order: i,
+        title: s.title.trim() || "Promo banner",
+        subtitle: s.subtitle?.trim() || undefined,
+        imageUrl: s.imageUrl.trim(),
+        targetHref: s.targetHref.trim() || "/shop",
+        gradientFrom: s.gradientFrom.trim() || "#7f1530",
+        gradientTo: s.gradientTo.trim() || "#c02b56"
+      };
+    }
+    return {
+      ...s,
+      order: i,
+      title: s.title.trim() || "Untitled",
+      eyebrow: s.eyebrow.trim(),
+      productIds: [...new Set(s.productIds.filter(Boolean))]
+    };
+  });
   return {
     ...p,
     categoryCircles: {
@@ -119,14 +149,19 @@ function normalizeLegacyV2(raw: Record<string, unknown>): HomePagePayloadV2 | nu
       shape,
       items: circles
     },
-    sections: sections as HomePagePayloadV2["sections"]
+    sections: sections
   };
   return payload;
 }
 
 export async function getHomePagePayload(): Promise<HomePagePayloadV2> {
   try {
-    const row = await prisma.homePageConfig.findUnique({ where: { id: "default" } });
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: row, error } = await (supabase.from("HomePageConfig") as any)
+      .select("payload")
+      .eq("id", "default")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
     if (!row?.payload) {
       return normalizePayloadV2(createDefaultHomePagePayloadV2());
     }

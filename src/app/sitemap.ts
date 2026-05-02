@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 
 /** Shop discovery URLs (filters use query params; product URLs remain slug-based). */
@@ -34,22 +34,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productEntries: MetadataRoute.Sitemap = [];
   let categoryShopEntries: MetadataRoute.Sitemap = [];
   try {
-    const products = await prisma.product.findMany({
-      select: { slug: true, createdAt: true },
-      orderBy: { createdAt: "desc" }
-    });
-    productEntries = products.map((p) => ({
+    const supabase = getSupabaseServiceRoleClient();
+    const [{ data: products, error: productsError }, { data: categoryRows, error: categoryError }] =
+      await Promise.all([
+        (supabase.from("Product") as any).select("slug,createdAt").order("createdAt", { ascending: false }),
+        (supabase.from("Product") as any).select("category")
+      ]);
+    if (productsError) throw new Error(productsError.message);
+    if (categoryError) throw new Error(categoryError.message);
+    productEntries = ((products ?? []) as Array<{ slug: string; createdAt: string }>).map((p) => ({
       url: `${base}/product/${p.slug}`,
-      lastModified: p.createdAt,
+      lastModified: new Date(p.createdAt),
       changeFrequency: "weekly" as const,
       priority: 0.8
     }));
 
-    const distinctCats = await prisma.product.groupBy({
-      by: ["category"]
-    });
-    categoryShopEntries = distinctCats.map((row) => ({
-      url: `${base}/shop?category=${encodeURIComponent(row.category)}`,
+    const distinctCats = [...new Set(((categoryRows ?? []) as Array<{ category: string }>).map((row) => row.category))];
+    categoryShopEntries = distinctCats.map((category) => ({
+      url: `${base}/shop?category=${encodeURIComponent(category)}`,
       lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.75

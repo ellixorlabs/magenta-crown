@@ -1,15 +1,18 @@
-import type { Product } from "@prisma/client";
 import { LandingHero } from "@/components/features/LandingHero";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { HomeCategoryCirclesSection } from "@/components/home/HomeCategoryCirclesSection";
 import { HomeHeroReadyBridge } from "@/components/home/HomeHeroReadyBridge";
 import { HomeProductCarouselSection } from "@/components/home/HomeProductCarouselSection";
 import { HomeProductGridSection } from "@/components/home/HomeProductGridSection";
+import { HomePromoBannerSection } from "@/components/home/HomePromoBannerSection";
 import { SectionReveal } from "@/components/motion/SectionReveal";
+import type { ProductRow } from "@/lib/db/app-types";
 import type { HeroTransitionId } from "@/lib/hero-transition";
 import type { HeroSlideVM } from "@/lib/hero-public";
-import type { DynamicProductSection, HomePagePayloadV2 } from "@/lib/home-page-types";
+import type { DynamicHomeSection, DynamicProductSection, HomePagePayloadV2 } from "@/lib/home-page-types";
 
-type ProductRow = Product & { variants?: { stock: number; isActive: boolean }[] };
+type HomeProductRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
 
 type Props = {
   payload: HomePagePayloadV2;
@@ -17,11 +20,11 @@ type Props = {
   heroTransition: HeroTransitionId;
   wishlistIds: Set<string>;
   /** Products referenced by homepage section IDs (includes variants for stock). */
-  productById: Map<string, ProductRow>;
+  productById: Map<string, HomeProductRow>;
 };
 
-function resolveSectionProducts(section: DynamicProductSection, productById: Map<string, ProductRow>): ProductRow[] {
-  const out: ProductRow[] = [];
+function resolveSectionProducts(section: DynamicProductSection, productById: Map<string, HomeProductRow>): HomeProductRow[] {
+  const out: HomeProductRow[] = [];
   const seen = new Set<string>();
   for (const id of section.productIds) {
     if (seen.has(id)) continue;
@@ -54,7 +57,22 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
         </SectionReveal>
       ) : null}
 
-      {sortedSections.map((section) => {
+      {sortedSections.map((section: DynamicHomeSection) => {
+        if (section.type === "promoBanner") {
+          return (
+            <SectionReveal key={section.id} transition={section.transition}>
+              <HomePromoBannerSection
+                title={section.title}
+                subtitle={section.subtitle}
+                imageUrl={section.imageUrl}
+                targetHref={section.targetHref}
+                gradientFrom={section.gradientFrom}
+                gradientTo={section.gradientTo}
+              />
+            </SectionReveal>
+          );
+        }
+
         const products = resolveSectionProducts(section, productById);
         const viewAll = (section.viewAllHref?.trim() || "/shop").replace(/\s/g, "");
 
@@ -69,7 +87,15 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
                 <div className="section-shell">
                   <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{section.eyebrow}</p>
                   <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
-                    {section.title}
+                    <Link href={viewAll} className="inline-flex items-center gap-2 hover:text-crown-900">
+                      <span>{section.title}</span>
+                      <span
+                        aria-hidden
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+                      </span>
+                    </Link>
                   </h2>
                   <div className="mt-8 rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
                     Some products in this section are no longer available. Update the section in admin.

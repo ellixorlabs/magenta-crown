@@ -1,20 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function Inner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        if (!cancelled) setSessionChecked(true);
+        return;
+      }
+      const session = (await supabase.auth.getSession())?.data.session;
+      if (cancelled) return;
+      if (session?.user) {
+        const token = session.access_token;
+        if (token) {
+          await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+        window.location.assign(callbackUrl);
+        return;
+      }
+      setSessionChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callbackUrl]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,42 +85,43 @@ function Inner() {
     }
   }
 
+  if (!sessionChecked) {
+    return (
+      <AuthImmersiveShell>
+        <div className="mx-auto w-full max-w-[560px] p-1 text-center md:p-2">
+          <p className="text-sm text-zinc-500">Checking your session…</p>
+        </div>
+      </AuthImmersiveShell>
+    );
+  }
+
   return (
     <AuthImmersiveShell>
-      <div className="w-full max-w-md rounded-2xl border-2 border-zinc-200 bg-white p-8 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.45)] ring-1 ring-zinc-950/5">
-        <p className="font-site-brand text-center text-xs font-semibold uppercase tracking-[0.35em] text-zinc-800">
-          Magenta Crown
-        </p>
-        <h1 className="mt-3 text-center font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-950">
-          Sign in
+      <div className="w-full max-w-[560px] p-1 md:p-2">
+        <h1 className="text-center font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-950">
+          Welcome back
         </h1>
+        <p className="mt-0.5 text-center text-sm text-zinc-500">Sign in to continue shopping</p>
 
-        <AuthGoogleSection callbackUrl={callbackUrl} />
-
-        <div className="my-8 flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-300" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-700">or email</span>
-          <div className="h-px flex-1 bg-zinc-300" />
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="mt-3.5 space-y-2.5">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-800">Email</label>
+            <label className="text-xs font-semibold text-zinc-800">Email address</label>
             <input
               type="email"
               required
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              placeholder="example@email.com"
+              className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-800">Password</label>
+            <label className="text-xs font-semibold text-zinc-800">Password</label>
             <input
               type="password"
               required
-              className="mt-1.5 w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
@@ -105,20 +136,28 @@ function Inner() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+            className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm font-medium text-zinc-800">
+        <div className="my-3 flex items-center gap-3">
+          <div className="h-px flex-1 bg-zinc-200" />
+          <span className="text-xs text-zinc-500">or</span>
+          <div className="h-px flex-1 bg-zinc-200" />
+        </div>
+        <AuthGoogleSection callbackUrl={callbackUrl} />
+
+        <p className="mt-3 text-center text-sm font-medium text-zinc-800">
           No account?{" "}
-          <Link
-            href={"/auth/signup?callbackUrl=" + encodeURIComponent(callbackUrl)}
+          <button
+            type="button"
+            onClick={() => router.push("/auth/signup?callbackUrl=" + encodeURIComponent(callbackUrl))}
             className="font-semibold text-crown-900 underline decoration-2 underline-offset-2"
           >
             Create one
-          </Link>
+          </button>
         </p>
       </div>
     </AuthImmersiveShell>

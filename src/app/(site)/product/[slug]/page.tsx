@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
@@ -16,10 +16,9 @@ import { TrackProductView } from "@/components/product/TrackProductView";
 import { ProductImageGallery } from "@/components/product/ProductImageGallery";
 import { LazyProductVideo } from "@/components/product/LazyProductVideo";
 import { ProductShareButton } from "@/components/product/ProductShareButton";
+import type { NextAppPageParams } from "@/types/next-app";
 
-type PageProps = {
-  params: Promise<{ slug: string }>;
-};
+type PageProps = NextAppPageParams<{ slug: string }>;
 
 async function loadWishlistState(
   session: AppSession | null,
@@ -35,37 +34,27 @@ async function loadWishlistState(
     return { initialWishlisted: false, wishlistIds: new Set() };
   }
   const uid = session.user.id;
-  const [onList, u] = await Promise.all([
-    prisma.product.count({
-      where: { id: productId, wishedBy: { some: { id: uid } } }
-    }),
-    prisma.user.findUnique({
-      where: { id: uid },
-      select: { wishlist: { select: { id: true } } }
-    })
-  ]);
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: links, error } = await (supabase.from("_UserWishlist") as any)
+    .select("A")
+    .eq("B", uid);
+  if (error) throw new Error(error.message);
+  const ids = ((links ?? []) as Array<{ A: string }>).map((w) => w.A);
+  const wished = ids.includes(productId);
   return {
-    initialWishlisted: onList > 0,
-    wishlistIds: new Set((u?.wishlist ?? []).map((w) => w.id))
+    initialWishlisted: wished,
+    wishlistIds: new Set(ids)
   };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    select: {
-      name: true,
-      description: true,
-      slug: true,
-      category: true,
-      tags: true,
-      occasion: true,
-      style: true,
-      material: true,
-      imageUrls: true
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: product, error } = await (supabase.from("Product") as any)
+    .select("name,description,slug,category,tags,occasion,style,material,imageUrls")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
 
   if (!product) {
     return { title: "Product" };
@@ -99,39 +88,50 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
-  const [product, session] = await Promise.all([
-    prisma.product.findUnique({
-      where: { slug },
-      include: {
-        variants: true,
-        reviews: { orderBy: { createdAt: "desc" }, take: 8 },
-        featuredCoupons: { include: { coupon: true } }
-      }
-    }),
-    auth()
+  const supabase = getSupabaseServiceRoleClient();
+  const [productRes, session, homeCfgRes] = await Promise.all([
+    (supabase.from("Product") as any)
+      .select(
+        "*,variants:ProductVariant(*),reviews:Review(*),featuredCoupons:ProductFeaturedCoupon(coupon:Coupon(*))"
+      )
+      .eq("slug", slug)
+      .maybeSingle(),
+    auth(),
+    (supabase.from("HomePageConfig") as any).select("payload").eq("id", "default").maybeSingle()
   ]);
+  if (productRes.error) throw new Error(productRes.error.message);
+  const productData = productRes.data as any;
 
-  if (!product) {
+  if (!productData) {
     notFound();
   }
 
   const [reviewAgg, crossSells, wishlistState] = await Promise.all([
-    prisma.review.aggregate({
-      where: { productId: product.id },
-      _avg: { rating: true },
-      _count: { _all: true }
-    }),
-    prisma.product.findMany({
-      where: { category: product.category, NOT: { id: product.id } },
-      take: 4,
-      orderBy: { createdAt: "desc" },
-      include: { variants: { select: { stock: true, isActive: true } } }
-    }),
-    loadWishlistState(session, product.id)
+    (supabase.from("Review") as any).select("rating").eq("productId", productData.id),
+    (supabase.from("Product") as any)
+      .select("*,variants:ProductVariant(stock,isActive)")
+      .eq("category", productData.category)
+      .neq("id", productData.id)
+      .order("createdAt", { ascending: false })
+      .limit(4),
+    loadWishlistState(session, productData.id)
   ]);
+  if (reviewAgg.error) throw new Error(reviewAgg.error.message);
+  if (crossSells.error) throw new Error(crossSells.error.message);
+  const crossSellRows = (crossSells.data ?? []) as any[];
+  const product = {
+    ...productData,
+    reviews: ((productData.reviews ?? []) as any[]).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ).slice(0, 8)
+  };
+  const cfgPayload = (homeCfgRes.data?.payload ?? {}) as Record<string, unknown>;
+  const globalSizeChartImageUrl =
+    typeof cfgPayload.globalSizeChartImageUrl === "string" ? cfgPayload.globalSizeChartImageUrl : "";
 
-  const reviewCount = reviewAgg._count._all;
-  const reviewAvgNum = reviewAgg._avg.rating;
+  const ratings = ((reviewAgg.data ?? []) as Array<{ rating: number }>).map((r) => r.rating);
+  const reviewCount = ratings.length;
+  const reviewAvgNum = reviewCount ? ratings.reduce((s, r) => s + r, 0) / reviewCount : null;
   const reviewAvg = reviewAvgNum != null ? Number(reviewAvgNum) : null;
   const { initialWishlisted, wishlistIds } = wishlistState;
   const canQuickEdit = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
@@ -154,7 +154,7 @@ export default async function ProductPage({ params }: PageProps) {
             {product.videoUrls.length > 0 && (
               <div className="mt-6 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Video</p>
-                {product.videoUrls.map((url) => (
+                {product.videoUrls.map((url: string) => (
                   <LazyProductVideo key={url} src={url} title={product.name} />
                 ))}
               </div>
@@ -196,7 +196,7 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
             <div className="mt-6">
               <AddToCartSection
-                product={product}
+                product={{ ...product, globalSizeChartImageUrl }}
                 reviewAvg={reviewAvg}
                 reviewCount={reviewCount}
               />
@@ -249,7 +249,7 @@ export default async function ProductPage({ params }: PageProps) {
                 <p className="text-sm text-zinc-500">No reviews yet — be the first.</p>
               ) : (
                 <ul className="space-y-4">
-                  {product.reviews.map((r) => (
+                  {product.reviews.map((r: any) => (
                     <li key={r.id} className="rounded-xl border border-zinc-200 bg-white p-4">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-zinc-900">{r.authorName}</span>
@@ -265,13 +265,13 @@ export default async function ProductPage({ params }: PageProps) {
           </div>
         </section>
 
-        {crossSells.length > 0 && (
+        {crossSellRows.length > 0 && (
           <section className="mt-16 border-t border-zinc-200 pt-12">
             <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">
               Complete the look
             </h2>
             <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
-              {crossSells.map((p) => (
+              {crossSellRows.map((p: any) => (
                 <ProductCard
                   key={p.id}
                   product={p}

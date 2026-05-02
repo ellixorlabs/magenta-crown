@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const PAID = { status: { in: ["PAID", "SHIPPED"] } };
 
@@ -83,77 +83,59 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
   const now = new Date();
   const d30 = addDays(now, -30);
   const d60 = addDays(now, -60);
+  const supabase = getSupabaseServiceRoleClient();
 
-  const [
-    grossAll,
-    revenueAll,
-    orderCountAll,
-    customerCount,
-    gross30,
-    grossPrev30,
-    rev30,
-    revPrev30,
-    ord30,
-    ordPrev30,
-    cust30,
-    custPrev30,
-    ordersByStatus,
-    orderItemsAgg,
-    trendOrders
-  ] = await Promise.all([
-    prisma.order.aggregate({
-      where: PAID,
-      _sum: { subtotalBeforeDiscount: true }
-    }),
-    prisma.order.aggregate({
-      where: PAID,
-      _sum: { totalAmount: true }
-    }),
-    prisma.order.count(),
-    prisma.user.count({ where: { role: "CUSTOMER" } }),
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: d30 } },
-      _sum: { subtotalBeforeDiscount: true }
-    }),
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: d60, lt: d30 } },
-      _sum: { subtotalBeforeDiscount: true }
-    }),
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: d30 } },
-      _sum: { totalAmount: true }
-    }),
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: d60, lt: d30 } },
-      _sum: { totalAmount: true }
-    }),
-    prisma.order.count({ where: { createdAt: { gte: d30 } } }),
-    prisma.order.count({ where: { createdAt: { gte: d60, lt: d30 } } }),
-    prisma.user.count({ where: { role: "CUSTOMER", createdAt: { gte: d30 } } }),
-    prisma.user.count({ where: { role: "CUSTOMER", createdAt: { gte: d60, lt: d30 } } }),
-    prisma.order.groupBy({
-      by: ["status"],
-      _count: { _all: true }
-    }),
-    prisma.orderItem.findMany({
-      where: { order: PAID },
-      select: {
-        quantity: true,
-        price: true,
-        product: { select: { id: true, name: true, slug: true, category: true } }
-      },
-      take: 8000
-    }),
-    prisma.order.findMany({
-      where: { ...PAID, createdAt: { gte: addDays(now, -400) } },
-      select: { totalAmount: true, createdAt: true }
-    })
+  const [ordersRes, usersRes, orderItemsRes] = await Promise.all([
+    (supabase.from("Order") as any)
+      .select("id,status,totalAmount,subtotalBeforeDiscount,createdAt")
+      .gte("createdAt", addDays(now, -400).toISOString()),
+    (supabase.from("User") as any).select("role,createdAt"),
+    (supabase.from("OrderItem") as any).select(
+      "quantity,price,order:Order!inner(status),product:Product(id,name,slug,category)"
+    )
   ]);
+  if (ordersRes.error) throw new Error(ordersRes.error.message);
+  if (usersRes.error) throw new Error(usersRes.error.message);
+  if (orderItemsRes.error) throw new Error(orderItemsRes.error.message);
+  const orders = (ordersRes.data ?? []) as Array<{ id: string; status: string; totalAmount: number; subtotalBeforeDiscount: number; createdAt: string }>;
+  const users = (usersRes.data ?? []) as Array<{ role: string; createdAt: string }>;
+  const orderItemsAgg = ((orderItemsRes.data ?? []) as Array<{
+    quantity: number;
+    price: number;
+    order: { status: string };
+    product: { id: string; name: string; slug: string; category: string };
+  }>).filter((r) => ["PAID", "SHIPPED"].includes(r.order.status));
+  const paidOrders = orders.filter((o) => ["PAID", "SHIPPED"].includes(o.status));
+  const orderCountAll = orders.length;
+  const customerRows = users.filter((u) => u.role === "CUSTOMER");
+  const customerCount = customerRows.length;
+  const sum = (arr: Array<{ totalAmount?: number; subtotalBeforeDiscount?: number }>, field: "totalAmount" | "subtotalBeforeDiscount") =>
+    arr.reduce((acc, row) => acc + Number(row[field] ?? 0), 0);
+  const inRange = (iso: string, start: Date, end?: Date) => {
+    const t = new Date(iso).getTime();
+    if (t < start.getTime()) return false;
+    if (end && t >= end.getTime()) return false;
+    return true;
+  };
+  const grossAllValue = sum(paidOrders, "subtotalBeforeDiscount");
+  const revenueAllValue = sum(paidOrders, "totalAmount");
+  const gross30Value = sum(paidOrders.filter((o) => inRange(o.createdAt, d30)), "subtotalBeforeDiscount");
+  const grossPrev30Value = sum(paidOrders.filter((o) => inRange(o.createdAt, d60, d30)), "subtotalBeforeDiscount");
+  const rev30Value = sum(paidOrders.filter((o) => inRange(o.createdAt, d30)), "totalAmount");
+  const revPrev30Value = sum(paidOrders.filter((o) => inRange(o.createdAt, d60, d30)), "totalAmount");
+  const ord30 = orders.filter((o) => inRange(o.createdAt, d30)).length;
+  const ordPrev30 = orders.filter((o) => inRange(o.createdAt, d60, d30)).length;
+  const cust30 = customerRows.filter((u) => inRange(u.createdAt, d30)).length;
+  const custPrev30 = customerRows.filter((u) => inRange(u.createdAt, d60, d30)).length;
+  const statusMap = new Map<string, number>();
+  for (const o of orders) statusMap.set(o.status, (statusMap.get(o.status) ?? 0) + 1);
+  const ordersByStatus = [...statusMap.entries()].map(([status, count]) => ({ status, count }));
+  const trendOrders = paidOrders;
 
-  const g30 = gross30._sum.subtotalBeforeDiscount ?? 0;
-  const gP30 = grossPrev30._sum.subtotalBeforeDiscount ?? 0;
-  const r30 = rev30._sum.totalAmount ?? 0;
-  const rP30 = revPrev30._sum.totalAmount ?? 0;
+  const g30 = gross30Value;
+  const gP30 = grossPrev30Value;
+  const r30 = rev30Value;
+  const rP30 = revPrev30Value;
   const o30 = ord30;
   const oP30 = ordPrev30;
   const c30 = cust30;
@@ -162,7 +144,7 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
   const kpis: AdminKpi[] = [
     {
       label: "Gross sales",
-      value: formatInr(grossAll._sum.subtotalBeforeDiscount ?? 0),
+      value: formatInr(grossAllValue),
       sub: "Paid & shipped (subtotal)",
       delta: {
         pct: pctChange(g30, gP30),
@@ -182,7 +164,7 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
     },
     {
       label: "Net revenue",
-      value: formatInr(revenueAll._sum.totalAmount ?? 0),
+      value: formatInr(revenueAllValue),
       sub: "Paid & shipped (after discounts)",
       delta: {
         pct: pctChange(r30, rP30),
@@ -205,7 +187,7 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
   const revByMonth = new Map<string, number>();
   for (const o of trendOrders) {
     const k = monthKey(new Date(o.createdAt));
-    revByMonth.set(k, (revByMonth.get(k) ?? 0) + o.totalAmount);
+    revByMonth.set(k, (revByMonth.get(k) ?? 0) + Number(o.totalAmount ?? 0));
   }
 
   const revenueTrend: MonthlyPoint[] = [];
@@ -221,11 +203,11 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
     });
   }
 
-  const statusTotal = ordersByStatus.reduce((s, x) => s + x._count._all, 0) || 1;
+  const statusTotal = ordersByStatus.reduce((s, x) => s + x.count, 0) || 1;
   const orderStatus: OrderStatusSlice[] = ordersByStatus.map((r) => ({
     status: r.status,
-    count: r._count._all,
-    pct: (r._count._all / statusTotal) * 100
+    count: r.count,
+    pct: (r.count / statusTotal) * 100
   }));
 
   const catMap = new Map<string, number>();
@@ -273,35 +255,19 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const today = startOfDay(now);
-  const [monthAgg, todayAgg, lastMonthRev] = await Promise.all([
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: monthStart } },
-      _sum: { totalAmount: true }
-    }),
-    prisma.order.aggregate({
-      where: { ...PAID, createdAt: { gte: today } },
-      _sum: { totalAmount: true }
-    }),
-    prisma.order.aggregate({
-      where: {
-        ...PAID,
-        createdAt: {
-          gte: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-          lt: monthStart
-        }
-      },
-      _sum: { totalAmount: true }
-    })
-  ]);
-  const monthRevenue = monthAgg._sum.totalAmount ?? 0;
-  const prevMonth = lastMonthRev._sum.totalAmount ?? 0;
+  const monthRevenue = sum(paidOrders.filter((o) => inRange(o.createdAt, monthStart)), "totalAmount");
+  const todayRevenue = sum(paidOrders.filter((o) => inRange(o.createdAt, today)), "totalAmount");
+  const prevMonth = sum(
+    paidOrders.filter((o) => inRange(o.createdAt, new Date(now.getFullYear(), now.getMonth() - 1, 1), monthStart)),
+    "totalAmount"
+  );
   const target = Math.max(Math.round(prevMonth * 1.1), Math.round(monthRevenue > 0 ? monthRevenue * 1.15 : 25000));
   const pct = target > 0 ? Math.min(100, (monthRevenue / target) * 100) : 0;
   const monthlyTarget: MonthlyTarget = {
     pct,
     target,
     monthRevenue,
-    todayRevenue: todayAgg._sum.totalAmount ?? 0,
+    todayRevenue,
     message:
       pct >= 100
         ? "You have reached this month’s revenue target."

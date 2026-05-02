@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { createProduct } from "./actions";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
-import { AdminProductVideoFields } from "@/components/admin/AdminProductVideoFields";
+import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
 
@@ -54,7 +54,17 @@ function Field({
   );
 }
 
-export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }) {
+export function ProductCreateFormClient({
+  coupons,
+  occasionOptions,
+  materialOptions,
+  tagOptions
+}: {
+  coupons: CouponOption[];
+  occasionOptions: string[];
+  materialOptions: string[];
+  tagOptions: string[];
+}) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,6 +83,7 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
       <form action={createProduct} className="mt-6 grid gap-3 sm:grid-cols-2">
         <AdminProductImageFields
           defaultUrlsText=""
+          defaultVideoUrlsText=""
           defaultListImageIndex={0}
           defaultListImagePosition="center"
           productId="draft"
@@ -98,25 +109,6 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
         <Field label="Category" name="category" placeholder="Sarees" />
 
         <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Size chart image URL (optional)</label>
-          <input
-            name="sizeChartImageUrl"
-            type="url"
-            placeholder="https://…"
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-[11px] text-zinc-500">Shown in a modal from the product page size area.</p>
-        </div>
-
-        <div className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-3">
-          <input type="hidden" name="codEnabled" value="0" />
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
-            <input type="checkbox" name="codEnabled" value="1" defaultChecked className="rounded" />
-            Allow cash on delivery for this product
-          </label>
-        </div>
-
-        <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-600">Prepaid offer text (optional)</label>
           <input
             name="prepaidOfferText"
@@ -136,17 +128,31 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
 
         <ProductVariantRows initial={[]} />
 
-        <Field label="Occasion" name="occasion" placeholder="Wedding" />
+        <CreatableChipSelect
+          label="Occasion"
+          name="occasion"
+          initialSelected={[]}
+          options={occasionOptions}
+          multiple={false}
+          placeholder="Type occasion and press Enter"
+        />
         <Field label="Style" name="style" />
-        <Field label="Material" name="material" />
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-zinc-600">Tags (comma-separated)</label>
-          <input
-            name="tags"
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="silk, bridal, red"
-          />
-        </div>
+        <CreatableChipSelect
+          label="Material"
+          name="material"
+          initialSelected={[]}
+          options={materialOptions}
+          multiple={false}
+          placeholder="Type material and press Enter"
+        />
+        <CreatableChipSelect
+          label="Tags"
+          name="tags"
+          initialSelected={[]}
+          options={tagOptions}
+          multiple
+          placeholder="Type tag and press Enter"
+        />
         <Field
           label="NEW badge duration (days, only when tag includes 'new')"
           name="newTagDurationDays"
@@ -156,7 +162,6 @@ export function ProductCreateFormClient({ coupons }: { coupons: CouponOption[] }
 
         <ProductFeaturedCouponPicker coupons={coupons} selectedIds={[]} />
 
-        <AdminProductVideoFields defaultUrlsText="" productId="draft" />
         <Field label="Fit notes" name="fitNotes" />
         <Field label="Care instructions" name="careInstructions" />
         <div className="sm:col-span-2">

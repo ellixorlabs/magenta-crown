@@ -1,22 +1,56 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getSupabaseUserFromRequest, resolveAppUserIdFromSupabaseUser } from "@/lib/supabase-server-auth";
 
-export async function POST(req: Request) {
+type ServiceClient = ReturnType<typeof getSupabaseServiceRoleClient>;
+
+async function wishlistItemCount(supabase: ServiceClient, userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("_UserWishlist")
+    .select("*", { count: "exact", head: true })
+    .eq("B", userId);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+type ResolvedUser =
+  | { ok: true; userId: string; supabase: ServiceClient; role: string }
+  | { ok: false; response: NextResponse };
+
+async function resolveRequestUser(req: Request): Promise<ResolvedUser> {
   const supaUser = await getSupabaseUserFromRequest(req);
   const session = supaUser ? null : await auth();
   const resolvedSupabaseUserId = supaUser ? await resolveAppUserIdFromSupabaseUser(supaUser) : null;
   const userId = resolvedSupabaseUserId ?? session?.user?.id;
   if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const profile = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true }
-  });
-  const role = profile?.role ?? "CUSTOMER";
+  const supabase = getSupabaseServiceRoleClient();
+  const profile = await supabase.from("User").select("role").eq("id", userId).maybeSingle<{ role: string }>();
+  const role = profile.data?.role ?? "CUSTOMER";
+  return { ok: true, userId, supabase, role };
+}
+
+export async function GET(req: Request) {
+  const resolved = await resolveRequestUser(req);
+  if (!resolved.ok) return resolved.response;
+
+  const { userId, supabase, role } = resolved;
+  if (role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT") {
+    return NextResponse.json({ count: 0 });
+  }
+
+  const count = await wishlistItemCount(supabase, userId);
+  return NextResponse.json({ count });
+}
+
+export async function POST(req: Request) {
+  const resolved = await resolveRequestUser(req);
+  if (!resolved.ok) return resolved.response;
+
+  const { userId, supabase, role } = resolved;
   if (role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT") {
     return NextResponse.json({ error: "Staff accounts cannot use wishlist" }, { status: 403 });
   }
@@ -27,24 +61,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "productId required" }, { status: 400 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) {
+  const product = await supabase.from("Product").select("id").eq("id", productId).maybeSingle<{ id: string }>();
+  if (!product.data) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
   const wishlist = Boolean(body.wishlist);
 
   if (wishlist) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { wishlist: { connect: { id: productId } } }
-    });
+    const insert = await (supabase.from("_UserWishlist") as any).upsert(
+      { A: productId, B: userId },
+      { onConflict: "A,B" }
+    );
+    if (insert.error) {
+      return NextResponse.json({ error: "Failed to update wishlist" }, { status: 500 });
+    }
   } else {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { wishlist: { disconnect: { id: productId } } }
-    });
+    const remove = await supabase.from("_UserWishlist").delete().eq("A", productId).eq("B", userId);
+    if (remove.error) {
+      return NextResponse.json({ error: "Failed to update wishlist" }, { status: 500 });
+    }
   }
 
-  return NextResponse.json({ ok: true, wishlisted: wishlist });
+  const count = await wishlistItemCount(supabase, userId);
+  return NextResponse.json({ ok: true, wishlisted: wishlist, count });
 }

@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 const ALLOWED = new Set(["video/mp4"]);
-const BUCKET = "product-videos";
+const BUCKET = "products-videos";
 
 export async function POST(req: Request) {
   const session = await auth();

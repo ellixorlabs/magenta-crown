@@ -28,9 +28,7 @@ export function RecentlyViewed({ excludeId }: { excludeId: string }) {
       <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-zinc-900">Recently viewed</h2>
       <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
         {items.map((p) => {
-          const img =
-            p.imageUrls[0] ??
-            "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&q=80";
+          const img = p.imageUrls[0] ?? "/branding/mc-loader-logo.png";
           const price = p.discountedPrice ?? p.mrp;
           return (
             <Link

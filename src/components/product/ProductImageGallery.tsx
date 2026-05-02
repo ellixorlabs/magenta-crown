@@ -6,8 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 
-const FALLBACK =
-  "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK = "/branding/mc-loader-logo.png";
 
 type ImgBounds = { ox: number; oy: number; w: number; h: number };
 type LensRect = { left: number; top: number; size: number };
@@ -27,7 +26,11 @@ type Props = {
 
 export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex, listImagePosition }: Props) {
   const altLabel = imageAlt?.trim() || name;
-  const urls = useMemo(() => (imageUrls.length > 0 ? imageUrls : [FALLBACK]), [imageUrls]);
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
+  const urls = useMemo(() => {
+    const source = imageUrls.length > 0 ? imageUrls : [FALLBACK];
+    return source.map((url) => (failedUrls.has(url) ? FALLBACK : url));
+  }, [failedUrls, imageUrls]);
   const initialIdx = Math.max(0, Math.min(urls.length - 1, listImageIndex));
   const [active, setActive] = useState(initialIdx);
   const [lightbox, setLightbox] = useState(false);
@@ -108,6 +111,16 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
   const goNext = useCallback(() => {
     setActive((i) => (i + 1) % urls.length);
   }, [urls.length]);
+
+  const markUrlFailed = useCallback((url: string) => {
+    if (!url || url === FALLBACK) return;
+    setFailedUrls((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  }, []);
 
   const applyPointer = useCallback(
     (clientX: number, clientY: number) => {
@@ -262,6 +275,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
               style={{ objectPosition: pos }}
               sizes="100vw"
               priority
+              onError={() => markUrlFailed(mainUrl)}
               {...imgCommon}
             />
           </div>
@@ -328,6 +342,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                     imgRef.current = e.currentTarget;
                     updateBounds();
                   }}
+                  onError={() => markUrlFailed(mainUrl)}
                   {...imgCommon}
                 />
                 {showLens && lens ? (
@@ -383,7 +398,14 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-inner">
               {showZoomImage ? (
                 // eslint-disable-next-line @next/next/no-img-element -- dynamic zoom dimensions
-                <img src={mainUrl} alt="" draggable={false} className="select-none" style={zoomStyle} />
+                <img
+                  src={mainUrl}
+                  alt=""
+                  draggable={false}
+                  className="select-none"
+                  style={zoomStyle}
+                  onError={() => markUrlFailed(mainUrl)}
+                />
               ) : (
                 <div className="absolute inset-0 hidden items-center justify-center px-4 text-center text-xs leading-relaxed text-zinc-400 xl:flex">
                   Hover the image to preview a magnified area.
@@ -431,6 +453,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   style={{ objectPosition: pos }}
                   sizes="120px"
                   loading="lazy"
+                  onError={() => markUrlFailed(url)}
                   {...imgCommon}
                 />
               </button>

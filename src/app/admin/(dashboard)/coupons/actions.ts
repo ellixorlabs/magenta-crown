@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { isValidCouponCodeFormat, normalizeCouponCode } from "@/lib/coupon";
 
@@ -15,27 +15,31 @@ export async function createCoupon(formData: FormData) {
     throw new Error("Invalid coupon: use 2–32 letters or numbers only.");
   }
 
-  await prisma.coupon.create({
-    data: {
-      code,
-      discountPct,
-      isActive: formData.get("isActive") === "on"
-    }
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("Coupon") as any).insert({
+    code,
+    discountPct,
+    isActive: formData.get("isActive") === "on"
   });
+  if (error) throw new Error(error.message);
   revalidatePath("/admin/coupons");
 }
 
 export async function toggleCoupon(id: string, isActive: boolean) {
   const session = await requireStaff("/admin/coupons");
   if (!isAdminRole(session.user.role)) throw new Error("Admin only");
-  await prisma.coupon.update({ where: { id }, data: { isActive } });
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("Coupon") as any).update({ isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/admin/coupons");
 }
 
 export async function deleteCoupon(id: string) {
   const session = await requireStaff("/admin/coupons");
   if (!isAdminRole(session.user.role)) throw new Error("Admin only");
-  await prisma.coupon.delete({ where: { id } });
+  const supabase = getSupabaseServiceRoleClient();
+  const { error } = await (supabase.from("Coupon") as any).delete().eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/admin/coupons");
 }
 

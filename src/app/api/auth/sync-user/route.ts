@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { UserRow } from "@/lib/db/app-types";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getSupabaseUserFromRequest, unauthorized } from "@/lib/supabase-server-auth";
 
 export async function POST(req: Request) {
@@ -15,36 +16,37 @@ export async function POST(req: Request) {
     typeof user.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "";
   const fallbackName = email.split("@")[0] ?? "Customer";
   const name = metaName || fallbackName;
-  const existingById = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, role: true, onboardingComplete: true }
-  });
-  const existingByEmail = existingById
-    ? null
-    : await prisma.user.findUnique({
-        where: { email },
-        select: { id: true, role: true, onboardingComplete: true }
-      });
-  const targetId = existingById?.id ?? existingByEmail?.id ?? user.id;
-  const role = existingById?.role ?? existingByEmail?.role ?? "CUSTOMER";
-  const onboardingComplete = existingById?.onboardingComplete ?? existingByEmail?.onboardingComplete ?? true;
+  const supabase = getSupabaseServiceRoleClient();
+  const selectUser = "id,role,onboardingComplete";
+  const existingById = await supabase
+    .from("User")
+    .select(selectUser)
+    .eq("id", user.id)
+    .maybeSingle<UserRow>();
+  const existingByEmail =
+    existingById.data || !email
+      ? null
+      : await supabase.from("User").select(selectUser).eq("email", email).maybeSingle<UserRow>();
+  const targetId = existingById.data?.id ?? existingByEmail?.data?.id ?? user.id;
+  const role = existingById.data?.role ?? existingByEmail?.data?.role ?? "CUSTOMER";
+  const onboardingComplete =
+    existingById.data?.onboardingComplete ?? existingByEmail?.data?.onboardingComplete ?? true;
 
-  await prisma.user.upsert({
-    where: { id: targetId },
-    update: {
-      email,
-      name,
-      lastLoginAt: new Date()
-    },
-    create: {
+  const nowIso = new Date().toISOString();
+  const upsert = await (supabase.from("User") as any).upsert(
+    {
       id: targetId,
       email,
       name,
       role,
       onboardingComplete,
-      lastLoginAt: new Date()
-    }
-  });
+      lastLoginAt: nowIso
+    },
+    { onConflict: "id" }
+  );
+  if (upsert.error) {
+    return NextResponse.json({ error: "Failed to sync user" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

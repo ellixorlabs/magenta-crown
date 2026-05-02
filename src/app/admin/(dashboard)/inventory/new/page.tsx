@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { ProductCreateFormClient } from "../ProductCreateFormClient";
 
 export const metadata = { title: "Add product | Admin" };
@@ -13,10 +13,20 @@ export default async function AdminNewProductPage() {
     redirect("/admin/inventory");
   }
 
-  const coupons = await prisma.coupon.findMany({
-    orderBy: { code: "asc" },
-    select: { id: true, code: true, discountPct: true, isActive: true }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const [couponsRes, attributeRowsRes] = await Promise.all([
+    (supabase.from("Coupon") as any)
+      .select("id,code,discountPct,isActive")
+      .order("code", { ascending: true }),
+    (supabase.from("Product") as any).select("occasion,material,tags").limit(1200)
+  ]);
+  const { data: coupons, error } = couponsRes;
+  if (error) throw new Error(error.message);
+  if (attributeRowsRes.error) throw new Error(attributeRowsRes.error.message);
+  const rows = (attributeRowsRes.data ?? []) as Array<{ occasion: string | null; material: string | null; tags: string[] | null }>;
+  const occasionOptions = [...new Set(rows.map((r) => (r.occasion ?? "").trim()).filter(Boolean))];
+  const materialOptions = [...new Set(rows.map((r) => (r.material ?? "").trim()).filter(Boolean))];
+  const tagOptions = [...new Set(rows.flatMap((r) => r.tags ?? []).map((t) => t.trim()).filter(Boolean))];
 
   return (
     <div className="space-y-6">
@@ -25,7 +35,12 @@ export default async function AdminNewProductPage() {
           ← Inventory
         </Link>
       </p>
-      <ProductCreateFormClient coupons={coupons} />
+      <ProductCreateFormClient
+        coupons={coupons}
+        occasionOptions={occasionOptions}
+        materialOptions={materialOptions}
+        tagOptions={tagOptions}
+      />
     </div>
   );
 }

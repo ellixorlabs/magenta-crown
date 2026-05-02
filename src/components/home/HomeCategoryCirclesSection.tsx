@@ -22,7 +22,7 @@ function resolveHref(item: HomeCategoryCircleItem) {
   return item.targetValue || "/shop";
 }
 
-export function HomeCategoryCirclesSection({ eyebrow, title, shape, items }: Props) {
+export function HomeCategoryCirclesSection({ shape, items }: Props) {
   const valid = items.filter((it) => it.label && it.imageUrl && it.targetValue);
   if (valid.length === 0) return null;
   const mediaClass =
@@ -33,19 +33,15 @@ export function HomeCategoryCirclesSection({ eyebrow, title, shape, items }: Pro
         : "rounded-2xl";
   const sizeClass =
     shape === "rectangle"
-      ? "h-20 w-[7.5rem] sm:h-24 sm:w-[9rem]"
-      : "h-20 w-20 sm:h-24 sm:w-24";
+      ? "h-26 w-[9.75rem] sm:h-32 sm:w-[11.75rem]"
+      : "h-26 w-26 sm:h-32 sm:w-32";
 
   return (
     <section className="bg-[#faf7f8] py-10 sm:py-12">
       <div className="section-shell">
-        <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
-        <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
-          {title}
-        </h2>
-        <div className="mt-7 grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
           {valid.map((item) => (
-            <Link key={item.id} href={resolveHref(item)} className="group text-center">
+            <Link key={item.id} href={resolveHref(item)} className="group h-[100px] pt-[20px] pb-[20px] text-center">
               <div className={`mx-auto ${sizeClass} overflow-hidden border border-zinc-200 bg-white shadow-sm ${mediaClass}`}>
                 <Image
                   src={item.imageUrl}

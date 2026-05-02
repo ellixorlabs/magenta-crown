@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireStaff } from "@/lib/admin-auth";
+import type { NextAppPageSearch } from "@/types/next-app";
 
 export const metadata = { title: "Customers | Admin" };
 
-type PageProps = {
-  searchParams: Promise<{ q?: string }>;
-};
+type PageProps = NextAppPageSearch<{ q?: string }>;
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   await requireStaff("/admin/users");
@@ -19,32 +18,22 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     CUSTOMER: 3
   } as const;
 
-  const users = await prisma.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { email: { contains: q, mode: "insensitive" } },
-            { name: { contains: q, mode: "insensitive" } },
-            { phone: { contains: q, mode: "insensitive" } }
-          ]
-        }
-      : undefined,
-    take: q ? 50 : 30,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      createdAt: true,
-      lastLoginAt: true
-    }
-  });
-  const usersSorted = [...users].sort((a, b) => {
+  const supabase = getSupabaseServiceRoleClient();
+  let query = (supabase.from("User") as any)
+    .select("id,email,name,phone,role,createdAt,lastLoginAt")
+    .order("createdAt", { ascending: false })
+    .limit(q ? 50 : 30);
+  if (q) {
+    const esc = q.replace(/[%_]/g, "");
+    query = query.or(`email.ilike.%${esc}%,name.ilike.%${esc}%,phone.ilike.%${esc}%`);
+  }
+  const { data: users, error } = await query;
+  if (error) throw new Error(error.message);
+  const rows = (users ?? []) as Array<{ id: string; email: string | null; name: string | null; phone: string | null; role: keyof typeof rolePriority; createdAt: string; lastLoginAt: string | null }>;
+  const usersSorted = [...rows].sort((a, b) => {
     const roleDelta = rolePriority[a.role] - rolePriority[b.role];
     if (roleDelta !== 0) return roleDelta;
-    return b.createdAt.getTime() - a.createdAt.getTime();
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   return (
@@ -82,7 +71,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             </tr>
           </thead>
           <tbody>
-            {users.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
                   No users match this search.

@@ -1,10 +1,21 @@
 "use client";
 
-import type { HeroSlide } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ImageFocusPicker } from "@/components/admin/ImageFocusPicker";
 import { deleteHeroSlide, saveHeroSlide } from "./actions";
+
+type HeroSlide = {
+  id: string;
+  imageUrl: string;
+  imagePosition: string;
+  eyebrow: string;
+  sortOrder: number;
+  line1: string;
+  accent: string;
+  sub1: string;
+  sub2: string;
+};
 
 type Props = {
   slide?: HeroSlide;

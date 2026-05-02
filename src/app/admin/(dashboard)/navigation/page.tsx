@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createNavLink, deleteNavLinkForm, toggleNavLinkForm } from "./actions";
 
 export default async function AdminNavigationPage() {
@@ -11,9 +11,13 @@ export default async function AdminNavigationPage() {
     redirect("/admin");
   }
 
-  const links = await prisma.headerNavLink.findMany({
-    orderBy: [{ group: "asc" }, { sortOrder: "asc" }]
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: links, error } = await (supabase.from("HeaderNavLink") as any)
+    .select("*")
+    .order("group", { ascending: true })
+    .order("sortOrder", { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = (links ?? []) as any[];
 
   return (
     <div className="space-y-8">
@@ -56,7 +60,7 @@ export default async function AdminNavigationPage() {
       </form>
 
       <ul className="space-y-2">
-        {links.map((l) => (
+        {rows.map((l: any) => (
           <li
             key={l.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm"

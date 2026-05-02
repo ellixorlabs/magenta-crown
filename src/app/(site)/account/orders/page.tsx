@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { OrdersAccountList } from "@/components/account/OrdersAccountList";
+import { AccountSessionRecover } from "@/components/account/AccountSessionRecover";
 import { EmptyState } from "@/components/empty/EmptyState";
-import { prisma } from "@/lib/prisma";
+import { type AccountOrderFilter, isStalePendingUpi } from "@/lib/account-orders";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import type { NextAppPageSearch } from "@/types/next-app";
 
 export const metadata = {
   title: "Orders",
@@ -10,28 +13,92 @@ export const metadata = {
   robots: { index: false, follow: true }
 };
 
-export default async function OrdersPage() {
+const FILTER_IDS: AccountOrderFilter[] = ["all", "processing", "shipped", "delivered", "returns"];
+
+type PageProps = NextAppPageSearch<{ filter?: string }>;
+
+export default async function OrdersPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/auth/signin?callbackUrl=/account/orders");
+    return <AccountSessionRecover callbackPath="/account/orders" />;
   }
 
-  const orders = await prisma.order.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      items: {
-        include: { product: true }
-      }
-    }
-  });
+  const sp = await searchParams;
+  const raw = (sp.filter ?? "all").toLowerCase();
+  const activeFilter: AccountOrderFilter = FILTER_IDS.includes(raw as AccountOrderFilter)
+    ? (raw as AccountOrderFilter)
+    : "all";
 
-  return (
-    <div>
-      <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">Orders</h1>
-      <p className="mt-2 text-sm text-zinc-600">Order history, tracking, invoices, and returns.</p>
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: orders, error } = await (supabase.from("Order") as any)
+    .select(
+      "id,publicOrderRef,status,paymentMethod,createdAt,totalAmount,trackingUrl,items:OrderItem(id,quantity,product:Product(name,imageUrls,listImageIndex))"
+    )
+    .eq("userId", session.user.id)
+    .order("createdAt", { ascending: false });
+  if (error) throw new Error(error.message);
 
-      {orders.length === 0 ? (
+  const rows = (orders ?? []) as any[];
+  const visible = rows.filter((o) => !isStalePendingUpi(o));
+
+  if (rows.length > 0 && visible.length === 0) {
+    return (
+      <div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">
+              My orders
+            </h1>
+            <p className="mt-1 text-sm text-zinc-600">Track shipments and manage returns.</p>
+          </div>
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 self-start text-sm font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline sm:self-auto"
+          >
+            <span aria-hidden className="text-lg leading-none">
+              ←
+            </span>
+            Continue shopping
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+          <p className="font-[family-name:var(--font-heading)] text-lg font-semibold text-zinc-900">
+            No active orders in your account
+          </p>
+          <p className="mt-2 text-sm text-zinc-600">
+            Older unpaid checkout attempts are no longer shown here after 7 days. Place a new order anytime.
+          </p>
+          <Link
+            href="/shop"
+            className="mt-6 inline-flex rounded-full bg-crown-800 px-6 py-3 text-sm font-semibold text-white hover:bg-crown-900"
+          >
+            Shop collections
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (visible.length === 0) {
+    return (
+      <div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">
+              My orders
+            </h1>
+            <p className="mt-1 text-sm text-zinc-600">Track shipments and manage returns.</p>
+          </div>
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 self-start text-sm font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline sm:self-auto"
+          >
+            <span aria-hidden className="text-lg leading-none">
+              ←
+            </span>
+            Continue shopping
+          </Link>
+        </div>
         <div className="mt-8">
           <EmptyState
             title="No orders yet"
@@ -42,60 +109,9 @@ export default async function OrdersPage() {
             secondaryLabel="Go to profile"
           />
         </div>
-      ) : (
-        <ul className="mt-8 space-y-6">
-          {orders.map((order) => (
-            <li key={order.id} className="rounded-2xl border border-zinc-200 bg-white p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="font-mono text-sm font-semibold text-zinc-900">
-                    {order.publicOrderRef ?? order.id}
-                  </p>
-                  {order.publicOrderRef && (
-                    <p className="mt-0.5 font-mono text-[11px] text-zinc-400">ID: {order.id}</p>
-                  )}
-                  <p className="text-xs text-zinc-500">
-                    {new Date(order.createdAt).toLocaleDateString()} · {order.status}
-                  </p>
-                </div>
-                <div className="text-right text-sm">
-                  <p className="font-semibold text-zinc-900">Rs {order.totalAmount.toFixed(0)}</p>
-                  {order.trackingUrl && (
-                    <a href={order.trackingUrl} className="mt-1 block text-crown-800 underline" target="_blank" rel="noreferrer">
-                      Track shipment
-                    </a>
-                  )}
-                  {order.invoiceUrl && (
-                    <a href={order.invoiceUrl} className="mt-1 block text-crown-800 underline" target="_blank" rel="noreferrer">
-                      Download invoice
-                    </a>
-                  )}
-                  {!order.invoiceUrl && (
-                    <span className="mt-1 block text-xs text-zinc-500">Invoice: available when generated</span>
-                  )}
-                </div>
-              </div>
-              <ul className="mt-4 space-y-2 border-t border-zinc-100 pt-4 text-sm text-zinc-700">
-                {order.items.map((item) => (
-                  <li key={item.id}>
-                    {item.quantity}× {item.product.name}
-                    {(item.size || item.color) && (
-                      <span className="text-zinc-500">
-                        {" "}
-                        ({[item.size && `Size ${item.size}`, item.color && item.color].filter(Boolean).join(", ")})
-                      </span>
-                    )}{" "}
-                    — Rs {item.price}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/support/returns" className="mt-4 inline-block text-sm text-crown-800 underline">
-                Return / exchange request
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return <OrdersAccountList orders={visible} activeFilter={activeFilter} />;
 }

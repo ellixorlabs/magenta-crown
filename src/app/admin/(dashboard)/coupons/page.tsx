@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createCoupon, deleteCouponForm, toggleCouponForm } from "./actions";
 
 export default async function AdminCouponsPage() {
@@ -11,7 +11,10 @@ export default async function AdminCouponsPage() {
     redirect("/admin");
   }
 
-  const coupons = await prisma.coupon.findMany({ orderBy: { code: "asc" } });
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: coupons, error } = await (supabase.from("Coupon") as any).select("*").order("code", { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = (coupons ?? []) as any[];
 
   return (
     <div className="space-y-8">
@@ -42,7 +45,7 @@ export default async function AdminCouponsPage() {
       </form>
 
       <ul className="space-y-2">
-        {coupons.map((c) => (
+        {rows.map((c: any) => (
           <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3">
             <div>
               <span className="font-mono font-semibold">{c.code}</span>

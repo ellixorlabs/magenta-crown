@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import type { Product } from "@prisma/client";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import type { ProductRow } from "@/lib/db/app-types";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { getShopFilterOptionsCached } from "@/lib/site/shop-filter-options-cache";
 import { getShopProductGridClass } from "@/components/skeletons/shop-grid";
@@ -12,6 +12,7 @@ import { ShopToolbar } from "@/components/shop/ShopToolbar";
 import { ProductCard } from "@/components/features/ProductCard";
 import { ShopPagination } from "@/components/shop/ShopPagination";
 import { getShopProductsCached } from "@/lib/site/shop-products-cache";
+import type { NextAppPageSearch } from "@/types/next-app";
 
 /** Avoid stale RSC/HTML on localhost — external browsers often cache /shop harder than embedded dev browsers. */
 export const dynamic = "force-dynamic";
@@ -23,9 +24,7 @@ export const metadata: Metadata = {
     "Browse sarees, lehengas, kurtas, and luxury occasionwear. Filter by category, occasion, size, material, and price at Magenta Crown."
 };
 
-type PageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+type PageProps = NextAppPageSearch<Record<string, string | string[] | undefined>>;
 
 function summarizeReviews(reviews: { rating: number }[]) {
   if (!reviews.length) return null;
@@ -47,11 +46,12 @@ export default async function ShopPage({ searchParams }: PageProps) {
       session.user.role !== "SUB_ADMIN" &&
       session.user.role !== "TECH_SUPPORT"
     ) {
-      const u = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { wishlist: { select: { id: true } } }
-      });
-      return new Set(u?.wishlist.map((w) => w.id) ?? []);
+      const supabase = getSupabaseServiceRoleClient();
+      const { data: links, error } = await (supabase.from("_UserWishlist") as any)
+        .select("A")
+        .eq("B", session.user.id);
+      if (error) throw new Error(error.message);
+      return new Set(((links ?? []) as Array<{ A: string }>).map((w) => w.A));
     }
     return new Set<string>();
   })();
@@ -125,7 +125,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
                         return (
                           <ProductCard
                             key={product.id}
-                        product={product as unknown as Product}
+                        product={product as unknown as ProductRow}
                             layout="list"
                             listDensity="comfortable"
                             initialWishlisted={wishlistIds.has(product.id)}
@@ -142,7 +142,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
                         return (
                           <ProductCard
                             key={product.id}
-                        product={product as unknown as Product}
+                        product={product as unknown as ProductRow}
                             initialWishlisted={wishlistIds.has(product.id)}
                             outOfStock={getProductTotalStock(p.variants) === 0}
                             reviewSummary={summarizeReviews(reviews)}

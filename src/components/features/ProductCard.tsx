@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Product } from "@prisma/client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ProductRow } from "@/lib/db/app-types";
+import { useAuth } from "@/context/AuthContext";
+import { useWishlistDispatch } from "@/context/WishlistContext";
 import { getListImagePosition, getProductDisplayImage } from "@/lib/product-image-display";
 import { productImageAlt } from "@/lib/seo";
-import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+import { wishlistPostHeaders } from "@/lib/wishlist-client";
 
 const INR = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -24,7 +26,7 @@ function discountPct(mrp: number, sale: number) {
   return Math.round((1 - sale / mrp) * 100);
 }
 
-function isNewTagActive(product: Pick<Product, "tags" | "newTagExpiresAt">): boolean {
+function isNewTagActive(product: Pick<ProductRow, "tags" | "newTagExpiresAt">): boolean {
   const hasNewTag = (product.tags ?? []).some((t) => t.trim().toLowerCase() === "new");
   if (!hasNewTag) return false;
   if (!product.newTagExpiresAt) return false;
@@ -32,7 +34,7 @@ function isNewTagActive(product: Pick<Product, "tags" | "newTagExpiresAt">): boo
 }
 
 type ProductCardProps = {
-  product: Product;
+  product: ProductRow;
   /** SSR hint to avoid flash before session hydrates */
   initialWishlisted?: boolean;
   layout?: "grid" | "list" | "carousel";
@@ -52,31 +54,21 @@ export function ProductCard({
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { userId } = useAuth();
+  const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    let unsub: (() => void) | null = null;
-    (async () => {
-      const supabase = await getSupabaseClientOrNull();
-      if (!supabase || !mounted) return;
-      supabase.auth.getUser().then(({ data }) => {
-        if (mounted) setUserId(data.user?.id ?? null);
-      });
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (mounted) setUserId(session?.user?.id ?? null);
-      });
-      unsub = () => sub.subscription.unsubscribe();
-    })();
-    return () => {
-      mounted = false;
-      unsub?.();
-    };
-  }, []);
+  const wishlistedRef = useRef(wishlisted);
+  const busyRef = useRef(false);
 
   const canWishlist = Boolean(userId);
+
+  useEffect(() => {
+    setWishlisted(initialWishlisted);
+  }, [initialWishlisted]);
+
+  useEffect(() => {
+    wishlistedRef.current = wishlisted;
+  }, [wishlisted]);
 
   const { url: primaryImage } = getProductDisplayImage(product);
   const listPos = getListImagePosition(product);
@@ -100,28 +92,36 @@ export function ProductCard({
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!canWishlist || busy) return;
-      setBusy(true);
-      const next = !wishlisted;
+      if (!canWishlist || busyRef.current) return;
+      const prev = wishlistedRef.current;
+      const next = !prev;
+      setWishlisted(next);
+      wishlistedRef.current = next;
+      applyOptimisticDelta(next ? 1 : -1);
+      busyRef.current = true;
       try {
-      const supabase = await getSupabaseClientOrNull();
-      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
         const res = await fetch("/api/user/wishlist", {
           method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
+          headers: await wishlistPostHeaders(),
           body: JSON.stringify({ productId: product.id, wishlist: next })
         });
-        if (res.ok) {
-          setWishlisted(next);
+        const data = (await res.json()) as { count?: number };
+        if (res.ok && typeof data.count === "number") {
+          setServerCount(data.count);
+        } else {
+          setWishlisted(prev);
+          wishlistedRef.current = prev;
+          applyOptimisticDelta(next ? -1 : 1);
         }
+      } catch {
+        setWishlisted(prev);
+        wishlistedRef.current = prev;
+        applyOptimisticDelta(next ? -1 : 1);
       } finally {
-        setBusy(false);
+        busyRef.current = false;
       }
     },
-    [busy, canWishlist, product.id, wishlisted]
+    [applyOptimisticDelta, canWishlist, product.id, setServerCount]
   );
 
   const heartClass = useMemo(
@@ -164,8 +164,7 @@ export function ProductCard({
                 type="button"
                 aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 onClick={toggleWishlist}
-                disabled={busy}
-                className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 disabled:opacity-50"
+                className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400"
               >
                 <Heart className={`h-4 w-4 ${heartClass}`} strokeWidth={1.6} />
               </button>
@@ -289,8 +288,7 @@ export function ProductCard({
               type="button"
               aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               onClick={toggleWishlist}
-              disabled={busy}
-              className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 disabled:opacity-50 ${
+              className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 ${
                 isCarousel
                   ? "bottom-2 right-2 top-auto"
                   : showNewBadge

@@ -1,10 +1,8 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { prisma } from "@/lib/prisma";
-
-export type AppRole = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
+import type { AppRole, UserRow } from "@/lib/db/app-types";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export type AppSession = {
   user: {
@@ -24,28 +22,23 @@ export async function auth(): Promise<AppSession | null> {
   const token = (await cookies()).get(AUTH_COOKIE)?.value?.trim();
   if (!token) return null;
 
-  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
+  const { data, error } = await getSupabaseServiceRoleClient().auth.getUser(token);
   if (error || !data.user) return null;
 
   const email = data.user.email?.trim().toLowerCase();
-  const row = await prisma.user.findFirst({
-    where: {
-      OR: [{ id: data.user.id }, ...(email ? [{ email }] : [])]
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      image: true,
-      role: true,
-      age: true,
-      phone: true,
-      deletionScheduledFor: true
-    }
-  });
+  const supabase = getSupabaseServiceRoleClient();
+  const selectUser =
+    "id,email,name,image,role,age,phone,deletionScheduledFor";
+  const byId = await supabase.from("User").select(selectUser).eq("id", data.user.id).maybeSingle<UserRow>();
+  const byEmail =
+    byId.data || !email
+      ? null
+      : await supabase.from("User").select(selectUser).eq("email", email).maybeSingle<UserRow>();
+  const row = byId.data ?? byEmail?.data ?? null;
   if (!row) return null;
-  if (row.deletionScheduledFor && row.deletionScheduledFor.getTime() <= Date.now()) {
-    await prisma.user.delete({ where: { id: row.id } }).catch(() => null);
+  const deletionTs = row.deletionScheduledFor ? new Date(row.deletionScheduledFor).getTime() : null;
+  if (deletionTs != null && deletionTs <= Date.now()) {
+    await supabase.from("User").delete().eq("id", row.id);
     return null;
   }
 

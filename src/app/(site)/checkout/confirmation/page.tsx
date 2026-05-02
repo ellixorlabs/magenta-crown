@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { OrderConfirmationView, type ConfirmationOrderPayload } from "@/components/checkout/OrderConfirmationView";
+import { looksLikeUuid, normalizePublicOrderRef } from "@/lib/order-public-ref";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import type { NextAppPageSearch } from "@/types/next-app";
 
-type PageProps = {
-  searchParams: Promise<{ orderId?: string }>;
-};
+type PageProps = NextAppPageSearch<{ orderRef?: string; orderId?: string }>;
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const sp = await searchParams;
-  const orderId = sp.orderId;
-  if (!orderId) {
+  const ref = normalizePublicOrderRef(sp.orderRef);
+  if (!ref) {
     return {
       title: "Order confirmation",
       description: "Your Magenta Crown order confirmation.",
@@ -18,78 +19,74 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     };
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: { id: true, publicOrderRef: true }
-  });
+  const session = await auth();
+  if (!session?.user?.id) {
+    return {
+      title: "Order confirmation",
+      description: "Your Magenta Crown order confirmation.",
+      robots: { index: false, follow: true }
+    };
+  }
 
-  if (!order) {
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: order, error } = await (supabase.from("Order") as any)
+    .select("publicOrderRef")
+    .eq("publicOrderRef", ref)
+    .eq("userId", session.user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  if (!order?.publicOrderRef) {
     return { title: "Order confirmation", robots: { index: false, follow: true } };
   }
 
-  const ref = order.publicOrderRef ?? order.id.slice(0, 8);
   return {
     title: "Order confirmed",
-    description: `Thank you — your Magenta Crown order ${ref} has been placed.`,
+    description: `Thank you — your Magenta Crown order ${order.publicOrderRef} has been placed.`,
     robots: { index: false, follow: true }
   };
 }
 
 export default async function ConfirmationPage({ searchParams }: PageProps) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    notFound();
+  }
+
   const sp = await searchParams;
-  const orderId = sp.orderId;
-  if (!orderId) {
+  let ref = normalizePublicOrderRef(sp.orderRef);
+
+  if (!ref && sp.orderId?.trim() && looksLikeUuid(sp.orderId)) {
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: row } = await (supabase.from("Order") as any)
+      .select("publicOrderRef")
+      .eq("id", sp.orderId.trim())
+      .eq("userId", session.user.id)
+      .maybeSingle();
+    const legacyRef = row?.publicOrderRef as string | null | undefined;
+    if (legacyRef) {
+      redirect(`/checkout/confirmation?orderRef=${encodeURIComponent(legacyRef)}`);
+    }
     notFound();
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { product: true } } }
-  });
-
-  if (!order) {
+  if (!ref) {
     notFound();
   }
 
-  return (
-    <main className="min-h-screen bg-[#f8f5f6] py-16">
-      <div className="section-shell max-w-lg text-center">
-        <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Thank you</p>
-        <h1 className="mt-3 font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">
-          Order confirmed
-        </h1>
-        <p className="mt-4 text-zinc-600">
-          Your order{" "}
-          <span className="font-mono text-sm font-semibold text-zinc-900">
-            {order.publicOrderRef ?? order.id}
-          </span>{" "}
-          has been placed.
-          {order.publicOrderRef && (
-            <span className="mt-2 block text-xs font-normal text-zinc-500">
-              Reference for support: save this code with your receipt.
-            </span>
-          )}
-        </p>
-        <p className="mt-2 text-sm text-zinc-600">
-          Tracking (demo):{" "}
-          <a href={order.trackingUrl ?? "#"} className="text-crown-800 underline" target="_blank" rel="noreferrer">
-            View shipment
-          </a>
-        </p>
-        <p className="mt-6 text-sm text-zinc-600">
-          Invoice download will appear in{" "}
-          <Link href="/account/orders" className="text-crown-800 underline">
-            My orders
-          </Link>{" "}
-          when enabled.
-        </p>
-        <Link
-          href="/shop"
-          className="mt-10 inline-block rounded-full bg-crown-800 px-8 py-3 text-sm font-semibold text-white hover:bg-crown-900"
-        >
-          Continue shopping
-        </Link>
-      </div>
-    </main>
-  );
+  const supabase = getSupabaseServiceRoleClient();
+  const { data: order, error } = await (supabase.from("Order") as any)
+    .select(
+      "publicOrderRef,createdAt,subtotalBeforeDiscount,discountAmount,totalAmount,couponCode,paymentMethod,trackingUrl,shippingAddress,items:OrderItem(id,quantity,price,size,color,product:Product(name,slug,imageUrls,listImageIndex))"
+    )
+    .eq("publicOrderRef", ref)
+    .eq("userId", session.user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  if (!order?.publicOrderRef) {
+    notFound();
+  }
+
+  return <OrderConfirmationView order={order as ConfirmationOrderPayload} />;
 }

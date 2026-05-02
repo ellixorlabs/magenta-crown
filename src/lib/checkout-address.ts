@@ -18,7 +18,6 @@ export type ShippingPayload = {
 export type SaveAddressPayload = {
   kind: "home" | "work" | "other";
   customLabel?: string;
-  replaceHomeConfirmed?: boolean;
 };
 
 export function shippingToSavedAddress(shipping: ShippingPayload, save: SaveAddressPayload): SavedAddress {
@@ -78,17 +77,10 @@ export function parseSavedAddresses(raw: unknown): SavedAddress[] {
 
 export function mergeSavedAddresses(
   existing: SavedAddress[],
-  incoming: SavedAddress,
-  opts: { replaceHomeConfirmed?: boolean }
+  incoming: SavedAddress
 ): SavedAddress[] {
   let next = [...existing];
   if (incoming.kind === "home") {
-    const hasHome = next.some((a) => a.kind === "home");
-    if (hasHome && !opts.replaceHomeConfirmed) {
-      const err = new Error("HOME_EXISTS");
-      (err as Error & { code?: string }).code = "HOME_EXISTS";
-      throw err;
-    }
     next = next.filter((a) => a.kind !== "home");
   }
   next.push(incoming);

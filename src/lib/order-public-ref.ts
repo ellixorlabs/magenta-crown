@@ -1,24 +1,30 @@
-import type { Prisma } from "@prisma/client";
+/**
+ * Public order reference (`Order.publicOrderRef`) is the only customer-facing identifier.
+ * Internal `Order.id` (UUID) must not appear in URLs, JSON to browsers, or user-visible APIs.
+ */
 
-const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function randomSuffix(len: number): string {
-  let s = "";
-  for (let i = 0; i < len; i++) {
-    s += CHARSET[Math.floor(Math.random() * CHARSET.length)]!;
-  }
-  return s;
+export function looksLikeUuid(s: string): boolean {
+  return UUID_RE.test(s.trim());
 }
 
-/**
- * Unique customer-facing order reference, e.g. `#MC8K2PQ9N` (no 0/O/1/I).
- * Allocated inside the same DB transaction as `order.create`.
- */
-export async function allocatePublicOrderRef(tx: Prisma.TransactionClient): Promise<string> {
-  for (let attempt = 0; attempt < 24; attempt++) {
-    const ref = `#MC${randomSuffix(8)}`;
-    const clash = await tx.order.findFirst({ where: { publicOrderRef: ref }, select: { id: true } });
-    if (!clash) return ref;
+/** Normalize `publicOrderRef` from query params, path segments, or request bodies for DB lookup. */
+export function normalizePublicOrderRef(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  let s = raw.trim();
+  if (!s) return null;
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* invalid escape — use raw */
   }
-  throw new Error("ORDER_REF_ALLOCATION_FAILED");
+  s = s.trim();
+  return s || null;
+}
+
+/** Encodes a public ref for use in URL path or query (handles `#`, spaces, etc.). */
+export function encodeOrderRefForUrl(ref: string): string {
+  return encodeURIComponent(ref);
 }

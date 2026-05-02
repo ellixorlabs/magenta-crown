@@ -5,10 +5,10 @@ import { isAdminRole } from "@/lib/admin-auth";
 import { randomId } from "@/lib/random-id";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-const MAX_INPUT_BYTES = 8 * 1024 * 1024;
+const MAX_INPUT_BYTES = 2 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png"]);
-const BUCKET = "product-images";
+const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
+const BUCKET = "products-images";
 
 async function compressImageToWebp(input: Buffer): Promise<Buffer> {
   // Keep trying lower quality until the output is around ~1–2MB.
@@ -43,10 +43,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }
   if (file.size > MAX_INPUT_BYTES) {
-    return NextResponse.json({ error: "File too large (max 8MB input)" }, { status: 400 });
+    return NextResponse.json({ error: "File too large (max 2MB)" }, { status: 400 });
   }
   if (!ALLOWED.has(file.type)) {
-    return NextResponse.json({ error: "Only JPEG or PNG" }, { status: 400 });
+    return NextResponse.json({ error: "Only JPEG, PNG, or WEBP" }, { status: 400 });
   }
 
   try {

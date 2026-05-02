@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
+import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export type HeaderNavLinkRow = { label: string; href: string; group: string | null };
 
@@ -16,11 +16,13 @@ export async function getActiveHeaderNavLinks(): Promise<HeaderNavLinkRow[] | un
   }
 
   try {
-    const links = await prisma.headerNavLink.findMany({
-      where: { isActive: true },
-      orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
-      select: { label: true, href: true, group: true }
-    });
+    const supabase = getSupabaseServiceRoleClient();
+    const { data: links, error } = await (supabase.from("HeaderNavLink") as any)
+      .select("label,href,group")
+      .eq("isActive", true)
+      .order("group", { ascending: true })
+      .order("sortOrder", { ascending: true });
+    if (error) throw new Error(error.message);
     cache = { expiresAt: now + TTL_MS, links };
     return links;
   } catch (e) {
