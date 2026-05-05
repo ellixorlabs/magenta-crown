@@ -17,7 +17,25 @@ export async function POST(req: NextRequest) {
       .eq("email", email)
       .limit(1);
     if (error) throw new Error("lookup_failed");
-    return NextResponse.json({ exists: Array.isArray(data) && data.length > 0 });
+    if (Array.isArray(data) && data.length > 0) {
+      return NextResponse.json({ exists: true });
+    }
+
+    // Fallback check in Supabase Auth so unverified users are also detected.
+    let page = 1;
+    const perPage = 200;
+    while (true) {
+      const listed = await supabase.auth.admin.listUsers({ page, perPage });
+      if (listed.error) break;
+      const users = listed.data?.users ?? [];
+      if (users.length === 0) break;
+      if (users.some((u) => (u.email ?? "").trim().toLowerCase() === email)) {
+        return NextResponse.json({ exists: true });
+      }
+      if (users.length < perPage) break;
+      page += 1;
+    }
+    return NextResponse.json({ exists: false });
   } catch {
     return NextResponse.json({ exists: false });
   }

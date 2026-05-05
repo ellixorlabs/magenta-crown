@@ -23,6 +23,10 @@ function Inner() {
   const [emailExists, setEmailExists] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
   const [magicMessage, setMagicMessage] = useState<string | null>(null);
+  const [needsVerificationResend, setNeedsVerificationResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
@@ -72,6 +76,8 @@ function Inner() {
   async function continueWithEmail() {
     setError(null);
     setMagicMessage(null);
+    setResendMessage(null);
+    setNeedsVerificationResend(false);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
       setError("Enter your email first.");
@@ -97,6 +103,8 @@ function Inner() {
       return;
     }
     setError(null);
+    setNeedsVerificationResend(false);
+    setResendMessage(null);
     setLoading(true);
     try {
       const supabase = await getSupabaseClientOrNull();
@@ -109,7 +117,13 @@ function Inner() {
         password
       });
       if (signInError) {
-        setError("Invalid email or password.");
+        const message = signInError.message?.toLowerCase() ?? "";
+        if (message.includes("email not confirmed")) {
+          setNeedsVerificationResend(true);
+          setError("Your email is not verified. Resend verification email?");
+        } else {
+          setError("Invalid email or password.");
+        }
         return;
       }
 
@@ -171,6 +185,23 @@ function Inner() {
     }
   }
 
+  async function resendVerification(inputEmail: string) {
+    const supabase = await getSupabaseClientOrNull();
+    if (!supabase) throw new Error("SUPABASE_MISSING");
+    await supabase.auth.signInWithOtp({
+      email: inputEmail.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+  }
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = window.setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [resendCooldown]);
+
   if (!sessionChecked) {
     return (
       <AuthImmersiveShell>
@@ -204,6 +235,8 @@ function Inner() {
                 setEmailExists(false);
                 setPassword("");
                 setMagicMessage(null);
+                setResendMessage(null);
+                setNeedsVerificationResend(false);
                 setError(null);
               }}
               autoComplete="email"
@@ -241,6 +274,36 @@ function Inner() {
           ) : null}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {magicMessage && <p className="text-sm text-emerald-700">{magicMessage}</p>}
+          {resendMessage && <p className="text-sm text-emerald-700">{resendMessage}</p>}
+          {needsVerificationResend && (
+            <button
+              type="button"
+              disabled={resendLoading || resendCooldown > 0}
+              onClick={() => {
+                void (async () => {
+                  setResendLoading(true);
+                  setResendMessage(null);
+                  setError(null);
+                  try {
+                    await resendVerification(email);
+                    setResendMessage("Verification email sent.");
+                    setResendCooldown(30);
+                  } catch {
+                    setError("Could not resend verification email. Please try again.");
+                  } finally {
+                    setResendLoading(false);
+                  }
+                })();
+              }}
+              className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {resendLoading
+                ? "Sending verification email…"
+                : resendCooldown > 0
+                  ? `Resend Email (${resendCooldown}s)`
+                  : "Resend Email"}
+            </button>
+          )}
           {!emailChecked || !emailExists ? (
             <button
               type="button"

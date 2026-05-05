@@ -79,6 +79,19 @@ function AuthContextInner({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const recoverFromInvalidRefreshToken = useCallback(
+    async (supabase: Awaited<ReturnType<typeof getSupabaseClientOrNull>>) => {
+      try {
+        await (supabase?.auth as any)?.signOut?.({ scope: "local" });
+      } catch {
+        // ignore local signout cleanup failures
+      }
+      await syncServerCookie(null);
+      clearAuthState();
+    },
+    [clearAuthState, syncServerCookie]
+  );
+
   useEffect(() => {
     let mounted = true;
     let unsub: (() => void) | null = null;
@@ -87,7 +100,19 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         const supabase = await getSupabaseClientOrNull();
         if (!supabase || !mounted) return;
 
-        const { data: sess } = await supabase.auth.getSession();
+        let sess: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"] = { session: null };
+        try {
+          const res = await supabase.auth.getSession();
+          sess = res.data;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message.toLowerCase() : "";
+          if (msg.includes("invalid refresh token") || msg.includes("refresh token not found")) {
+            await recoverFromInvalidRefreshToken(supabase);
+            if (mounted) setIsLoading(false);
+            return;
+          }
+          throw e;
+        }
         await syncServerCookie(sess.session?.access_token ?? null);
         const sessionUser = sess.session?.user ?? null;
         if (mounted) {
@@ -102,7 +127,11 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         }
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
           if (!mounted) return;
-          await syncServerCookie(session?.access_token ?? null);
+          try {
+            await syncServerCookie(session?.access_token ?? null);
+          } catch {
+            // keep auth state resilient for transient cookie-sync failures
+          }
           if (!session?.user) {
             clearAuthState();
           } else {
@@ -124,7 +153,7 @@ function AuthContextInner({ children }: { children: ReactNode }) {
       mounted = false;
       unsub?.();
     };
-  }, [clearAuthState, refreshServerSession, syncServerCookie]);
+  }, [clearAuthState, recoverFromInvalidRefreshToken, refreshServerSession, syncServerCookie]);
   const hasRole = useCallback(
     (allowedRoles: Role[]) => allowedRoles.includes(role),
     [role]

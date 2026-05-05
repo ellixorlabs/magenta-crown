@@ -9,6 +9,37 @@ import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { clearCacheByPrefix } from "@/lib/cache";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
+function slugifyProductName(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/['"`]+/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+async function buildUniqueProductSlug(
+  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
+  preferred: string,
+  productIdToExclude?: string
+) {
+  const base = slugifyProductName(preferred) || `product-${randomId().slice(0, 8).toLowerCase()}`;
+  for (let i = 0; i < 100; i += 1) {
+    const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    let query = (supabase.from("Product") as any).select("id").eq("slug", candidate).limit(1);
+    if (productIdToExclude) {
+      query = query.neq("id", productIdToExclude);
+    }
+    const exists = await query.maybeSingle();
+    if (exists.error) {
+      throw new Error(`Unable to validate slug: ${exists.error.message}`);
+    }
+    if (!exists.data) return candidate;
+  }
+  throw new Error("Unable to generate a unique slug");
+}
+
 function parseList(s: string) {
   return s
     .split(/[,\n]/)
@@ -126,10 +157,11 @@ export async function createProduct(formData: FormData) {
   const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
 
   const supabase = getSupabaseServiceRoleClient();
+  const slug = await buildUniqueProductSlug(supabase, slugRaw || name);
   const createProductResult = await (supabase
     .from("Product") as any)
     .insert({
-      ...(slugRaw ? { slug: slugRaw } : {}),
+      slug,
       name,
       description,
       story: String(formData.get("story") ?? "").trim() || null,
@@ -228,6 +260,7 @@ export async function updateProduct(formData: FormData) {
   const featuredIds = parseFeaturedCouponIds(formData);
   const tags = parseList(String(formData.get("tags") ?? ""));
   const supabase = getSupabaseServiceRoleClient();
+  const slug = await buildUniqueProductSlug(supabase, slugRaw || name, id);
   const current = await supabase
     .from("Product")
     .select("newTagExpiresAt")
@@ -243,7 +276,7 @@ export async function updateProduct(formData: FormData) {
   const productUpdate = await (supabase
     .from("Product") as any)
     .update({
-      ...(slugRaw ? { slug: slugRaw } : {}),
+      slug,
       name,
       description,
       story: String(formData.get("story") ?? "").trim() || null,

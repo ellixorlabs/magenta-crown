@@ -259,7 +259,7 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" name="name" defaultValue={present.name} required />
-        <Field label="Slug" name="slug" defaultValue={present.slug} required />
+        <Field label="Slug (optional, URL-friendly)" name="slug" defaultValue={present.slug} />
         <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-600">Description</label>
           <textarea
