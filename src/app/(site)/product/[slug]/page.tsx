@@ -128,6 +128,8 @@ export default async function ProductPage({ params }: PageProps) {
   const cfgPayload = (homeCfgRes.data?.payload ?? {}) as Record<string, unknown>;
   const globalSizeChartImageUrl =
     typeof cfgPayload.globalSizeChartImageUrl === "string" ? cfgPayload.globalSizeChartImageUrl : "";
+  const shareMessageTemplate =
+    typeof cfgPayload.shareMessageTemplate === "string" ? cfgPayload.shareMessageTemplate : undefined;
 
   const ratings = ((reviewAgg.data ?? []) as Array<{ rating: number }>).map((r) => r.rating);
   const reviewCount = ratings.length;
@@ -135,6 +137,10 @@ export default async function ProductPage({ params }: PageProps) {
   const reviewAvg = reviewAvgNum != null ? Number(reviewAvgNum) : null;
   const { initialWishlisted, wishlistIds } = wishlistState;
   const canQuickEdit = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
+  const firstActiveCouponCode =
+    (((productData.featuredCoupons ?? []) as Array<{ coupon?: { code?: string; isActive?: boolean } }>).find(
+      (x) => x.coupon?.isActive && x.coupon?.code
+    )?.coupon?.code as string | undefined) ?? null;
 
   return (
     <main className="bg-[#f8f5f6]">
@@ -183,6 +189,8 @@ export default async function ProductPage({ params }: PageProps) {
                 <ProductShareButton
                   productName={product.name}
                   productUrl={absoluteUrl(`/product/${product.slug}`)}
+                  couponCode={firstActiveCouponCode}
+                  shareTemplate={shareMessageTemplate}
                 />
                 {canQuickEdit && (
                   <Link
@@ -268,7 +276,7 @@ export default async function ProductPage({ params }: PageProps) {
         {crossSellRows.length > 0 && (
           <section className="mt-16 border-t border-zinc-200 pt-12">
             <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">
-              Complete the look
+              View similar products
             </h2>
             <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
               {crossSellRows.map((p: any) => (

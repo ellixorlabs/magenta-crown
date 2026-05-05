@@ -8,14 +8,14 @@ import { CookieConsentProvider } from "@/context/CookieConsentContext";
 import { ShopProvider } from "@/context/ShopContext";
 import { HeroReadyProvider } from "@/context/HeroReadyContext";
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, loaderLogoSrc }: { children: ReactNode; loaderLogoSrc?: string }) {
   return (
     <AuthProvider>
       <WishlistProvider>
         <CartProvider>
           <ShopProvider>
             <CookieConsentProvider>
-              <HeroReadyProvider>
+              <HeroReadyProvider loaderLogoSrc={loaderLogoSrc}>
                 {children}
               </HeroReadyProvider>
             </CookieConsentProvider>

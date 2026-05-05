@@ -16,7 +16,7 @@ const HeroReadyContext = createContext<HeroReadyContextValue | null>(null);
 /** If hero never signals ready (blocked assets, tunnel misconfig), unblock the shell quickly. */
 const HERO_READY_FALLBACK_MS = 2800;
 
-export function HeroReadyProvider({ children }: { children: ReactNode }) {
+export function HeroReadyProvider({ children, loaderLogoSrc }: { children: ReactNode; loaderLogoSrc?: string }) {
   const pathname = usePathname();
   const [heroReady, setHeroReady] = useState(false);
 
@@ -61,7 +61,7 @@ export function HeroReadyProvider({ children }: { children: ReactNode }) {
     <HeroReadyContext.Provider value={value}>
       {children}
       {/** No Suspense wrapper: `useSearchParams` inside would suspend this subtree and strand the loader / body tint. */}
-      <GlobalPageLoader heroReady={heroReady} markHeroReady={markHeroReady} />
+      <GlobalPageLoader heroReady={heroReady} markHeroReady={markHeroReady} loaderLogoSrc={loaderLogoSrc} />
     </HeroReadyContext.Provider>
   );
 }

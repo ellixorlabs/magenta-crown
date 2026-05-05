@@ -11,8 +11,6 @@ export type AppSession = {
     name: string | null;
     image: string | null;
     role: AppRole;
-    age: number | null;
-    phone: string | null;
   };
 };
 
@@ -28,7 +26,7 @@ export async function auth(): Promise<AppSession | null> {
   const email = data.user.email?.trim().toLowerCase();
   const supabase = getSupabaseServiceRoleClient();
   const selectUser =
-    "id,email,name,image,role,age,phone,deletionScheduledFor";
+    "id,email,name,image,role,deletionScheduledFor";
   const byId = await supabase.from("User").select(selectUser).eq("id", data.user.id).maybeSingle<UserRow>();
   const byEmail =
     byId.data || !email
@@ -48,9 +46,7 @@ export async function auth(): Promise<AppSession | null> {
       email: row.email ?? data.user.email ?? "",
       name: row.name,
       image: row.image,
-      role: row.role as AppRole,
-      age: row.age ?? null,
-      phone: row.phone ?? null
+      role: row.role as AppRole
     }
   };
 }

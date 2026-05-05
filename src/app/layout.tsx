@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cinzel, Inter, Playfair_Display } from "next/font/google";
 import { Providers } from "@/app/providers";
 import { GlassBackButton } from "@/components/layout/GlassBackButton";
+import { getBrandSettings } from "@/lib/brand-settings";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 import "./globals.css";
 
@@ -21,30 +22,30 @@ const bodyFont = Inter({
   variable: "--font-body"
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getCanonicalSiteUrl()),
-  title: {
-    default: "Magenta Crown — Luxury women's boutique",
-    template: "%s | Magenta Crown"
-  },
-  description:
-    "Luxury women's occasionwear — sarees, lehengas, and curated collections. Shop Magenta Crown online.",
-  openGraph: {
-    type: "website",
-    locale: "en_IN",
-    siteName: "Magenta Crown"
-  },
-  twitter: { card: "summary_large_image" },
-  icons: {
-    icon: [
-      { url: "/icon.png", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
-    ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }]
-  },
-  robots: { index: true, follow: true }
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandSettings();
+  const icon = brand.faviconUrl || "/icon.png";
+  return {
+    metadataBase: new URL(getCanonicalSiteUrl()),
+    title: {
+      default: "Magenta Crown — Luxury women's boutique",
+      template: "%s | Magenta Crown"
+    },
+    description:
+      "Luxury women's occasionwear — sarees, lehengas, and curated collections. Shop Magenta Crown online.",
+    openGraph: {
+      type: "website",
+      locale: "en_IN",
+      siteName: "Magenta Crown"
+    },
+    twitter: { card: "summary_large_image" },
+    icons: {
+      icon: [{ url: icon }],
+      apple: [{ url: icon }]
+    },
+    robots: { index: true, follow: true }
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -54,13 +55,14 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content"
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const brand = await getBrandSettings();
   return (
     <html lang="en" className="h-full overflow-x-hidden">
       <body
         className={`min-h-dvh overflow-x-hidden ${brandFont.variable} ${headingFont.variable} ${bodyFont.variable}`}
       >
-        <Providers>
+        <Providers loaderLogoSrc={brand.breathingLogoUrl || undefined}>
           <GlassBackButton />
           {children}
         </Providers>

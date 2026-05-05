@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
+import { ProductCard } from "@/components/features/ProductCard";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import type { ProductRow } from "@/lib/db/app-types";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+import { getProductTotalStock } from "@/lib/variant-stock";
 import { photonFeatureToAddress } from "@/lib/photon-address";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
@@ -35,6 +38,8 @@ declare global {
     Razorpay?: new (opts: RazorpayCtorOptions) => { open: () => void };
   }
 }
+
+type UpsellRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
 
 const ALL_PAYMENT_OPTIONS = [
   { value: "CASH_ON_DELIVERY", label: "Cash on delivery" },
@@ -111,6 +116,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [similarProducts, setSimilarProducts] = useState<UpsellRow[]>([]);
 
   const ensureRazorpayScript = useCallback(async () => {
     if (window.Razorpay) return true;
@@ -142,6 +148,30 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
 
   const hasSaved = profileAddresses.length > 0;
   const couponProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
+
+  useEffect(() => {
+    if (couponProductIds.length === 0) {
+      setSimilarProducts([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/public/similar-products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productIds: couponProductIds, limit: 4 })
+        });
+        const data = (await res.json()) as { products?: UpsellRow[] };
+        if (!cancelled) setSimilarProducts(Array.isArray(data.products) ? data.products : []);
+      } catch {
+        if (!cancelled) setSimilarProducts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [couponProductIds]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -992,6 +1022,22 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                   {proceedCtaLabel}
                 </button>
               </div>
+              {similarProducts.length > 0 ? (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                    View similar products
+                  </h2>
+                  <div className="mt-4 grid gap-4">
+                    {similarProducts.map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        outOfStock={getProductTotalStock(p.variants ?? []) === 0}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </aside>
           </form>
         )}

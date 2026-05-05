@@ -25,16 +25,21 @@ export function HomeProductGridSection({
   emptyMessage = "Add products to see them here."
 }: Props) {
   return (
-    <section className="section-shell py-16">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
-          <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
-            <Link href={viewAllHref} className="inline-flex items-center gap-2 hover:text-crown-900">
-              <span>{title}</span>
+    <section className="section-shell max-w-full min-w-0 py-10 sm:py-12">
+      <div className="mb-5 flex min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <p className="text-xs uppercase leading-relaxed tracking-[0.28em] text-zinc-500 sm:tracking-[0.35em]">
+            {eyebrow}
+          </p>
+          <h2 className="mt-0 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
+            <Link
+              href={viewAllHref}
+              className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 hover:text-crown-900"
+            >
+              <span className="min-w-0 break-words">{title}</span>
               <span
                 aria-hidden
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
               >
                 <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
               </span>

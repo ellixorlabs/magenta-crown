@@ -32,6 +32,10 @@ export default function AboutPage() {
             <strong className="text-zinc-900">Values.</strong> Integrity, craft, inclusion, and transparency—from loom
             to doorstep.
           </p>
+          <p>
+            We believe occasionwear should feel deeply personal: timeless fabrics, modern silhouettes, and detailed
+            finishing that stays elegant across seasons instead of trends.
+          </p>
         </div>
       </section>
 

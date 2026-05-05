@@ -12,9 +12,10 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
   const isHome = pathname === "/";
   const isAuthImmersive = pathname.startsWith("/auth/");
   const isAccountArea = pathname.startsWith("/account/");
+  const isShopArea = pathname.startsWith("/shop");
 
   const skipTopPad = isHome || isAuthImmersive;
-  const shellBg = isAccountArea ? "bg-[#f8f5f6]" : "bg-white";
+  const shellBg = isAccountArea || isShopArea ? "bg-[#f8f5f6]" : "bg-white";
 
   useEffect(() => {
     if (pathname === "/") {
@@ -24,7 +25,7 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
 
   return (
     <div
-      className={`relative z-0 min-w-0 ${shellBg} ${skipTopPad ? "" : "pt-[7.5rem] sm:pt-[8rem]"}`}
+      className={`relative z-0 min-w-0 overflow-x-clip ${shellBg} ${skipTopPad ? "" : "pt-[7.5rem] sm:pt-[8rem]"}`}
     >
       {children}
     </div>

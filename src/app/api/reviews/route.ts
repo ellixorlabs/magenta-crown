@@ -31,8 +31,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ id: review.id });
-  } catch (e) {
-    console.error(e);
+  } catch {
+    console.error("[reviews] create failed");
     return NextResponse.json({ error: "Could not save review" }, { status: 500 });
   }
 }

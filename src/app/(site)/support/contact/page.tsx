@@ -23,6 +23,14 @@ export default function ContactPage() {
             +91 80 1234 5678
           </a>
         </p>
+        <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+          <p className="font-semibold text-zinc-900">Support hours</p>
+          <p className="mt-1">Monday to Saturday · 10:00 AM to 7:00 PM (IST)</p>
+          <p className="mt-2">
+            Include your order ID in the message for faster help on shipping, returns, exchange sizing, and payment
+            support.
+          </p>
+        </div>
         <ContactForm />
       </div>
     </main>

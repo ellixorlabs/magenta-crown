@@ -95,8 +95,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error(e);
+  } catch {
+    console.error("[payments] razorpay verify failed");
     return NextResponse.json({ error: "Could not verify payment." }, { status: 500 });
   }
 }

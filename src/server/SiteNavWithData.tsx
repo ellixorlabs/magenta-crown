@@ -1,8 +1,19 @@
 import { SiteNavbar } from "@/components/features/SiteNavbar";
+import { getBrandSettings } from "@/lib/brand-settings";
 import { getActiveHeaderNavLinks } from "@/lib/site/header-nav";
 
 /** Server-only nav shell — lives outside `/components` so Prisma never sits next to client UI modules. */
 export async function SiteNavWithData() {
-  const headerLinks = await getActiveHeaderNavLinks();
-  return <SiteNavbar serverLinks={headerLinks} />;
+  const [headerLinks, brandSettings] = await Promise.all([getActiveHeaderNavLinks(), getBrandSettings()]);
+  return (
+    <SiteNavbar
+      serverLinks={headerLinks}
+      brandMark={{
+        brandMarkMode: brandSettings.brandMarkMode,
+        brandText: brandSettings.brandText,
+        brandImageUrl: brandSettings.brandImageUrl,
+        brandFontFamily: brandSettings.brandFontFamily
+      }}
+    />
+  );
 }

@@ -51,8 +51,8 @@ export function writeCartPayload(payload: CartPersistedPayload) {
     localStorage.setItem(CART_STORAGE_KEY, json);
     sessionStorage.setItem(CART_SESSION_BACKUP_KEY, json);
     setCookie(json.length <= COOKIE_MAX ? json : null);
-  } catch (e) {
-    console.warn("[cart] persist failed", e);
+  } catch {
+    console.warn("[cart] persist failed");
   }
 }
 

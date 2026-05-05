@@ -36,18 +36,21 @@ export function ProfileFormClient() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [age, setAge] = useState("");
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [initialAddresses, setInitialAddresses] = useState<SavedAddress[]>([]);
   const [addressEditingId, setAddressEditingId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [personalEditing, setPersonalEditing] = useState(false);
-  const [canEditAgeOnce, setCanEditAgeOnce] = useState(true);
   const [deletionScheduledFor, setDeletionScheduledFor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletionBusy, setDeletionBusy] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [sensitivePassword, setSensitivePassword] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [securityBusy, setSecurityBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,15 +75,12 @@ export function ProfileFormClient() {
         name: string;
         email: string;
         phone: string;
-        age: number | null;
         addresses: unknown;
         deletionScheduledFor: string | null;
       };
       setName(d.name ?? "");
       setEmail(d.email ?? "");
       setPhone(d.phone ?? "");
-      setAge(d.age != null ? String(d.age) : "");
-      setCanEditAgeOnce(d.age == null);
       setDeletionScheduledFor(d.deletionScheduledFor ?? null);
       const raw = Array.isArray(d.addresses) ? d.addresses : [];
       const parsed = raw
@@ -127,21 +127,9 @@ export function ProfileFormClient() {
     setError(null);
     setSaving(true);
     try {
-      let ageNum: number | null = null;
-      if (age.trim() !== "") {
-        const n = parseInt(age, 10);
-        if (Number.isNaN(n) || n < 13 || n > 120) {
-          setError("Age must be between 13 and 120, or leave blank.");
-          setSaving(false);
-          return;
-        }
-        ageNum = n;
-      }
-
       const payload = {
         name: name.trim(),
         phone: phone.trim() || null,
-        age: ageNum,
         addresses: addresses.map((a) => ({
           id: a.id,
           kind: a.kind,
@@ -167,9 +155,6 @@ export function ProfileFormClient() {
         throw new Error(j.error ?? "Save failed");
       }
       setMessage("Saved.");
-      if (canEditAgeOnce && ageNum != null) {
-        setCanEditAgeOnce(false);
-      }
       setPersonalEditing(false);
       setAddressEditingId(null);
       await load();
@@ -187,11 +172,84 @@ export function ProfileFormClient() {
     setError(null);
   }
 
+  async function requireRecentAuth(password: string) {
+    const supabase = await getSupabaseClientOrNull();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    if (!email.trim()) throw new Error("Missing account email.");
+    const pass = password.trim();
+    if (!pass) throw new Error("Enter your current password to continue.");
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: pass
+    });
+    if (reauthError) throw new Error(reauthError.message || "Reauthentication failed.");
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    if (token) {
+      await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+  }
+
+  async function changeEmailAddress() {
+    setSecurityBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const nextEmail = pendingEmail.trim().toLowerCase();
+      if (!nextEmail) throw new Error("Enter the new email address.");
+      if (nextEmail === email.trim().toLowerCase()) throw new Error("New email matches your current email.");
+      await requireRecentAuth(sensitivePassword);
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) throw new Error("Supabase is not configured.");
+      const { error: updateError } = await supabase.auth.updateUser(
+        { email: nextEmail },
+        { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/account/profile")}` }
+      );
+      if (updateError) throw new Error(updateError.message || "Could not start email change.");
+      setMessage("Verification sent to your new email. Confirm it to complete the change.");
+      setPendingEmail("");
+      setSensitivePassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not change email.");
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  async function changePasswordWithReauth() {
+    setSecurityBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (newPassword.length < 8) throw new Error("New password must be at least 8 characters.");
+      if (newPassword !== confirmNewPassword) throw new Error("New passwords do not match.");
+      await requireRecentAuth(sensitivePassword);
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) throw new Error("Supabase is not configured.");
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+        current_password: sensitivePassword
+      });
+      if (updateError) throw new Error(updateError.message || "Could not update password.");
+      setMessage("Password updated successfully.");
+      setSensitivePassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update password.");
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
   async function requestDeletion() {
     setDeletionBusy(true);
     setError(null);
     setMessage(null);
     try {
+      await requireRecentAuth(sensitivePassword);
       const res = await fetch("/api/user/account-deletion", {
         method: "POST",
         headers: await authHeaders()
@@ -201,6 +259,7 @@ export function ProfileFormClient() {
       setDeletionScheduledFor(data.deletionScheduledFor ?? null);
       setMessage("Account deletion scheduled. You can revoke within 7 days.");
       setShowDeleteConfirm(false);
+      setSensitivePassword("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not schedule deletion.");
     } finally {
@@ -241,7 +300,7 @@ export function ProfileFormClient() {
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Personal info</h2>
-        <p className="mt-1 text-sm text-zinc-600">Email is your sign-in; update name, phone, and age here.</p>
+        <p className="mt-1 text-sm text-zinc-600">Email is your sign-in; update name and phone here.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="email-ro">
@@ -278,25 +337,6 @@ export function ProfileFormClient() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="age">
-              DOB (single change)
-            </label>
-            <input
-              id="age"
-              type="number"
-              min={13}
-              max={120}
-              placeholder="Optional"
-              disabled={!personalEditing || !canEditAgeOnce}
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-zinc-50 disabled:text-zinc-600"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-            />
-            {!canEditAgeOnce ? (
-              <p className="mt-1 text-xs text-zinc-500">DOB can only be changed once.</p>
-            ) : null}
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-3">
@@ -492,10 +532,87 @@ export function ProfileFormClient() {
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Payment methods</h2>
-        <p className="mt-2 text-sm text-zinc-700">
-          Cards and UPI are handled at checkout by your payment provider — we never store full card numbers.
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Security</h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          Sensitive changes require re-authentication with your current password.
         </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="current-password">
+              Current password (for re-authentication)
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={sensitivePassword}
+              onChange={(e) => setSensitivePassword(e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="new-email">
+              Change email address
+            </label>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                id="new-email"
+                type="email"
+                className="min-w-[220px] flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                placeholder="new-email@example.com"
+                value={pendingEmail}
+                onChange={(e) => setPendingEmail(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={securityBusy}
+                onClick={() => void changeEmailAddress()}
+                className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              >
+                Update email
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">A verification email is sent to the new address.</p>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="new-password">
+              New password
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              minLength={8}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="confirm-new-password">
+              Confirm new password
+            </label>
+            <input
+              id="confirm-new-password"
+              type="password"
+              minLength={8}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            disabled={securityBusy}
+            onClick={() => void changePasswordWithReauth()}
+            className="rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+          >
+            {securityBusy ? "Please wait…" : "Change password"}
+          </button>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-red-200 bg-red-50/60 p-6">
@@ -538,6 +655,16 @@ export function ProfileFormClient() {
               be retrieved. If you change your mind within 7 days you can still revoke the deletion process. Are you sure
               you want to continue?
             </p>
+            <label className="mt-4 block text-xs font-semibold uppercase text-zinc-500">
+              Current password (required)
+              <input
+                type="password"
+                autoComplete="current-password"
+                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                value={sensitivePassword}
+                onChange={(e) => setSensitivePassword(e.target.value)}
+              />
+            </label>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button
                 type="button"

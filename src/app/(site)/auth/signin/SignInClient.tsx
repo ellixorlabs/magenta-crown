@@ -16,6 +16,8 @@ function Inner() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [magicMessage, setMagicMessage] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
@@ -85,6 +87,40 @@ function Inner() {
     }
   }
 
+  async function sendMagicLink() {
+    setError(null);
+    setMagicMessage(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError("Enter your email first to get a magic link.");
+      return;
+    }
+    setMagicLoading(true);
+    try {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        setError("Supabase is not configured. Add keys in .env and restart dev server.");
+        return;
+      }
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`
+        }
+      });
+      if (otpError) {
+        setError(otpError.message || "Could not send magic link.");
+        return;
+      }
+      setMagicMessage("Magic link sent. Check your email and open the secure sign-in link.");
+    } catch {
+      setError("Could not send magic link.");
+    } finally {
+      setMagicLoading(false);
+    }
+  }
+
   if (!sessionChecked) {
     return (
       <AuthImmersiveShell>
@@ -133,12 +169,21 @@ function Inner() {
             </Link>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {magicMessage && <p className="text-sm text-emerald-700">{magicMessage}</p>}
           <button
             type="submit"
             disabled={loading}
             className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
           >
             {loading ? "Signing in…" : "Sign in"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendMagicLink()}
+            disabled={magicLoading}
+            className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
           </button>
         </form>
 

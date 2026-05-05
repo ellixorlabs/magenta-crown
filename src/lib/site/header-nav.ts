@@ -25,8 +25,8 @@ export async function getActiveHeaderNavLinks(): Promise<HeaderNavLinkRow[] | un
     if (error) throw new Error(error.message);
     cache = { expiresAt: now + TTL_MS, links };
     return links;
-  } catch (e) {
-    console.error("getActiveHeaderNavLinks: failed to load header links.", e);
+  } catch {
+    console.error("getActiveHeaderNavLinks: failed to load header links.");
     return undefined;
   }
 }

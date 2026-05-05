@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
   const email = user.email?.trim().toLowerCase();
   if (!email) {
-    return NextResponse.json({ error: "Supabase user has no email" }, { status: 400 });
+    return NextResponse.json({ error: "Missing required identity fields." }, { status: 400 });
   }
 
   const metaName =

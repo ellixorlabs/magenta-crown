@@ -10,9 +10,21 @@ export default function ShippingPolicyPage() {
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">
           Shipping policy
         </h1>
+        <p>Orders are packed within 24-48 business hours and dispatched after quality checks.</p>
         <p>
-          Orders are packed within 48 hours (business days) and handed to our courier partners. Tracking is emailed once
-          dispatched. International shipping may incur duties payable on delivery.
+          India delivery usually takes 3-7 business days after dispatch. Remote locations can take longer depending on
+          courier coverage.
+        </p>
+        <p>
+          International delivery timelines vary by destination and customs processing. Import duties/taxes, if any, are
+          payable by the customer unless stated otherwise at checkout.
+        </p>
+        <p>
+          Tracking details are shared by email and SMS once shipped. For delivery issues, contact{" "}
+          <a href="mailto:care@magentacrown.com" className="text-crown-800 underline">
+            care@magentacrown.com
+          </a>{" "}
+          with your order ID.
         </p>
       </div>
     </main>

@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     });
     const rpData = (await rpRes.json()) as RazorpayOrderResponse & { error?: { description?: string } };
     if (!rpRes.ok || !rpData.id) {
-      return NextResponse.json({ error: rpData.error?.description ?? "Could not create Razorpay order." }, { status: 502 });
+      return NextResponse.json({ error: "Could not create Razorpay order." }, { status: 502 });
     }
 
     return NextResponse.json({
@@ -68,8 +68,8 @@ export async function POST(req: Request) {
       amount: rpData.amount,
       currency: rpData.currency
     });
-  } catch (e) {
-    console.error(e);
+  } catch {
+    console.error("[payments] razorpay order init failed");
     return NextResponse.json({ error: "Could not initialize payment." }, { status: 500 });
   }
 }

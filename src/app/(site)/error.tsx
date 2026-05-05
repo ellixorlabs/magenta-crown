@@ -10,7 +10,7 @@ export default function SiteSegmentError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    console.error("[site] route error boundary triggered");
   }, [error]);
 
   return (

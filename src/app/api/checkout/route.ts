@@ -113,6 +113,20 @@ async function saveAddressIfRequested(
   }
 }
 
+async function syncUserCheckoutProfile(
+  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
+  userId: string,
+  shippingPayload: ShippingPayload
+) {
+  const data: Record<string, unknown> = {
+    phone: shippingPayload.phone.trim() || null
+  };
+  if (shippingPayload.fullName.trim()) data.name = shippingPayload.fullName.trim();
+  if (shippingPayload.email.trim()) data.email = shippingPayload.email.trim().toLowerCase();
+  const updated = await (supabase.from("User") as any).update(data).eq("id", userId);
+  if (updated.error) throw new Error(`USER_PROFILE_SYNC_FAILED:${updated.error.message}`);
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
@@ -301,6 +315,7 @@ export async function POST(req: Request) {
         );
         if (orderItemsInsert.error) throw new Error(`ORDER_ITEMS_CREATE_FAILED:${orderItemsInsert.error.message}`);
 
+        await syncUserCheckoutProfile(supabase, session.user.id, shippingPayload);
         await saveAddressIfRequested(supabase, session.user.id, savePayload, shippingPayload);
 
         const created = orderUpdate.data as { id: string; publicOrderRef: string | null };
@@ -362,6 +377,7 @@ export async function POST(req: Request) {
       }
     }
 
+    await syncUserCheckoutProfile(supabase, session.user.id, shippingPayload);
     await saveAddressIfRequested(supabase, session.user.id, savePayload, shippingPayload);
 
     return NextResponse.json({
@@ -390,7 +406,7 @@ export async function POST(req: Request) {
       );
     }
     if (msg === "OTHER_LABEL_REQUIRED") return NextResponse.json({ error: "Please enter a name for this address." }, { status: 400 });
-    console.error(e);
+    console.error("[checkout] create order failed");
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }

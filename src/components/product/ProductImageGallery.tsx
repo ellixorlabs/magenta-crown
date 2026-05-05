@@ -55,7 +55,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
   }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
     const sync = () => setIsLg(mq.matches);
     sync();
     mq.addEventListener("change", sync);
@@ -449,7 +449,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   src={url}
                   alt=""
                   fill
-                  className="object-contain"
+                  className="object-cover"
                   style={{ objectPosition: pos }}
                   sizes="120px"
                   loading="lazy"

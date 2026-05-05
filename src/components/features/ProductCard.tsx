@@ -135,7 +135,7 @@ export function ProductCard({
   if (layout === "list") {
     const comfy = listDensity === "comfortable";
     return (
-      <Link href={`/product/${product.slug}`} className="group block">
+      <Link href={`/product/${product.slug}`} className="group block min-w-0 max-w-full">
         <article
           className={`flex overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 transition shadow-sm hover:shadow-md ${comfy ? "gap-6 p-1 sm:gap-8" : "gap-4"}`}
         >
@@ -201,9 +201,9 @@ export function ProductCard({
   const pillTag = product.tags?.[0]?.trim();
 
   return (
-    <Link href={`/product/${product.slug}`} className="group block w-full">
-      <article className="w-full">
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-[#ebe4e0] shadow-sm ring-1 ring-black/[0.04] transition duration-300 group-hover:shadow-lg">
+    <Link href={`/product/${product.slug}`} className="group block w-full min-w-0 max-w-full">
+      <article className="w-full min-w-0">
+        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden rounded-lg bg-[#ebe4e0] shadow-sm ring-1 ring-black/[0.04] transition duration-300 group-hover:shadow-lg">
           <Image
             src={primaryImage}
             alt={imgAlt}
@@ -307,15 +307,15 @@ export function ProductCard({
             </span>
           </div>
         )}
-        <div className="mt-3 w-full px-0.5 text-left sm:mt-3.5">
+        <div className="mt-3 w-full min-w-0 max-w-full px-0.5 text-left sm:mt-3.5">
           <h3
-            className={`font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-[#3d2f2a] sm:text-[15px] ${
+            className={`break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-[#3d2f2a] sm:text-[15px] ${
               isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-1"
             }`}
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-1">
             <span
               className={`text-base font-bold tabular-nums sm:text-[17px] ${isCarousel ? "text-crown-700" : "text-[#2b211e]"}`}
             >

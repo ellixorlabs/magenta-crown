@@ -52,8 +52,18 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     );
   }, [catalogProducts, productFilter]);
   const categoryOptions = useMemo(
-    () => [...new Set(catalogProducts.map((p) => p.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [catalogProducts]
+    () =>
+      [
+        ...new Set(
+          [
+            ...catalogProducts.map((p) => p.category.trim()),
+            ...payload.categoryCircles.items
+              .filter((it) => it.targetType === "category")
+              .map((it) => it.targetValue.trim())
+          ].filter(Boolean)
+        )
+      ].sort((a, b) => a.localeCompare(b)),
+    [catalogProducts, payload.categoryCircles.items]
   );
 
   const publish = useCallback(() => {

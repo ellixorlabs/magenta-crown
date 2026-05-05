@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { AuthVisualSettingsForm } from "@/components/admin/AuthVisualSettingsForm";
+import { BrandAssetsSettingsForm } from "@/components/admin/BrandAssetsSettingsForm";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { getBrandSettings } from "@/lib/brand-settings";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export const metadata = { title: "Others | Admin" };
@@ -19,6 +21,11 @@ export default async function AdminOthersPage() {
     typeof payload.authVisualImageUrl === "string" ? payload.authVisualImageUrl : "";
   const globalSizeChartImageUrl =
     typeof payload.globalSizeChartImageUrl === "string" ? payload.globalSizeChartImageUrl : "";
+  const shareMessageTemplate =
+    typeof payload.shareMessageTemplate === "string"
+      ? payload.shareMessageTemplate
+      : "Hi! I found this amazing dress on Magenta Crown. Take a look: {productUrl} {couponLine}";
+  const brandSettings = await getBrandSettings();
 
   return (
     <div className="space-y-6">
@@ -30,6 +37,7 @@ export default async function AdminOthersPage() {
       </div>
 
       <AuthVisualSettingsForm initialUrl={authVisualImageUrl} initialSizeChartUrl={globalSizeChartImageUrl} />
+      <BrandAssetsSettingsForm initial={brandSettings} initialShareTemplate={shareMessageTemplate} />
     </div>
   );
 }

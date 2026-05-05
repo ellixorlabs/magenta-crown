@@ -29,8 +29,8 @@ export async function POST(req: Request) {
       code: coupon.code,
       discountPct: coupon.discountPct
     });
-  } catch (e) {
-    console.error(e);
+  } catch {
+    console.error("[coupons] validate failed");
     return NextResponse.json({ error: "Could not validate coupon." }, { status: 500 });
   }
 }

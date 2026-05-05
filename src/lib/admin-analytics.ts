@@ -1,6 +1,5 @@
+import { unstable_cache } from "next/cache";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-
-const PAID = { status: { in: ["PAID", "SHIPPED"] } };
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -79,33 +78,57 @@ export function formatInr(n: number) {
   }).format(n);
 }
 
-export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalytics> {
+const PAID_STATUSES = new Set(["PAID", "SHIPPED"]);
+
+/** Only line items for paid/shipped orders — avoids loading every order line (major win vs join-all). */
+async function fetchOrderItemsForPaidOrders(
+  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
+  orderIds: string[]
+): Promise<
+  Array<{
+    quantity: number;
+    price: number;
+    product: { id: string; name: string; slug: string; category: string };
+  }>
+> {
+  if (orderIds.length === 0) return [];
+  const chunkSize = 400;
+  const rows: Array<{
+    quantity: number;
+    price: number;
+    product: { id: string; name: string; slug: string; category: string };
+  }> = [];
+  for (let i = 0; i < orderIds.length; i += chunkSize) {
+    const slice = orderIds.slice(i, i + chunkSize);
+    const { data, error } = await (supabase.from("OrderItem") as any)
+      .select("quantity, price, product:Product(id,name,slug,category)")
+      .in("orderId", slice);
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) rows.push(r);
+  }
+  return rows;
+}
+
+async function loadAdminDashboardAnalytics(): Promise<AdminDashboardAnalytics> {
   const now = new Date();
   const d30 = addDays(now, -30);
   const d60 = addDays(now, -60);
   const supabase = getSupabaseServiceRoleClient();
 
-  const [ordersRes, usersRes, orderItemsRes] = await Promise.all([
+  const [ordersRes, usersRes] = await Promise.all([
     (supabase.from("Order") as any)
       .select("id,status,totalAmount,subtotalBeforeDiscount,createdAt")
       .gte("createdAt", addDays(now, -400).toISOString()),
-    (supabase.from("User") as any).select("role,createdAt"),
-    (supabase.from("OrderItem") as any).select(
-      "quantity,price,order:Order!inner(status),product:Product(id,name,slug,category)"
-    )
+    (supabase.from("User") as any).select("role,createdAt")
   ]);
   if (ordersRes.error) throw new Error(ordersRes.error.message);
   if (usersRes.error) throw new Error(usersRes.error.message);
-  if (orderItemsRes.error) throw new Error(orderItemsRes.error.message);
   const orders = (ordersRes.data ?? []) as Array<{ id: string; status: string; totalAmount: number; subtotalBeforeDiscount: number; createdAt: string }>;
   const users = (usersRes.data ?? []) as Array<{ role: string; createdAt: string }>;
-  const orderItemsAgg = ((orderItemsRes.data ?? []) as Array<{
-    quantity: number;
-    price: number;
-    order: { status: string };
-    product: { id: string; name: string; slug: string; category: string };
-  }>).filter((r) => ["PAID", "SHIPPED"].includes(r.order.status));
-  const paidOrders = orders.filter((o) => ["PAID", "SHIPPED"].includes(o.status));
+
+  const paidOrderIds = orders.filter((o) => PAID_STATUSES.has(o.status)).map((o) => o.id);
+  const orderItemsAgg = await fetchOrderItemsForPaidOrders(supabase, paidOrderIds);
+  const paidOrders = orders.filter((o) => PAID_STATUSES.has(o.status));
   const orderCountAll = orders.length;
   const customerRows = users.filter((u) => u.role === "CUSTOMER");
   const customerCount = customerRows.length;
@@ -287,3 +310,10 @@ export async function getAdminDashboardAnalytics(): Promise<AdminDashboardAnalyt
     staffNote
   };
 }
+
+/** Revalidates every 60s — faster repeat loads; use `revalidatePath('/admin')` from mutations if you add cache tags later. */
+export const getAdminDashboardAnalytics = unstable_cache(
+  loadAdminDashboardAnalytics,
+  ["admin-dashboard-analytics"],
+  { revalidate: 60 }
+);

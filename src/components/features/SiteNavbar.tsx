@@ -22,6 +22,13 @@ import { useHeroReady } from "@/context/HeroReadyContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistCount } from "@/context/WishlistContext";
 
+type BrandMarkProps = {
+  brandMarkMode?: "text" | "image";
+  brandText?: string;
+  brandImageUrl?: string;
+  brandFontFamily?: string;
+};
+
 const SiteNavbarWishlistLink = memo(function SiteNavbarWishlistLink({ isLight }: { isLight: boolean }) {
   const { count, hydrated } = useWishlistCount();
   const showBadge = hydrated && count > 0;
@@ -29,10 +36,8 @@ const SiteNavbarWishlistLink = memo(function SiteNavbarWishlistLink({ isLight }:
   return (
     <Link
       href="/account/wishlist"
-      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
-        isLight
-          ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
-          : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+      className={`relative flex h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] ${
+        isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
       }`}
       aria-label={
         count > 0
@@ -108,9 +113,10 @@ function buildNav(serverLinks: ServerNavLink[] | undefined) {
 
 type Props = {
   serverLinks?: ServerNavLink[];
+  brandMark?: BrandMarkProps;
 };
 
-export function SiteNavbar({ serverLinks }: Props) {
+export function SiteNavbar({ serverLinks, brandMark }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -121,6 +127,7 @@ export function SiteNavbar({ serverLinks }: Props) {
   /** Avoid hydration mismatch: cart lives in localStorage; only show count after client read. */
   const showCartBadge = cartHydrated && cartCount > 0;
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   /** Avoid session/cart UI hydration mismatch (server vs client session). */
@@ -312,6 +319,18 @@ export function SiteNavbar({ serverLinks }: Props) {
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
+  const clearAccountCloseTimer = useCallback(() => {
+    if (accountCloseTimer.current) {
+      clearTimeout(accountCloseTimer.current);
+      accountCloseTimer.current = null;
+    }
+  }, []);
+
+  const scheduleAccountClose = useCallback(() => {
+    clearAccountCloseTimer();
+    accountCloseTimer.current = setTimeout(() => setAccountOpen(false), 260);
+  }, [clearAccountCloseTimer]);
+
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onWide = () => setMobileMenuOpen(false);
@@ -327,6 +346,12 @@ export function SiteNavbar({ serverLinks }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen, closeMobileMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (accountCloseTimer.current) clearTimeout(accountCloseTimer.current);
+    };
+  }, []);
 
   const scrollHomeToHero = useCallback(
     (e: MouseEvent<HTMLAnchorElement>) => {
@@ -371,7 +396,7 @@ export function SiteNavbar({ serverLinks }: Props) {
     ? `pointer-events-auto ${homeBarShell} overflow-visible border border-transparent bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5`
     : `pointer-events-auto ${homeBarShell} overflow-visible transition-[background-color,border-color,box-shadow] duration-200 will-change-[backdrop-filter] ${
         isLight
-          ? "border border-white/45 bg-gradient-to-b from-white/35 via-rose-50/12 to-white/10 text-zinc-900 shadow-[0_12px_44px_-14px_rgba(55,28,38,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] ring-1 ring-inset ring-white/40 backdrop-blur-3xl backdrop-saturate-200"
+          ? "border border-rose-100/70 bg-gradient-to-b from-rose-50/68 via-rose-100/30 to-rose-50/40 text-zinc-900 shadow-[0_12px_44px_-14px_rgba(55,28,38,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] ring-1 ring-inset ring-white/40 backdrop-blur-3xl backdrop-saturate-200"
           : "border border-white/30 bg-gradient-to-br from-white/18 via-white/10 to-zinc-950/45 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-inset ring-white/20 backdrop-blur-2xl backdrop-saturate-150"
       }`;
 
@@ -519,13 +544,23 @@ export function SiteNavbar({ serverLinks }: Props) {
             }`}
           >
             <Link href="/" className="relative z-[25] min-w-0 shrink-0 text-left" onClick={scrollHomeToHero}>
-              <span
-                className={`font-site-brand block whitespace-nowrap text-[11px] font-semibold leading-tight tracking-[0.16em] sm:text-base sm:tracking-[0.2em] lg:text-lg ${
-                  isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
-                }`}
-              >
-                MAGENTA CROWN
-              </span>
+              {brandMark?.brandMarkMode === "image" && brandMark.brandImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- admin-configured remote brand mark
+                <img
+                  src={brandMark.brandImageUrl}
+                  alt={brandMark.brandText?.trim() || "Magenta Crown"}
+                  className="h-7 w-auto max-w-[220px] object-contain sm:h-8 lg:h-9"
+                />
+              ) : (
+                <span
+                  className={`font-site-brand block whitespace-nowrap text-[11px] font-semibold leading-tight tracking-[0.16em] sm:text-base sm:tracking-[0.2em] lg:text-lg ${
+                    isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                  }`}
+                  style={brandMark?.brandFontFamily ? { fontFamily: brandMark.brandFontFamily } : undefined}
+                >
+                  {brandMark?.brandText?.trim() || "MAGENTA CROWN"}
+                </span>
+              )}
             </Link>
 
             <nav
@@ -613,10 +648,8 @@ export function SiteNavbar({ serverLinks }: Props) {
                     <>
                       <Link
                         href="/cart"
-                        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] ${
-                          isLight
-                            ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
-                            : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                        className={`relative flex h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] ${
+                          isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
                         }`}
                         aria-label="Cart"
                       >
@@ -638,10 +671,8 @@ export function SiteNavbar({ serverLinks }: Props) {
 
                   <button
                     type="button"
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition lg:hidden ${
-                      isLight
-                        ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
-                        : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center transition lg:hidden ${
+                      isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
                     }`}
                     aria-label="Open menu"
                     aria-expanded={mobileMenuOpen}
@@ -653,10 +684,8 @@ export function SiteNavbar({ serverLinks }: Props) {
 
                   <Link
                     href="/shop"
-                    className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] lg:flex ${
-                      isLight
-                        ? "border-zinc-400/45 bg-[#faf6f7]/45 text-zinc-900 hover:bg-[#f3e9ee]/75"
-                        : "border-white/35 bg-white/10 text-white hover:bg-white/20"
+                    className={`hidden h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] lg:flex ${
+                      isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
                     }`}
                     aria-label="Search products"
                     title="Search products"
@@ -682,7 +711,14 @@ export function SiteNavbar({ serverLinks }: Props) {
                       Login
                     </Link>
                   ) : (
-                    <div className="relative hidden lg:block">
+                    <div
+                      className="relative hidden lg:block"
+                      onMouseEnter={() => {
+                        clearAccountCloseTimer();
+                        setAccountOpen(true);
+                      }}
+                      onMouseLeave={scheduleAccountClose}
+                    >
                       <button
                       type="button"
                       onClick={() => setAccountOpen((o) => !o)}
@@ -715,6 +751,8 @@ export function SiteNavbar({ serverLinks }: Props) {
                               ? "border-zinc-300/90 bg-gradient-to-b from-white to-zinc-100/95 text-zinc-950 ring-1 ring-zinc-900/[0.06]"
                               : "border-white/20 bg-gradient-to-b from-zinc-900/95 to-zinc-950 text-zinc-100 ring-1 ring-white/10"
                           }`}
+                          onMouseEnter={clearAccountCloseTimer}
+                          onMouseLeave={scheduleAccountClose}
                         >
                           {isStaff && (
                             <Link

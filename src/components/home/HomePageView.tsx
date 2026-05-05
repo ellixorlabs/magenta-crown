@@ -83,21 +83,25 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
         if (products.length === 0) {
           return (
             <SectionReveal key={section.id} transition={section.transition}>
-              <section className="bg-[#faf7f8] py-14 sm:py-16">
-                <div className="section-shell">
-                  <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{section.eyebrow}</p>
-                  <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
-                    <Link href={viewAll} className="inline-flex items-center gap-2 hover:text-crown-900">
-                      <span>{section.title}</span>
+              <section className="overflow-x-clip bg-[#faf7f8] py-10 sm:py-12">
+                <div className="section-shell max-w-full min-w-0">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs uppercase leading-relaxed tracking-[0.28em] text-zinc-500 sm:tracking-[0.35em]">
+                      {section.eyebrow}
+                    </p>
+                  <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
+                    <Link href={viewAll} className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 hover:text-crown-900">
+                      <span className="min-w-0 break-words">{section.title}</span>
                       <span
                         aria-hidden
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
                       >
                         <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
                       </span>
                     </Link>
                   </h2>
-                  <div className="mt-8 rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
+                  </div>
+                  <div className="mt-6 rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
                     Some products in this section are no longer available. Update the section in admin.
                   </div>
                 </div>

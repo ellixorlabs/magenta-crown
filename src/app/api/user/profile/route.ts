@@ -67,7 +67,7 @@ export async function GET(req: Request) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: u, error } = await supabase
     .from("User")
-    .select("name,email,phone,age,addresses,deletionRequestedAt,deletionScheduledFor")
+    .select("name,email,phone,addresses,deletionRequestedAt,deletionScheduledFor")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -79,7 +79,6 @@ export async function GET(req: Request) {
     name: u.name ?? "",
     email: u.email ?? "",
     phone: u.phone ?? "",
-    age: u.age ?? null,
     addresses: Array.isArray(u.addresses) ? u.addresses : [],
     deletionRequestedAt: u.deletionRequestedAt ? new Date(u.deletionRequestedAt).toISOString() : null,
     deletionScheduledFor: u.deletionScheduledFor ? new Date(u.deletionScheduledFor).toISOString() : null
@@ -113,7 +112,7 @@ export async function POST(req: Request) {
       },
       { onConflict: "id" }
     )
-    .select("name,email,phone,age,addresses,deletionRequestedAt,deletionScheduledFor")
+    .select("name,email,phone,addresses,deletionRequestedAt,deletionScheduledFor")
     .single());
   if (upsert.error) {
     return NextResponse.json({ error: "Failed to sync profile" }, { status: 500 });
@@ -124,7 +123,6 @@ export async function POST(req: Request) {
     name: u.name ?? "",
     email: u.email ?? "",
     phone: u.phone ?? "",
-    age: u.age ?? null,
     addresses: Array.isArray(u.addresses) ? u.addresses : [],
     deletionRequestedAt: u.deletionRequestedAt ? new Date(u.deletionRequestedAt).toISOString() : null,
     deletionScheduledFor: u.deletionScheduledFor ? new Date(u.deletionScheduledFor).toISOString() : null
@@ -140,7 +138,6 @@ export async function PATCH(req: Request) {
   const body = (await req.json()) as {
     name?: string;
     phone?: string | null;
-    age?: number | null;
     addresses?: unknown;
   };
 
@@ -151,15 +148,6 @@ export async function PATCH(req: Request) {
   }
   if (body.phone !== undefined) {
     data.phone = body.phone === null || body.phone === "" ? null : String(body.phone).trim();
-  }
-  if (body.age !== undefined) {
-    if (body.age === null) {
-      data.age = null;
-    } else if (typeof body.age === "number" && body.age >= 13 && body.age <= 120) {
-      data.age = body.age;
-    } else {
-      return NextResponse.json({ error: "Age must be between 13 and 120, or omitted." }, { status: 400 });
-    }
   }
   if (body.addresses !== undefined) {
     try {

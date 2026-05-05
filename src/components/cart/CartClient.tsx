@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
 import type { ProductRow } from "@/lib/db/app-types";
@@ -17,6 +17,33 @@ type Props = {
 export function CartClient({ upsells }: Props) {
   const { items, subtotal, discountedTotal, updateQuantity, removeItem } = useCart();
   const cartProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
+  const [similar, setSimilar] = useState<Props["upsells"]>([]);
+
+  useEffect(() => {
+    if (cartProductIds.length === 0) {
+      setSimilar([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/public/similar-products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productIds: cartProductIds, limit: 4 })
+        });
+        const data = (await res.json()) as { products?: Props["upsells"] };
+        if (!cancelled) setSimilar(Array.isArray(data.products) ? data.products : []);
+      } catch {
+        if (!cancelled) setSimilar([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartProductIds]);
+
+  const recommendRows = similar.length > 0 ? similar : upsells;
 
   return (
     <main className="min-h-screen bg-[#f8f5f6] py-10">
@@ -134,11 +161,11 @@ export function CartClient({ upsells }: Props) {
                 </Link>
               </div>
 
-              {upsells.length > 0 && (
+              {recommendRows.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-900">You may also like</h3>
+                  <h3 className="text-sm font-semibold text-zinc-900">View similar products</h3>
                   <div className="mt-4 grid gap-4">
-                    {upsells.map((p) => (
+                    {recommendRows.map((p) => (
                       <ProductCard
                         key={p.id}
                         product={p}

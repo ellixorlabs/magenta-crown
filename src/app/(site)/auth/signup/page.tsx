@@ -18,19 +18,6 @@ function SignUpInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function emailAlreadyExists(inputEmail: string) {
-    try {
-      const response = await fetch(`/api/auth/check-email?email=${encodeURIComponent(inputEmail)}`, {
-        cache: "no-store"
-      });
-      if (!response.ok) return false;
-      const data = (await response.json()) as { exists?: boolean };
-      return Boolean(data.exists);
-    } catch {
-      return false;
-    }
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -55,10 +42,6 @@ function SignUpInner() {
         return;
       }
       const normalizedEmail = email.trim().toLowerCase();
-      if (await emailAlreadyExists(normalizedEmail)) {
-        setError("Email already exists.");
-        return;
-      }
 
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: normalizedEmail,
@@ -97,11 +80,7 @@ function SignUpInner() {
       }
 
       // Confirmation email path.
-      router.push(
-        `/auth/verify-email?callbackUrl=${encodeURIComponent(callbackUrl)}&email=${encodeURIComponent(
-          normalizedEmail
-        )}`
-      );
+      router.push(`/auth/verify-email?callbackUrl=${encodeURIComponent(callbackUrl)}`);
       return;
     } catch {
       setError("Something went wrong.");

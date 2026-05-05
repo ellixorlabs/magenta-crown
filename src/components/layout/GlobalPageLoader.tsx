@@ -12,20 +12,18 @@ import { useMcLoaderFixedBox } from "@/lib/use-mc-loader-fixed-box";
 type Props = {
   heroReady: boolean;
   markHeroReady: () => void;
+  loaderLogoSrc?: string;
 };
 
-export function GlobalPageLoader({ heroReady, markHeroReady }: Props) {
+export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Props) {
   const pathname = usePathname();
 
-  const [surfaceReady, setSurfaceReady] = useState(false);
+  const [surfaceReady] = useState(true);
+  const [isClient, setIsClient] = useState(false);
   /** Client nav back to `/` after visiting another route — skip full-screen intro. */
   const [skipHomeIntro, setSkipHomeIntro] = useState(false);
 
   const introPathRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    setSurfaceReady(true);
-  }, []);
 
   useLayoutEffect(() => {
     const prev = introPathRef.current;
@@ -34,6 +32,10 @@ export function GlobalPageLoader({ heroReady, markHeroReady }: Props) {
       setSkipHomeIntro(true);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (heroReady && pathname === "/") {
@@ -102,6 +104,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady }: Props) {
       <div className="relative flex flex-col items-center justify-center">
         <BreathingLogoMark
           homeIntroBreath
+          logoSrc={loaderLogoSrc}
           sizeClassName="h-[min(42vw,12.5rem)] w-[min(42vw,12.5rem)] sm:h-52 sm:w-52"
           imageSizes="(max-width: 640px) 50vw, 208px"
         />
@@ -109,5 +112,9 @@ export function GlobalPageLoader({ heroReady, markHeroReady }: Props) {
     </div>
   ) : null;
 
-  return <>{surfaceReady ? createPortal(portalNode, document.body) : null}</>;
+  if (!isClient || !surfaceReady || typeof document === "undefined") {
+    return null;
+  }
+
+  return <>{createPortal(portalNode, document.body)}</>;
 }

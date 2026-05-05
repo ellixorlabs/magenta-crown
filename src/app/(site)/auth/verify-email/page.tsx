@@ -1,15 +1,53 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
+import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function VerifyEmailInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
-  const email = searchParams.get("email")?.trim() ?? "";
+  const [resendEmail, setResendEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function resendConfirmation() {
+    setInfo(null);
+    setError(null);
+    const email = resendEmail.trim().toLowerCase();
+    if (!email) {
+      setError("Enter your email to resend verification.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = await getSupabaseClientOrNull();
+      if (!supabase) {
+        setError("Supabase is not configured. Add keys in .env and restart dev server.");
+        return;
+      }
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`
+        }
+      });
+      if (resendError) {
+        setError(resendError.message || "Could not resend confirmation email.");
+        return;
+      }
+      setInfo("Verification email sent again.");
+    } catch {
+      setError("Could not resend confirmation email.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <AuthImmersiveShell>
@@ -20,16 +58,30 @@ function VerifyEmailInner() {
         <p className="mt-4 text-center text-sm text-zinc-700">
           Account created successfully. Please verify your email from your inbox, then login.
         </p>
-        {email ? (
-          <p className="mt-2 text-center text-xs text-zinc-500">
-            Verification email sent to <span className="font-semibold">{email}</span>
-          </p>
-        ) : null}
+        <div className="mt-3">
+          <input
+            type="email"
+            placeholder="Enter your email for resend"
+            value={resendEmail}
+            onChange={(e) => setResendEmail(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+          />
+        </div>
 
+        {info ? <p className="mt-3 text-center text-xs text-emerald-700">{info}</p> : null}
+        {error ? <p className="mt-3 text-center text-xs text-red-600">{error}</p> : null}
+        <button
+          type="button"
+          onClick={() => void resendConfirmation()}
+          disabled={loading}
+          className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-zinc-300 bg-white py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          {loading ? "Sending..." : "Resend verification email"}
+        </button>
         <button
           type="button"
           onClick={() => router.push("/auth/signin?callbackUrl=" + encodeURIComponent(callbackUrl))}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
+          className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
         >
           Login here
         </button>
