@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { useAuth } from "@/context/AuthContext";
@@ -54,6 +55,7 @@ export function ProductCard({
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
+  const router = useRouter();
   const { userId } = useAuth();
   const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
@@ -92,7 +94,12 @@ export function ProductCard({
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!canWishlist || busyRef.current) return;
+      if (!canWishlist) {
+        const callback = encodeURIComponent(window.location.pathname + window.location.search);
+        router.push(`/auth/signin?callbackUrl=${callback}`);
+        return;
+      }
+      if (busyRef.current) return;
       const prev = wishlistedRef.current;
       const next = !prev;
       setWishlisted(next);
@@ -121,7 +128,7 @@ export function ProductCard({
         busyRef.current = false;
       }
     },
-    [applyOptimisticDelta, canWishlist, product.id, setServerCount]
+    [applyOptimisticDelta, canWishlist, product.id, router, setServerCount]
   );
 
   const heartClass = useMemo(
@@ -159,16 +166,14 @@ export function ProductCard({
                 </span>
               </div>
             )}
-            {canWishlist && (
-              <button
-                type="button"
-                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                onClick={toggleWishlist}
-                className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400"
-              >
-                <Heart className={`h-4 w-4 ${heartClass}`} strokeWidth={1.6} />
-              </button>
-            )}
+            <button
+              type="button"
+              aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              onClick={toggleWishlist}
+              className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400"
+            >
+              <Heart className={`h-4 w-4 ${heartClass}`} strokeWidth={1.6} />
+            </button>
           </div>
           <div className={`flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4 ${comfy ? "py-5 sm:pr-8" : ""}`}>
             <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500">{product.category}</p>
@@ -283,22 +288,20 @@ export function ProductCard({
               New
             </span>
           )}
-          {canWishlist && (
-            <button
-              type="button"
-              aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-              onClick={toggleWishlist}
-              className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 ${
-                isCarousel
-                  ? "bottom-2 right-2 top-auto"
-                  : showNewBadge
-                    ? "left-2 top-2"
-                    : "right-2 top-2"
-              }`}
-            >
-              <Heart className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${heartClass}`} strokeWidth={1.6} />
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            onClick={toggleWishlist}
+            className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 ${
+              isCarousel
+                ? "bottom-2 right-2 top-auto"
+                : showNewBadge
+                  ? "left-2 top-2"
+                  : "right-2 top-2"
+            }`}
+          >
+            <Heart className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${heartClass}`} strokeWidth={1.6} />
+          </button>
         </div>
         {isCarousel && pillTag && (
           <div className="mt-2 flex justify-center">

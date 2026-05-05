@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
 import { clearLoaderChromeFromDocument, removeBootScrim } from "@/lib/loader-dom-cleanup";
@@ -20,18 +20,6 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
 
   const [surfaceReady] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  /** Client nav back to `/` after visiting another route — skip full-screen intro. */
-  const [skipHomeIntro, setSkipHomeIntro] = useState(false);
-
-  const introPathRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    const prev = introPathRef.current;
-    introPathRef.current = pathname;
-    if (pathname === "/" && prev !== null && prev !== "/") {
-      setSkipHomeIntro(true);
-    }
-  }, [pathname]);
 
   useEffect(() => {
     setIsClient(true);
@@ -39,7 +27,6 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
 
   useEffect(() => {
     if (heroReady && pathname === "/") {
-      setSkipHomeIntro(true);
       clearLoaderChromeFromDocument();
     }
   }, [heroReady, pathname]);
@@ -49,8 +36,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
     clearLoaderChromeFromDocument();
   }, [pathname]);
 
-  const showHeroOverlay =
-    surfaceReady && pathname === "/" && !skipHomeIntro && !heroReady;
+  const showHeroOverlay = surfaceReady && pathname === "/" && !heroReady;
 
   /** Never trap the shell if hero signals stall (mirrors provider fallback, belt-and-suspenders). */
   useEffect(() => {

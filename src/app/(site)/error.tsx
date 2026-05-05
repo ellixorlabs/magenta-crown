@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { resetBodyScrollLock } from "@/lib/body-scroll-lock";
 
 export default function SiteSegmentError({
   error,
@@ -10,7 +11,8 @@ export default function SiteSegmentError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[site] route error boundary triggered");
+    console.error("[site] route error boundary triggered", error);
+    resetBodyScrollLock();
   }, [error]);
 
   return (

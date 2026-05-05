@@ -12,7 +12,10 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem(AUTH_VISUAL_CACHE_KEY) ?? "";
   });
-  const [imageReady, setImageReady] = useState(false);
+  const [imageReady, setImageReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(window.localStorage.getItem(AUTH_VISUAL_CACHE_KEY));
+  });
 
   useEffect(() => {
     if (!imageUrl) {
@@ -32,19 +35,28 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
     fetch("/api/public/auth-visual", { cache: "force-cache" })
       .then((r) => r.json())
       .then((json: { imageUrl?: string }) => {
-        if (!cancelled && typeof json?.imageUrl === "string") {
-          const nextUrl = json.imageUrl.trim();
+        if (cancelled || typeof json?.imageUrl !== "string") return;
+        const nextUrl = json.imageUrl.trim();
+        if (!nextUrl || nextUrl === imageUrl) return;
+        const next = new window.Image();
+        next.decoding = "async";
+        next.fetchPriority = "high";
+        next.onload = () => {
+          if (cancelled) return;
+          setImageReady(true);
           setImageUrl(nextUrl);
-          if (nextUrl) {
-            window.localStorage.setItem(AUTH_VISUAL_CACHE_KEY, nextUrl);
-          }
-        }
+          window.localStorage.setItem(AUTH_VISUAL_CACHE_KEY, nextUrl);
+        };
+        next.onerror = () => {
+          /* keep previous image if next fails */
+        };
+        next.src = nextUrl;
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [imageUrl]);
 
   return (
     <div className="relative min-h-dvh w-full overflow-x-hidden bg-[#faf7f8]">
@@ -55,7 +67,10 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 pb-8 pt-24 md:pb-10 md:pt-28">
         <div className="grid max-h-[calc(100dvh-8.5rem)] w-full grid-cols-1 gap-4 rounded-[28px] border border-zinc-200/90 bg-white p-3 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.18)] md:grid-cols-[0.75fr_1.25fr] md:gap-5 md:p-5">
           <div className="hidden items-center justify-center md:flex">
-            <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-[#9a8b87]">
+            <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-[#f3ecef]">
+              {!imageReady ? (
+                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#f7f2f4] via-[#f2e9ed] to-[#f7f2f4]" />
+              ) : null}
               {imageUrl ? (
                 <img
                   src={imageUrl}

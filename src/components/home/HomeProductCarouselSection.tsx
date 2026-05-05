@@ -57,7 +57,7 @@ export function HomeProductCarouselSection({
   );
 
   return (
-    <section className="overflow-x-clip bg-[#faf7f8] py-10 sm:py-12">
+    <section className="overflow-x-clip bg-white py-10 sm:py-12">
       <div className="section-shell max-w-full min-w-0">
         <div className="mb-5 ml-[70px] flex w-[1000px] min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">

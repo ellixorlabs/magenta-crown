@@ -143,7 +143,7 @@ export default async function ProductPage({ params }: PageProps) {
     )?.coupon?.code as string | undefined) ?? null;
 
   return (
-    <main className="bg-[#f8f5f6]">
+    <main className="bg-white">
       <ProductJsonLd product={product} />
       <TrackProductView productId={product.id} />
 

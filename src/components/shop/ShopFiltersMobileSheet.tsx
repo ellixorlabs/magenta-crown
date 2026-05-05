@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,8 +27,11 @@ function FiltersBody({
   basePath,
   enablePriceSlider,
   hideOutOfStockToggle,
-  omitSortInSheet
-}: Pick<Props, "options" | "basePath" | "enablePriceSlider" | "hideOutOfStockToggle" | "omitSortInSheet">) {
+  omitSortInSheet,
+  applyFiltersRef
+}: Pick<Props, "options" | "basePath" | "enablePriceSlider" | "hideOutOfStockToggle" | "omitSortInSheet"> & {
+  applyFiltersRef: MutableRefObject<(() => void) | null>;
+}) {
   return (
     <ShopFilters
       options={options}
@@ -39,7 +42,9 @@ function FiltersBody({
       layout="stack"
       omitSort={Boolean(omitSortInSheet)}
       hideClearButton
-      priceSliderCommitOnChange={true}
+      priceSliderCommitOnChange={false}
+      deferUrlUntilApply
+      applyFiltersRef={applyFiltersRef}
     />
   );
 }
@@ -63,6 +68,7 @@ export function ShopFiltersMobileSheet(props: Props) {
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState(false);
   const router = useRouter();
+  const applyFiltersRef = useRef<(() => void) | null>(null);
 
   const onClose = useCallback(() => setOpen(false), [setOpen]);
 
@@ -105,7 +111,7 @@ export function ShopFiltersMobileSheet(props: Props) {
 
         <div
           className={[
-            "absolute left-0 top-0 h-full w-[min(92vw,420px)] border-r border-white/30 bg-white/95 shadow-2xl backdrop-blur-2xl",
+            "absolute left-0 top-0 flex h-full max-h-dvh min-h-0 w-[min(92vw,420px)] flex-col border-r border-white/30 bg-white/95 shadow-2xl backdrop-blur-2xl",
             "transition-transform duration-300 ease-out",
             animating ? "translate-x-0" : "-translate-x-full"
           ].join(" ")}
@@ -130,7 +136,10 @@ export function ShopFiltersMobileSheet(props: Props) {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-3">
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 touch-pan-y sm:px-4 sm:py-3"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
             <Suspense fallback={<p className="text-xs text-zinc-500">Loading filters…</p>}>
               <FiltersBody
                 options={options}
@@ -138,6 +147,7 @@ export function ShopFiltersMobileSheet(props: Props) {
                 enablePriceSlider={enablePriceSlider}
                 hideOutOfStockToggle={hideOutOfStockToggle}
                 omitSortInSheet={omitSortInSheet}
+                applyFiltersRef={applyFiltersRef}
               />
             </Suspense>
           </div>
@@ -146,7 +156,10 @@ export function ShopFiltersMobileSheet(props: Props) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  applyFiltersRef.current?.();
+                  onClose();
+                }}
                 className="rounded-full bg-crown-800 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900"
               >
                 Apply

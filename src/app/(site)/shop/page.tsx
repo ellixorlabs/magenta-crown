@@ -65,8 +65,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
   const products = shopProducts.products;
   const { pagination } = shopProducts;
 
-  /** Solid shell tone — avoids half-white / half-blush from body gradients under this page only. */
-  const shopBg = "bg-[#f4f0f2]";
+  const shopBg = "bg-white";
 
   return (
     <ShopFilterSheetProvider
@@ -76,18 +75,15 @@ export default async function ShopPage({ searchParams }: PageProps) {
       hideOutOfStockToggle
     >
       <main className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden text-zinc-900 ${shopBg}`}>
-        <div className={`border-b border-zinc-300/35 py-7 ${shopBg}`}>
+        <div className={`border-b border-zinc-300/35 py-4 ${shopBg}`}>
           <div className="section-shell">
-            <div className="rounded-2xl border border-zinc-300/60 bg-[#faf6f7]/98 p-5 shadow-sm backdrop-blur-[2px] sticky top-[7.5rem] sm:top-[8rem] z-20">
-              <div className="flex flex-col gap-5">
-                <div className="min-w-0 lg:max-w-xl">
+            <div className="sticky top-[7.5rem] z-20 rounded-2xl border border-zinc-300/60 bg-white p-4 shadow-sm backdrop-blur-[2px] sm:top-[8rem]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 text-left">
                   <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Shop</p>
-                  <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-semibold sm:text-4xl">
+                  <h1 className="mt-1 font-[family-name:var(--font-heading)] text-2xl font-semibold sm:text-3xl">
                     All products
                   </h1>
-                  <p className="mt-2 text-sm text-zinc-600">
-                    Filter the collection, pick sort order, and switch between list view and 2–6 column grids.
-                  </p>
                 </div>
 
                 <ShopToolbar basePath="/shop" isList={isList} cols={parsed.cols} />

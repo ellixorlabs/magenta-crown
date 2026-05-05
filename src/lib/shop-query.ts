@@ -4,6 +4,28 @@ export function firstString(v: string | string[] | undefined): string | undefine
   return undefined;
 }
 
+/** Multi-select query values: repeated keys (`?a=1&a=2`) or one comma-separated param (legacy). */
+export function allParamValues(sp: Record<string, string | string[] | undefined>, key: string): string[] {
+  const raw = sp[key];
+  if (raw == null) return [];
+  const pieces: string[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === "string" && item.trim()) pieces.push(item.trim());
+    }
+  } else if (typeof raw === "string") {
+    if (raw.includes(",")) {
+      for (const part of raw.split(",")) {
+        const t = part.trim();
+        if (t) pieces.push(t);
+      }
+    } else if (raw.trim()) {
+      pieces.push(raw.trim());
+    }
+  }
+  return [...new Set(pieces)];
+}
+
 function parseGridCols(raw: string | undefined): 2 | 3 | 4 | 5 | 6 | null {
   if (!raw) return null;
   const n = Number.parseInt(raw, 10);
@@ -28,12 +50,12 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
 
   return {
     q: firstString(sp.q),
-    category: firstString(sp.category),
-    occasion: firstString(sp.occasion),
-    style: firstString(sp.style),
-    material: firstString(sp.material),
-    color: firstString(sp.color),
-    size: firstString(sp.size),
+    category: allParamValues(sp, "category"),
+    occasion: allParamValues(sp, "occasion"),
+    style: allParamValues(sp, "style"),
+    material: allParamValues(sp, "material"),
+    color: allParamValues(sp, "color"),
+    size: allParamValues(sp, "size"),
     minPrice: firstString(sp.minPrice),
     maxPrice: firstString(sp.maxPrice),
     sort: firstString(sp.sort) ?? "new",
@@ -50,37 +72,64 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
 }
 
 type ProductLike = {
-  category?: string | null;
-  occasion?: string | null;
-  style?: string | null;
-  material?: string | null;
+  category?: unknown;
+  occasion?: unknown;
+  style?: unknown;
+  material?: unknown;
   mrp?: number | null;
-  variants?: Array<{ color?: string | null; size?: string | null; isActive?: boolean | null; stock?: number | null }>;
+  variants?: Array<{ color?: unknown; size?: unknown; isActive?: boolean | null; stock?: number | null }>;
 };
 
 export function buildProductWhere(sp: Record<string, string | string[] | undefined>) {
   const p = parseShopSearchParams(sp);
-  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+  const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 
   const min = p.minPrice ? Number(p.minPrice) : undefined;
   const max = p.maxPrice ? Number(p.maxPrice) : undefined;
   const hideOos = p.hideOutOfStock === "1" || p.hideOutOfStock === "true";
 
   return (product: ProductLike) => {
-    if (p.category && norm(product.category) !== norm(p.category)) return false;
-    if (p.occasion && norm(product.occasion) !== norm(p.occasion)) return false;
-    if (p.style && norm(product.style) !== norm(p.style)) return false;
-    if (p.material && !norm(product.material).includes(norm(p.material))) return false;
+    if (
+      p.category.length &&
+      !p.category.some((c) => norm(product.category) === norm(c))
+    ) {
+      return false;
+    }
+    if (
+      p.occasion.length &&
+      !p.occasion.some((o) => norm(product.occasion) === norm(o))
+    ) {
+      return false;
+    }
+    if (p.style.length && !p.style.some((s) => norm(product.style) === norm(s))) {
+      return false;
+    }
+    if (
+      p.material.length &&
+      !p.material.some((m) => norm(product.material).includes(norm(m)))
+    ) {
+      return false;
+    }
 
     const variants = product.variants ?? [];
     if (
-      p.color &&
-      !variants.some((v) => !!v.isActive && norm(v.color) === norm(p.color))
-    ) return false;
+      p.color.length &&
+      !variants.some(
+        (v) =>
+          !!v.isActive && p.color.some((c) => norm(v.color) === norm(c))
+      )
+    ) {
+      return false;
+    }
     if (
-      p.size &&
-      !variants.some((v) => !!v.isActive && norm(v.size) === norm(p.size))
-    ) return false;
+      p.size.length &&
+      !variants.some(
+        (v) =>
+          !!v.isActive && p.size.some((s) => norm(v.size) === norm(s))
+      )
+    ) {
+      return false;
+    }
 
     const mrp = Number(product.mrp ?? 0);
     if (min != null && !Number.isNaN(min) && mrp < min) return false;

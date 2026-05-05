@@ -30,16 +30,20 @@ type ProductRow = {
   reviews: { rating: number }[];
 };
 
+function stableJoin(values: string[]) {
+  return [...values].sort().join("\u001f");
+}
+
 function buildCacheKey(parsed: ReturnType<typeof parseShopSearchParams>) {
   // Ignore view/cols because they don't change the DB query — they only change layout.
   return `products:shop:${[
     parsed.q ?? "",
-    parsed.category ?? "",
-    parsed.occasion ?? "",
-    parsed.style ?? "",
-    parsed.material ?? "",
-    parsed.color ?? "",
-    parsed.size ?? "",
+    stableJoin(parsed.category),
+    stableJoin(parsed.occasion),
+    stableJoin(parsed.style),
+    stableJoin(parsed.material),
+    stableJoin(parsed.color),
+    stableJoin(parsed.size),
     parsed.minPrice ?? "",
     parsed.maxPrice ?? "",
     parsed.sort ?? "new",

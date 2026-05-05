@@ -1,6 +1,7 @@
 "use client";
 
 import { Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistDispatch } from "@/context/WishlistContext";
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function ProductWishlistToggle({ productId, initialWishlisted, className = "", variant = "default" }: Props) {
+  const router = useRouter();
   const { userId } = useAuth();
   const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
@@ -70,7 +72,11 @@ export function ProductWishlistToggle({ productId, initialWishlisted, className 
   }, [applyOptimisticDelta, productId, setServerCount]);
 
   const toggle = useCallback(() => {
-    if (!canWishlist) return;
+    if (!canWishlist) {
+      const callback = encodeURIComponent(window.location.pathname + window.location.search);
+      router.push(`/auth/signin?callbackUrl=${callback}`);
+      return;
+    }
     const prev = wishlistedRef.current;
     const next = !prev;
     setWishlisted(next);
@@ -78,9 +84,7 @@ export function ProductWishlistToggle({ productId, initialWishlisted, className 
     desiredRef.current = next;
     applyOptimisticDelta(next ? 1 : -1);
     void syncDesiredState();
-  }, [applyOptimisticDelta, canWishlist, syncDesiredState]);
-
-  if (!canWishlist) return null;
+  }, [applyOptimisticDelta, canWishlist, router, syncDesiredState]);
 
   return (
     <button

@@ -29,10 +29,19 @@ export async function getShopFilterOptions(): Promise<ShopFilterOptions> {
   const variantColors = (variantColorsRes.data ?? []) as Array<{ color: string | null }>;
   const variantSizes = (variantSizesRes.data ?? []) as Array<{ size: string | null }>;
 
-  // UX requirement: always start from 0 and let the max auto-track the current inventory.
+  // Slider max = highest inventory MRP + ₹10k headroom (no hard cap tied to old 1L default).
+  const SLIDER_MAX_ABOVE_TOP_MRP = 10_000;
   let priceMin = 0;
-  let priceMax = Math.ceil(Math.max(0, ...products.map((p) => p.mrp ?? 0), 100_000));
-  if (!Number.isFinite(priceMax) || priceMax <= priceMin) priceMax = Math.max(priceMin + 1000, 100_000);
+  let priceMax: number;
+  if (!products.length) {
+    priceMax = 100_000;
+  } else {
+    const maxMrp = Math.max(0, ...products.map((p) => Number(p.mrp ?? 0)));
+    priceMax = Math.ceil(maxMrp + SLIDER_MAX_ABOVE_TOP_MRP);
+  }
+  if (!Number.isFinite(priceMax) || priceMax <= priceMin) {
+    priceMax = Math.max(priceMin + SLIDER_MAX_ABOVE_TOP_MRP, 100_000);
+  }
 
   return {
     categories: uniqSorted(products.map((p) => p.category)),

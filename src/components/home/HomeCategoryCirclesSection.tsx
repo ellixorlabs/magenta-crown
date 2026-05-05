@@ -37,7 +37,7 @@ export function HomeCategoryCirclesSection({ shape, items }: Props) {
       : "h-26 w-26 sm:h-32 sm:w-32";
 
   return (
-    <section className="bg-[#faf7f8] py-10 sm:py-12">
+    <section className="bg-white py-10 sm:py-12">
       <div className="section-shell">
         <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
           {valid.map((item) => (

@@ -31,14 +31,14 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
   const current = banners[Math.min(active, banners.length - 1)]!;
 
   return (
-    <section className="bg-[#faf7f8] py-14 sm:py-16">
+    <section className="bg-white py-14 sm:py-16">
       <div className="section-shell">
         <div className="relative">
           <Link
             href={current.targetHref}
             className="group block overflow-hidden rounded-[28px] border border-white/40 shadow-[0_14px_42px_-20px_rgba(120,12,48,0.55)] transition hover:shadow-[0_18px_48px_-20px_rgba(120,12,48,0.65)]"
           >
-            <div className="grid min-h-[450px] items-end gap-4 bg-[#f3e4ea] px-6 py-6 sm:grid-cols-[1.05fr_0.95fr] sm:px-10 sm:py-8">
+            <div className="grid min-h-[450px] items-end gap-4 bg-white px-6 py-6 sm:grid-cols-[1.05fr_0.95fr] sm:px-10 sm:py-8">
               <div className="max-w-xl text-[#4a1030]">
                 <h3 className="font-[family-name:var(--font-heading)] text-3xl font-semibold leading-tight sm:text-4xl">
                   {current.title}

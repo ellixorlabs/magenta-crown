@@ -11,11 +11,9 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
   const pathname = usePathname();
   const isHome = pathname === "/";
   const isAuthImmersive = pathname.startsWith("/auth/");
-  const isAccountArea = pathname.startsWith("/account/");
-  const isShopArea = pathname.startsWith("/shop");
 
   const skipTopPad = isHome || isAuthImmersive;
-  const shellBg = isAccountArea || isShopArea ? "bg-[#f8f5f6]" : "bg-white";
+  const shellBg = "bg-white";
 
   useEffect(() => {
     if (pathname === "/") {

@@ -20,7 +20,7 @@ export const FALLBACK_MEGA: Record<string, { label: string; href: string }[]> = 
     { label: "Co-ord Sets", href: "/shop" }
   ],
   "Designer Picks": [
-    { label: "New Arrivals", href: "/shop?sort=new" },
+    { label: "Trending Now", href: "/shop?sort=price_desc" },
     { label: "Bestsellers", href: "/shop" },
     { label: "Limited Editions", href: "/shop" },
     { label: "Gift Cards", href: "/shop" }
