@@ -113,7 +113,7 @@ function SignUpInner() {
         password,
         options: {
           data: { name: name.trim() },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/verification-success")}`
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
       if (signUpError) {
