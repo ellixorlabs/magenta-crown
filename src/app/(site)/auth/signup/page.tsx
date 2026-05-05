@@ -7,6 +7,44 @@ import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
+function normalizeSupabaseAuthError(err: unknown): string {
+  if (!err) return "Could not create account. Please try again.";
+  const message =
+    typeof err === "string"
+      ? err
+      : typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message?: unknown }).message ?? "")
+        : "";
+  const raw = message.trim();
+  const lower = raw.toLowerCase();
+
+  // Supabase can mask duplicate signup cases; keep UX explicit.
+  if (
+    lower.includes("already registered") ||
+    lower.includes("already exists") ||
+    lower.includes("user already") ||
+    lower.includes("email already")
+  ) {
+    return "User already exists. Please login.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+  if (!raw || raw === "{}" || raw === "[object object]") {
+    return "Could not create account right now. Please try again.";
+  }
+  return raw;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error("SIGNUP_TIMEOUT")), timeoutMs);
+    })
+  ]);
+}
+
 function SignUpInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,24 +80,27 @@ function SignUpInner() {
         return;
       }
       const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError("Email is required.");
+        return;
+      }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: { name: name.trim() },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            callbackUrl
-          )}`
+      const { data, error: signUpError } = await withTimeout(
+        supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            data: { name: name.trim() },
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+              callbackUrl
+            )}`
+          }
         }
-      });
+        }),
+        18_000
+      );
       if (signUpError) {
-        const message = signUpError.message?.toLowerCase() ?? "";
-        if (message.includes("already") || message.includes("registered") || message.includes("rate limit")) {
-          setError("Email already exists.");
-        } else {
-          setError(signUpError.message || "Could not create account.");
-        }
+        setError(normalizeSupabaseAuthError(signUpError));
         return;
       }
 
@@ -82,8 +123,12 @@ function SignUpInner() {
       // Confirmation email path.
       router.push(`/auth/verify-email?callbackUrl=${encodeURIComponent(callbackUrl)}`);
       return;
-    } catch {
-      setError("Something went wrong.");
+    } catch (err) {
+      if (err instanceof Error && err.message === "SIGNUP_TIMEOUT") {
+        setError("Signup is taking too long. Please check your network and try again.");
+      } else {
+        setError(normalizeSupabaseAuthError(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -160,8 +205,8 @@ function SignUpInner() {
         </div>
         <AuthGoogleSection callbackUrl={callbackUrl} />
 
-        <p className="mt-3 text-center text-sm font-medium text-zinc-800">
-          Already have an account?{" "}
+        <p className="mt-3 flex flex-wrap items-center justify-center gap-1 px-2 text-center text-sm font-medium text-zinc-800">
+          <span>Already have an account?</span>
           <button
             type="button"
             onClick={() => router.push("/auth/signin?callbackUrl=" + encodeURIComponent(callbackUrl))}
