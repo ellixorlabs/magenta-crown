@@ -134,8 +134,8 @@ export function ProductCard({
   const heartClass = useMemo(
     () =>
       wishlisted
-        ? "fill-rose-500 text-rose-500"
-        : "fill-zinc-100 text-zinc-700",
+        ? "fill-mc-accent text-mc-accent"
+        : "fill-white text-mc-ink/55",
     [wishlisted]
   );
 
@@ -170,7 +170,7 @@ export function ProductCard({
               type="button"
               aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               onClick={toggleWishlist}
-              className="absolute right-2 top-2 z-10 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400"
+              className="absolute right-2 top-2 z-10 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white"
             >
               <Heart className={`h-4 w-4 ${heartClass}`} strokeWidth={1.6} />
             </button>
@@ -206,9 +206,9 @@ export function ProductCard({
   const pillTag = product.tags?.[0]?.trim();
 
   return (
-    <Link href={`/product/${product.slug}`} className="group block w-full min-w-0 max-w-full">
-      <article className="w-full min-w-0">
-        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden rounded-lg bg-[#ebe4e0] shadow-sm ring-1 ring-black/[0.04] transition duration-300 group-hover:shadow-lg">
+    <Link href={`/product/${product.slug}`} className="group mc-tap block w-full min-w-0 max-w-full">
+      <article className="w-full min-w-0 overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md">
+        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden bg-mc-creamDeep">
           <Image
             src={primaryImage}
             alt={imgAlt}
@@ -292,7 +292,7 @@ export function ProductCard({
             type="button"
             aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
             onClick={toggleWishlist}
-            className={`absolute z-20 rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition hover:border-crown-400 ${
+            className={`absolute z-20 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white ${
               isCarousel
                 ? "bottom-2 right-2 top-auto"
                 : showNewBadge
@@ -304,33 +304,27 @@ export function ProductCard({
           </button>
         </div>
         {isCarousel && pillTag && (
-          <div className="mt-2 flex justify-center">
-            <span className="rounded-full bg-pink-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-pink-800">
+          <div className="flex justify-center bg-mc-card px-2 pt-2">
+            <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-mc-maroon">
               {pillTag}
             </span>
           </div>
         )}
-        <div className="mt-3 w-full min-w-0 max-w-full px-0.5 text-left sm:mt-3.5">
+        <div className="w-full min-w-0 max-w-full bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3">
           <h3
-            className={`break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-[#3d2f2a] sm:text-[15px] ${
-              isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-1"
+            className={`break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] ${
+              isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
             }`}
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span
-              className={`text-base font-bold tabular-nums sm:text-[17px] ${isCarousel ? "text-crown-700" : "text-[#2b211e]"}`}
-            >
-              {formatInr(salePrice)}
-            </span>
+          <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+            <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
             {showStrikethrough && (
-              <span className="text-xs tabular-nums text-zinc-400 line-through sm:text-sm">
-                {formatInr(product.mrp)}
-              </span>
+              <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>
             )}
             {offPct != null && offPct > 0 && !isCarousel && (
-              <span className="rounded bg-[#E5D3C5] px-1.5 py-px text-[10px] font-semibold leading-tight text-[#4a3428] sm:text-[11px]">
+              <span className="rounded-md bg-white/80 px-1.5 py-px text-[10px] font-semibold leading-tight text-mc-maroon sm:text-[11px]">
                 {offPct}% off
               </span>
             )}

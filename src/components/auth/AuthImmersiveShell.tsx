@@ -59,13 +59,13 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
   }, [imageUrl]);
 
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden bg-[#faf7f8]">
-      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-[#faf7f8] to-[#f0e8ec]" />
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-mc-maroonDeep md:bg-[#faf7f8]">
+      <div className="pointer-events-none absolute inset-0 z-0 md:block" aria-hidden>
+        <div className="absolute inset-0 bg-mc-maroonDeep md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 pb-8 pt-24 md:pb-10 md:pt-28">
-        <div className="grid max-h-[calc(100dvh-8.5rem)] w-full grid-cols-1 gap-4 rounded-[28px] border border-zinc-200/90 bg-white p-3 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.18)] md:grid-cols-[0.75fr_1.25fr] md:gap-5 md:p-5">
+      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 pb-10 pt-10 md:pb-10 md:pt-28">
+        <div className="grid max-h-[calc(100dvh-5rem)] w-full grid-cols-1 gap-4 md:max-h-[calc(100dvh-8.5rem)] md:rounded-[28px] md:border md:border-zinc-200/90 md:bg-white md:p-5 md:shadow-[0_24px_64px_-18px_rgba(0,0,0,0.18)] lg:grid-cols-[0.75fr_1.25fr]">
           <div className="hidden items-center justify-center md:flex">
             <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-[#f3ecef]">
               {!imageReady ? (
@@ -84,7 +84,7 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
               ) : null}
             </div>
           </div>
-          <div className="flex min-h-0 items-center justify-center">{children}</div>
+          <div className="flex min-h-0 items-center justify-center md:px-1">{children}</div>
         </div>
       </div>
     </div>

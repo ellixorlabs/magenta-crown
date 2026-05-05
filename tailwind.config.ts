@@ -9,6 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        /** Figma Android / mobile design tokens */
+        mc: {
+          cream: "#FDF8F1",
+          creamDeep: "#F5F1E9",
+          card: "#EBEBEB",
+          ink: "#1A1A1A",
+          muted: "#737373",
+          accent: "#B4233A",
+          maroon: "#800020",
+          maroonDeep: "#5B001C",
+          banner: "#8B1D25",
+          gold: "#C9A66B",
+          goldDeep: "#B8925A",
+          input: "#EAE3D9",
+          price: "#8B2B3E",
+          stone: "#F3F0E9"
+        },
         admin: {
           50: "#f5f3ff",
           100: "#ede9fe",

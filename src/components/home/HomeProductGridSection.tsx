@@ -23,27 +23,30 @@ export function HomeProductGridSection({
   emptyMessage = "Add products to see them here."
 }: Props) {
   return (
-    <section className="section-shell max-w-full min-w-0 py-10 sm:py-12">
+    <section className="section-shell max-w-full min-w-0 bg-mc-cream py-8 sm:py-11">
       <div className="mb-5 flex min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <h2 className="mt-0 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
+          <h2 className="mt-0 font-mc-heading text-xl font-semibold text-mc-ink sm:text-2xl">
             <Link
               href={viewAllHref}
-              className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 hover:text-crown-900"
+              className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 transition hover:text-mc-maroon"
             >
               <span className="min-w-0 break-words">{title}</span>
               <span
                 aria-hidden
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-mc-ink/15 bg-white text-mc-ink/60"
               >
                 <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
               </span>
             </Link>
           </h2>
         </div>
+        <Link href={viewAllHref} className="shrink-0 text-sm font-bold text-mc-accent transition hover:text-mc-maroon sm:hidden">
+          View All
+        </Link>
       </div>
       {products.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
+        <div className="rounded-3xl border border-dashed border-mc-ink/20 bg-mc-creamDeep/80 p-10 text-center text-mc-muted">
           {emptyMessage}
         </div>
       ) : (

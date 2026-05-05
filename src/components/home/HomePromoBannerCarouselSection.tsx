@@ -31,20 +31,20 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
   const current = banners[Math.min(active, banners.length - 1)]!;
 
   return (
-    <section className="bg-white py-14 sm:py-16">
+    <section className="bg-mc-cream py-10 sm:py-14">
       <div className="section-shell">
         <div className="relative">
           <Link
             href={current.targetHref}
-            className="group block overflow-hidden rounded-[28px] border border-white/40 shadow-[0_14px_42px_-20px_rgba(120,12,48,0.55)] transition hover:shadow-[0_18px_48px_-20px_rgba(120,12,48,0.65)]"
+            className="group mc-tap block overflow-hidden rounded-3xl border border-mc-ink/10 shadow-[0_20px_50px_-24px_rgba(80,10,30,0.45)] transition hover:shadow-[0_24px_56px_-24px_rgba(80,10,30,0.55)]"
           >
-            <div className="grid min-h-[450px] items-end gap-4 bg-white px-6 py-6 sm:grid-cols-[1.05fr_0.95fr] sm:px-10 sm:py-8">
-              <div className="max-w-xl text-[#4a1030]">
-                <h3 className="font-[family-name:var(--font-heading)] text-3xl font-semibold leading-tight sm:text-4xl">
-                  {current.title}
-                </h3>
-                {current.subtitle ? <p className="mt-3 text-sm text-[#5f2641]/90 sm:text-base">{current.subtitle}</p> : null}
-                <span className="mt-6 inline-flex items-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-[#7f1530] transition group-hover:bg-white/90">
+            <div className="grid min-h-[320px] items-end gap-4 bg-gradient-to-br from-mc-maroon via-[#5c0818] to-zinc-950 px-6 py-6 sm:min-h-[400px] sm:grid-cols-[1.05fr_0.95fr] sm:px-10 sm:py-8">
+              <div className="max-w-xl text-white">
+                <h3 className="font-mc-heading text-2xl font-semibold leading-tight sm:text-3xl">{current.title}</h3>
+                {current.subtitle ? (
+                  <p className="mt-3 text-sm text-white/85 sm:text-base">{current.subtitle}</p>
+                ) : null}
+                <span className="mt-6 inline-flex items-center rounded-xl bg-mc-gold px-5 py-2.5 text-sm font-bold text-mc-ink transition group-hover:bg-mc-goldDeep">
                   See more
                 </span>
               </div>
@@ -87,7 +87,7 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
                     type="button"
                     onClick={() => setActive(i)}
                     aria-label={`Go to promo ${i + 1}`}
-                    className={`h-2 rounded-full transition ${i === active ? "w-8 bg-crown-700" : "w-2 bg-zinc-300"}`}
+                    className={`h-2 rounded-full transition ${i === active ? "w-8 bg-white" : "w-2 bg-white/35"}`}
                   />
                 ))}
               </div>

@@ -1,21 +1,21 @@
 import path from "path";
+import { randomUUID } from "node:crypto";
 import type { NextConfig } from "next";
-import withPWAInit from "@ducanh2912/next-pwa";
+import withSerwistInit from "@serwist/next";
 
-const withPWA = withPWAInit({
-  dest: "public",
+const revision =
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  process.env.GITHUB_SHA ??
+  randomUUID();
+
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
   register: true,
   reloadOnOnline: true,
-  cacheOnFrontEndNav: true,
-  fallbacks: {
-    document: "/offline"
-  },
-  workboxOptions: {
-    disableDevLogs: true,
-    skipWaiting: true,
-    clientsClaim: true
-  }
+  cacheOnNavigation: true,
+  additionalPrecacheEntries: [{ url: "/offline", revision }],
 });
 
 const nextConfig = {
@@ -38,7 +38,7 @@ const nextConfig = {
     "*.ngrok-free.app",
     "*.ngrok-free.dev",
     "*.ngrok.app",
-    "*.ngrok.dev"
+    "*.ngrok.dev",
   ],
   async headers() {
     return [
@@ -47,19 +47,19 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "private, no-cache, no-store, max-age=0, must-revalidate"
-          }
-        ]
+            value: "private, no-cache, no-store, max-age=0, must-revalidate",
+          },
+        ],
       },
       {
         source: "/shop",
         headers: [
           {
             key: "Cache-Control",
-            value: "private, no-cache, no-store, max-age=0, must-revalidate"
-          }
-        ]
-      }
+            value: "private, no-cache, no-store, max-age=0, must-revalidate",
+          },
+        ],
+      },
     ];
   },
   images: {
@@ -70,42 +70,42 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "images.unsplash.com"
+        hostname: "images.unsplash.com",
       },
       {
         protocol: "https",
-        hostname: "www.vastranand.in"
+        hostname: "www.vastranand.in",
       },
       {
         protocol: "https",
-        hostname: "vastranand.in"
+        hostname: "vastranand.in",
       },
       {
         protocol: "https",
-        hostname: "lh3.googleusercontent.com"
+        hostname: "lh3.googleusercontent.com",
       },
       {
         protocol: "https",
-        hostname: "**.googleusercontent.com"
+        hostname: "**.googleusercontent.com",
       },
       {
         protocol: "https",
-        hostname: "images6.alphacoders.com"
+        hostname: "images6.alphacoders.com",
       },
       {
         protocol: "https",
-        hostname: "azafashions.com"
+        hostname: "azafashions.com",
       },
       {
         protocol: "https",
-        hostname: "www.azafashions.com"
+        hostname: "www.azafashions.com",
       },
       {
         protocol: "https",
-        hostname: "i.imageupload.app"
-      }
-    ]
-  }
+        hostname: "i.imageupload.app",
+      },
+    ],
+  },
 } satisfies NextConfig;
 
-export default withPWA(nextConfig);
+export default withSerwist(nextConfig);

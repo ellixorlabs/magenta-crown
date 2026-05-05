@@ -65,15 +65,29 @@ html.mc-hide-site-chrome [data-mc-glass-back] {
 }
 
 body {
-  @apply min-h-dvh text-zinc-900 antialiased;
+  @apply min-h-dvh font-[family-name:var(--font-body)] text-mc-ink antialiased;
   padding-left: env(safe-area-inset-left, 0);
   padding-right: env(safe-area-inset-right, 0);
   padding-bottom: env(safe-area-inset-bottom, 0);
-  background-color: #f4f0f2;
-  background-image:
-    radial-gradient(1200px 600px at 10% -10%, rgba(255, 255, 255, 0.85), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(250, 245, 248, 0.9), transparent 50%),
-    linear-gradient(180deg, #faf7f8 0%, #f3eef0 45%, #f6f2f4 100%);
+  background-color: #fdf8f1;
+  background-image: linear-gradient(180deg, #fdf8f1 0%, #f9f4eb 50%, #f5f0e8 100%);
+}
+
+@layer utilities {
+  .font-mc-heading {
+    font-family: var(--font-heading), ui-serif, Georgia, serif;
+  }
+  .mc-tap {
+    @apply transition duration-200 active:scale-[0.98];
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .section-shell {

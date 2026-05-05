@@ -6,9 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useShopFilterSheet } from "@/components/shop/ShopFilterSheetProvider";
 
 const sortOptions = [
-  { value: "new", label: "Newest" },
-  { value: "price-asc", label: "Price: low to high" },
-  { value: "price-desc", label: "Price: high to low" },
+  { value: "new", label: "New Arrivals" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
   { value: "name", label: "Alphabetically, A–Z" }
 ];
 
@@ -31,23 +31,23 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
   const sortValue = searchParams.get("sort") ?? "new";
 
   return (
-    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-stretch sm:gap-3">
       <button
         type="button"
         onClick={onFilterClick}
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 sm:justify-start"
+        className="inline-flex min-h-[48px] shrink-0 flex-1 items-center justify-center gap-2 rounded-2xl border-0 bg-mc-maroon px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-mc-maroonDeep sm:flex-initial sm:justify-start"
       >
-        <SlidersHorizontal className="h-4 w-4 text-crown-800" aria-hidden />
+        <SlidersHorizontal className="h-4 w-4 text-white" aria-hidden />
         Filter
       </button>
 
-      <div className="flex w-full shrink-0 flex-col sm:w-auto sm:min-w-[11rem] sm:max-w-[min(100%,18rem)]">
+      <div className="flex w-full shrink-0 flex-col sm:w-auto sm:min-w-[11rem] sm:max-w-[min(100%,18rem)] sm:flex-1">
         <label className="sr-only" htmlFor={sortId}>
           Sort products
         </label>
         <select
           id={sortId}
-          className="w-full rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm transition hover:border-zinc-300 sm:min-w-[11rem]"
+          className="min-h-[48px] w-full rounded-2xl border-0 bg-mc-gold px-4 py-2.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep sm:min-w-[11rem]"
           value={sortValue}
           onChange={(e) => {
             const p = new URLSearchParams(searchParams.toString());

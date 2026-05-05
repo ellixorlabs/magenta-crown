@@ -33,5 +33,9 @@ export function ConditionalFooter() {
     return null;
   }
 
-  return <Footer />;
+  return (
+    <div className="hidden md:block">
+      <Footer />
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+.tmp-figma-pdf
 node_modules
 .next
 dist
@@ -8,11 +9,6 @@ node_modules
 .env.local
 .env.*
 
-# PWA / Workbox build artifacts (@ducanh2912/next-pwa)
-public/sw.js
-public/sw.js.map
-public/workbox-*.js
-public/workbox-*.js.map
-public/worker-*.js
-public/fallback-*.js
-public/swe-worker-*.js
+# Serwist (service worker build output)
+public/sw*
+public/swe-worker*

@@ -381,7 +381,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
   const megaEntries = Object.entries(mega);
 
   const linkTone = isLight
-    ? "text-zinc-900 hover:text-crown-900"
+    ? "text-mc-ink hover:text-mc-maroon"
     : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] hover:text-white";
 
   /** Same width on home in both immersive and “past hero” modes so the bar does not morph width (major scroll jank). */
@@ -396,7 +396,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
     ? `pointer-events-auto ${homeBarShell} overflow-visible border border-transparent bg-transparent px-3 py-3 shadow-none sm:px-6 sm:py-3.5`
     : `pointer-events-auto ${homeBarShell} overflow-visible transition-[background-color,border-color,box-shadow] duration-200 will-change-[backdrop-filter] ${
         isLight
-          ? "border border-rose-100/70 bg-gradient-to-b from-rose-50/68 via-rose-100/30 to-rose-50/40 text-zinc-900 shadow-[0_12px_44px_-14px_rgba(55,28,38,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] ring-1 ring-inset ring-white/40 backdrop-blur-3xl backdrop-saturate-200"
+          ? "border border-mc-ink/10 bg-mc-cream/78 text-mc-ink shadow-[0_12px_44px_-14px_rgba(55,28,38,0.12),inset_0_1px_0_rgba(255,255,255,0.88)] ring-1 ring-inset ring-white/55 backdrop-blur-3xl backdrop-saturate-200"
           : "border border-white/30 bg-gradient-to-br from-white/18 via-white/10 to-zinc-950/45 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-inset ring-white/20 backdrop-blur-2xl backdrop-saturate-150"
       }`;
 
@@ -554,7 +554,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
               ) : (
                 <span
                   className={`font-site-brand block whitespace-nowrap text-[11px] font-semibold leading-tight tracking-[0.16em] sm:text-base sm:tracking-[0.2em] lg:text-lg ${
-                    isLight ? "text-zinc-950" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                    isLight ? "text-mc-ink" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
                   }`}
                   style={brandMark?.brandFontFamily ? { fontFamily: brandMark.brandFontFamily } : undefined}
                 >
@@ -649,7 +649,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
                       <Link
                         href="/cart"
                         className={`relative flex h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] ${
-                          isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
+                          isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
                         }`}
                         aria-label="Cart"
                       >
@@ -672,7 +672,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
                   <button
                     type="button"
                     className={`flex h-11 w-11 shrink-0 items-center justify-center transition lg:hidden ${
-                      isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
+                      isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
                     }`}
                     aria-label="Open menu"
                     aria-expanded={mobileMenuOpen}
@@ -685,7 +685,7 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
                   <Link
                     href="/shop"
                     className={`hidden h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] lg:flex ${
-                      isLight ? "text-zinc-900/90 hover:text-crown-900" : "text-white hover:text-white/85"
+                      isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
                     }`}
                     aria-label="Search products"
                     title="Search products"

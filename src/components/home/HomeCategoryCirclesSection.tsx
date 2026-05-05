@@ -22,7 +22,7 @@ function resolveHref(item: HomeCategoryCircleItem) {
   return item.targetValue || "/shop";
 }
 
-export function HomeCategoryCirclesSection({ shape, items }: Props) {
+export function HomeCategoryCirclesSection({ eyebrow, title, shape, items }: Props) {
   const valid = items.filter((it) => it.label && it.imageUrl && it.targetValue);
   if (valid.length === 0) return null;
   const mediaClass =
@@ -33,26 +33,46 @@ export function HomeCategoryCirclesSection({ shape, items }: Props) {
         : "rounded-2xl";
   const sizeClass =
     shape === "rectangle"
-      ? "h-26 w-[9.75rem] sm:h-32 sm:w-[11.75rem]"
-      : "h-26 w-26 sm:h-32 sm:w-32";
+      ? "h-24 w-24 sm:h-28 sm:w-28"
+      : "h-24 w-24 sm:h-28 sm:w-28";
 
   return (
-    <section className="bg-white py-10 sm:py-12">
+    <section className="bg-mc-cream py-8 sm:py-11">
       <div className="section-shell">
-        <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
+          <div className="min-w-0">
+            {eyebrow?.trim() ? (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-mc-gold sm:text-[11px]">{eyebrow}</p>
+            ) : null}
+            <h2 className="font-mc-heading mt-1 text-xl font-semibold text-mc-ink sm:text-2xl">{title}</h2>
+          </div>
+          <Link
+            href="/categories"
+            className="shrink-0 text-sm font-bold text-mc-accent transition hover:text-mc-maroon"
+          >
+            View All
+          </Link>
+        </div>
+        <div className="-mx-1 flex gap-4 overflow-x-auto overflow-y-visible pb-2 pt-1 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-5 lg:grid-cols-6 sm:overflow-visible">
           {valid.map((item) => (
-            <Link key={item.id} href={resolveHref(item)} className="group h-[100px] pt-[20px] pb-[20px] text-center">
-              <div className={`mx-auto ${sizeClass} overflow-hidden border border-zinc-200 bg-white shadow-sm ${mediaClass}`}>
+            <Link
+              key={item.id}
+              href={resolveHref(item)}
+              className="group mc-tap w-[5.5rem] shrink-0 text-center sm:w-auto"
+            >
+              <div
+                className={`mx-auto ${sizeClass} overflow-hidden border border-mc-ink/10 bg-white shadow-sm ring-1 ring-white/80 ${mediaClass}`}
+              >
                 <Image
                   src={item.imageUrl}
                   alt={item.label}
-                  width={96}
-                  height={96}
+                  width={112}
+                  height={112}
                   className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   unoptimized
                 />
               </div>
-              <p className="mt-2 text-sm font-medium text-zinc-800">{item.label}</p>
+              <p className="mt-2 text-center text-xs font-medium text-mc-ink sm:text-sm">{item.label}</p>
             </Link>
           ))}
         </div>

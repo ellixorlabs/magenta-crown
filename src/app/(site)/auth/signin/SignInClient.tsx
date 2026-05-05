@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
+import { McAuthBrandMark } from "@/components/mc/McAuthBrandMark";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -206,28 +207,32 @@ function Inner() {
     return (
       <AuthImmersiveShell>
         <div className="mx-auto w-full max-w-[560px] p-1 text-center md:p-2">
-          <p className="text-sm text-zinc-500">Checking your session…</p>
+          <p className="text-sm text-white/80 md:text-zinc-500">Checking your session…</p>
         </div>
       </AuthImmersiveShell>
     );
   }
 
+  const fieldClass =
+    "mt-1.5 w-full rounded-2xl border-0 bg-mc-input px-4 py-3.5 font-[family-name:var(--font-body)] text-base text-mc-ink placeholder:italic placeholder:text-mc-muted/75 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] outline-none transition focus:ring-2 focus:ring-mc-gold/55 md:border md:border-zinc-200 md:bg-white md:shadow-none md:focus:ring-mc-gold/35 sm:text-sm";
+  const labelClass =
+    "font-mc-heading text-sm font-normal text-white md:text-xs md:font-semibold md:text-zinc-800";
+
   return (
     <AuthImmersiveShell>
-      <div className="w-full max-w-[560px] p-1 md:p-2">
-        <h1 className="text-center font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-950">
-          Welcome back
-        </h1>
-        <p className="mt-0.5 text-center text-sm text-zinc-500">Sign in to continue shopping</p>
+      <div className="w-full max-w-[400px] px-1 md:max-w-[560px] md:p-2">
+        <McAuthBrandMark className="mb-8 md:mb-0 md:hidden" />
+        <h1 className="hidden text-center font-mc-heading text-3xl font-semibold text-zinc-950 md:block">Welcome back</h1>
+        <p className="mt-1 hidden text-center text-sm text-zinc-500 md:block">Sign in to continue shopping</p>
 
-        <form onSubmit={onSubmit} className="mt-3.5 space-y-2.5">
+        <form onSubmit={onSubmit} className="mt-2 space-y-4 md:mt-3.5 md:space-y-2.5">
           <div>
-            <label className="text-xs font-semibold text-zinc-800">Email address</label>
+            <label className={labelClass}>Email</label>
             <input
               type="email"
               required
-              placeholder="example@email.com"
-              className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              placeholder="Type here..."
+              className={fieldClass}
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -245,12 +250,13 @@ function Inner() {
           {emailChecked && emailExists ? (
             <>
               <div>
-                <label className="text-xs font-semibold text-zinc-800">Password</label>
-                <div className="relative mt-1">
+                <label className={labelClass}>Password</label>
+                <div className="relative mt-1.5">
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+                    placeholder="Type here..."
+                    className={`${fieldClass} pr-12`}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -259,22 +265,25 @@ function Inner() {
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+                    className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-mc-muted hover:text-mc-ink md:text-zinc-500 md:hover:text-zinc-800"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              <div className="-mt-2 text-right">
-                <Link href="/auth/forgot-password" className="text-xs font-semibold text-crown-800 underline underline-offset-2">
+              <div className="-mt-1 text-right">
+                <Link
+                  href="/auth/forgot-password"
+                  className="font-mc-heading text-sm italic text-mc-gold underline underline-offset-4 md:text-xs md:not-italic md:font-semibold md:text-crown-800"
+                >
                   Forgot password?
                 </Link>
               </div>
             </>
           ) : null}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {magicMessage && <p className="text-sm text-emerald-700">{magicMessage}</p>}
-          {resendMessage && <p className="text-sm text-emerald-700">{resendMessage}</p>}
+          {error && <p className="text-sm text-red-200 md:text-red-600">{error}</p>}
+          {magicMessage && <p className="text-sm text-emerald-200 md:text-emerald-700">{magicMessage}</p>}
+          {resendMessage && <p className="text-sm text-emerald-200 md:text-emerald-700">{resendMessage}</p>}
           {needsVerificationResend && (
             <button
               type="button"
@@ -295,7 +304,7 @@ function Inner() {
                   }
                 })();
               }}
-              className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+              className="w-full rounded-2xl border border-white/25 bg-white/10 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15 disabled:opacity-50 md:rounded-lg md:border-zinc-300 md:bg-white md:text-zinc-800 md:hover:bg-zinc-50 md:backdrop-blur-none"
             >
               {resendLoading
                 ? "Sending verification email…"
@@ -309,7 +318,7 @@ function Inner() {
               type="button"
               onClick={() => void continueWithEmail()}
               disabled={checkingEmail}
-              className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="mt-1 w-full rounded-2xl bg-mc-gold py-3.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep disabled:opacity-50 md:mt-1.5 md:rounded-lg md:bg-zinc-900 md:py-2.5 md:font-semibold md:text-white md:hover:bg-zinc-800"
             >
               {checkingEmail ? "Checking..." : "Continue"}
             </button>
@@ -318,15 +327,15 @@ function Inner() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="mt-1 w-full rounded-2xl bg-mc-gold py-3.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep disabled:opacity-50 md:mt-1.5 md:rounded-lg md:bg-zinc-900 md:py-2.5 md:font-semibold md:text-white md:hover:bg-zinc-800"
               >
-                {loading ? "Signing in…" : "Sign in with password"}
+                {loading ? "Signing in…" : "Login"}
               </button>
               <button
                 type="button"
                 onClick={() => void sendMagicLink()}
                 disabled={magicLoading}
-                className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+                className="w-full rounded-2xl border border-white/25 bg-white/10 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15 disabled:opacity-50 md:rounded-lg md:border-zinc-300 md:bg-white md:text-zinc-800 md:hover:bg-zinc-50"
               >
                 {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
               </button>
@@ -334,19 +343,23 @@ function Inner() {
           )}
         </form>
 
-        <div className="my-3 flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-200" />
-          <span className="text-xs text-zinc-500">or</span>
-          <div className="h-px flex-1 bg-zinc-200" />
+        <div className="my-5 flex items-center gap-3 md:my-3">
+          <div className="h-px flex-1 bg-white/35 md:bg-zinc-200" />
+          <span className="font-mc-heading text-xs text-white md:text-zinc-500">Or Sign Up with</span>
+          <div className="h-px flex-1 bg-white/35 md:bg-zinc-200" />
         </div>
-        <AuthGoogleSection callbackUrl={callbackUrl} />
+        <AuthGoogleSection
+          callbackUrl={callbackUrl}
+          compactMobile
+          buttonClassName="mx-auto mt-0 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white shadow-md transition hover:bg-white/95 disabled:cursor-not-allowed disabled:opacity-60 md:mx-0 md:mt-8 md:h-auto md:w-full md:gap-2 md:rounded-full md:border-2 md:border-zinc-300 md:py-3 md:text-sm md:font-semibold md:text-zinc-900"
+        />
 
-        <p className="mt-3 text-center text-sm font-medium text-zinc-800">
-          No account?{" "}
+        <p className="mt-6 text-center text-sm font-medium text-white/90 md:mt-3 md:text-zinc-800">
+          Don&apos;t have an account?{" "}
           <button
             type="button"
             onClick={() => router.push("/auth/signup?callbackUrl=" + encodeURIComponent(callbackUrl))}
-            className="font-semibold text-crown-900 underline decoration-2 underline-offset-2"
+            className="font-mc-heading font-semibold text-mc-gold underline decoration-2 underline-offset-4 md:font-semibold md:text-crown-900"
           >
             Create one
           </button>

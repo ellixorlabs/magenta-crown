@@ -57,29 +57,35 @@ export function HomeProductCarouselSection({
   );
 
   return (
-    <section className="overflow-x-clip bg-white py-10 sm:py-12">
+    <section className="overflow-x-clip bg-mc-cream py-8 sm:py-11">
       <div className="section-shell max-w-full min-w-0">
-        <div className="mb-5 ml-[70px] flex w-[1000px] min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
+        <div className="mb-5 flex min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <h2 className="mt-0 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
+            <h2 className="mt-0 font-mc-heading text-xl font-semibold text-mc-ink sm:text-2xl">
               <Link
                 href={viewAllHref}
-                className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 hover:text-crown-900"
+                className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 transition hover:text-mc-maroon"
               >
                 <span className="min-w-0 break-words">{title}</span>
                 <span
                   aria-hidden
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-mc-ink/15 bg-white text-mc-ink/60"
                 >
                   <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
                 </span>
               </Link>
             </h2>
           </div>
+          <Link
+            href={viewAllHref}
+            className="shrink-0 text-sm font-bold text-mc-accent transition hover:text-mc-maroon sm:hidden"
+          >
+            View All
+          </Link>
         </div>
 
         {products.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
+          <div className="rounded-3xl border border-dashed border-mc-ink/20 bg-mc-creamDeep/80 p-10 text-center text-mc-muted">
             {emptyMessage}
           </div>
         ) : (
@@ -96,7 +102,7 @@ export function HomeProductCarouselSection({
                     aria-label="Previous products"
                     whileTap={{ scale: 0.94 }}
                     onClick={() => scrollByDir(-1)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200/90 bg-white text-zinc-700 shadow-md transition hover:bg-zinc-50 sm:h-12 sm:w-12"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-mc-ink/10 bg-white text-mc-ink shadow-md transition hover:bg-mc-cream sm:h-12 sm:w-12"
                   >
                     <ChevronLeft className="h-6 w-6" strokeWidth={1.75} />
                   </motion.button>
@@ -130,7 +136,7 @@ export function HomeProductCarouselSection({
                     aria-label="Next products"
                     whileTap={{ scale: 0.94 }}
                     onClick={() => scrollByDir(1)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200/90 bg-white text-zinc-700 shadow-md transition hover:bg-zinc-50 sm:h-12 sm:w-12"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-mc-ink/10 bg-white text-mc-ink shadow-md transition hover:bg-mc-cream sm:h-12 sm:w-12"
                   >
                     <ChevronRight className="h-6 w-6" strokeWidth={1.75} />
                   </motion.button>

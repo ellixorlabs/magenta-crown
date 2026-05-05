@@ -65,7 +65,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
   const products = shopProducts.products;
   const { pagination } = shopProducts;
 
-  const shopBg = "bg-white";
+  const shopBg = "bg-mc-cream";
 
   return (
     <ShopFilterSheetProvider
@@ -74,16 +74,14 @@ export default async function ShopPage({ searchParams }: PageProps) {
       enablePriceSlider
       hideOutOfStockToggle
     >
-      <main className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden text-zinc-900 ${shopBg}`}>
-        <div className={`border-b border-zinc-300/35 py-4 ${shopBg}`}>
+      <main className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden text-mc-ink ${shopBg}`}>
+        <div className={`border-b border-mc-ink/10 py-4 ${shopBg}`}>
           <div className="section-shell">
-            <div className="sticky top-[7.5rem] z-20 rounded-2xl border border-zinc-300/60 bg-white p-4 shadow-sm backdrop-blur-[2px] sm:top-[8rem]">
+            <div className="sticky top-[7.5rem] z-20 rounded-2xl border border-mc-ink/10 bg-mc-cream/90 p-4 shadow-sm backdrop-blur-md sm:top-[8rem]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 text-left">
-                  <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Shop</p>
-                  <h1 className="mt-1 font-[family-name:var(--font-heading)] text-2xl font-semibold sm:text-3xl">
-                    All products
-                  </h1>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-mc-gold sm:text-xs">Shop</p>
+                  <h1 className="mt-1 font-mc-heading text-2xl font-semibold text-mc-ink sm:text-3xl">All products</h1>
                 </div>
 
                 <ShopToolbar basePath="/shop" isList={isList} cols={parsed.cols} />
