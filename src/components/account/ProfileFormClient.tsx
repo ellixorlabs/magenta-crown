@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
@@ -50,6 +51,10 @@ export function ProfileFormClient() {
   const [pendingEmail, setPendingEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showSensitivePassword, setShowSensitivePassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [showDeletionPassword, setShowDeletionPassword] = useState(false);
   const [securityBusy, setSecurityBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -541,14 +546,24 @@ export function ProfileFormClient() {
             <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="current-password">
               Current password (for re-authentication)
             </label>
-            <input
-              id="current-password"
-              type="password"
-              autoComplete="current-password"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              value={sensitivePassword}
-              onChange={(e) => setSensitivePassword(e.target.value)}
-            />
+            <div className="relative mt-1">
+              <input
+                id="current-password"
+                type={showSensitivePassword ? "text" : "password"}
+                autoComplete="current-password"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 pr-11 text-sm"
+                value={sensitivePassword}
+                onChange={(e) => setSensitivePassword(e.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={showSensitivePassword ? "Hide current password" : "Show current password"}
+                onClick={() => setShowSensitivePassword((v) => !v)}
+                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+              >
+                {showSensitivePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="new-email">
@@ -578,29 +593,49 @@ export function ProfileFormClient() {
             <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="new-password">
               New password
             </label>
-            <input
-              id="new-password"
-              type="password"
-              minLength={8}
-              autoComplete="new-password"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <div className="relative mt-1">
+              <input
+                id="new-password"
+                type={showNewPassword ? "text" : "password"}
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 pr-11 text-sm"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                onClick={() => setShowNewPassword((v) => !v)}
+                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase text-zinc-500" htmlFor="confirm-new-password">
               Confirm new password
             </label>
-            <input
-              id="confirm-new-password"
-              type="password"
-              minLength={8}
-              autoComplete="new-password"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-            />
+            <div className="relative mt-1">
+              <input
+                id="confirm-new-password"
+                type={showConfirmNewPassword ? "text" : "password"}
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 pr-11 text-sm"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={showConfirmNewPassword ? "Hide confirm new password" : "Show confirm new password"}
+                onClick={() => setShowConfirmNewPassword((v) => !v)}
+                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+              >
+                {showConfirmNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </div>
         <div className="mt-4 flex justify-end">
@@ -657,13 +692,23 @@ export function ProfileFormClient() {
             </p>
             <label className="mt-4 block text-xs font-semibold uppercase text-zinc-500">
               Current password (required)
-              <input
-                type="password"
-                autoComplete="current-password"
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                value={sensitivePassword}
-                onChange={(e) => setSensitivePassword(e.target.value)}
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showDeletionPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 pr-11 text-sm"
+                  value={sensitivePassword}
+                  onChange={(e) => setSensitivePassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label={showDeletionPassword ? "Hide current password" : "Show current password"}
+                  onClick={() => setShowDeletionPassword((v) => !v)}
+                  className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+                >
+                  {showDeletionPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </label>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button

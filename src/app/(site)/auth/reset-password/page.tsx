@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
@@ -12,6 +13,8 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,26 +96,46 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md rounded-2xl border-2 border-zinc-200 bg-white p-8 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.45)] ring-1 ring-zinc-950/5">
         <h1 className="text-center font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-950">Reset password</h1>
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
-            placeholder="New password"
-            autoComplete="new-password"
-          />
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
-            placeholder="Confirm new password"
-            autoComplete="new-password"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              placeholder="New password"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2.5 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {done ? <p className="text-sm text-emerald-700">Password updated successfully. You can now sign in.</p> : null}
           <button

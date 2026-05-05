@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
@@ -30,10 +31,33 @@ function normalizeSupabaseAuthError(err: unknown): string {
   if (lower.includes("rate limit") || lower.includes("too many")) {
     return "Too many attempts. Please wait a minute and try again.";
   }
+  if (lower.includes("failed to fetch") || lower.includes("network")) {
+    return "Network issue while creating account. Please check connection and try again.";
+  }
   if (!raw || raw === "{}" || raw === "[object object]") {
     return "Could not create account right now. Please try again.";
   }
   return raw;
+}
+
+async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const t = window.setTimeout(() => controller.abort(), 5000);
+    const res = await fetch("/api/auth/check-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+      signal: controller.signal
+    });
+    window.clearTimeout(t);
+    if (!res.ok) return false;
+    const data = (await res.json()) as { exists?: boolean };
+    return Boolean(data.exists);
+  } catch {
+    return false;
+  }
 }
 
 function SignUpInner() {
@@ -44,6 +68,8 @@ function SignUpInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -73,6 +99,10 @@ function SignUpInner() {
       const normalizedEmail = email.trim().toLowerCase();
       if (!normalizedEmail) {
         setError("Email is required.");
+        return;
+      }
+      if (await checkEmailExists(normalizedEmail)) {
+        setError("User already exists. Please login.");
         return;
       }
 
@@ -155,27 +185,47 @@ function SignUpInner() {
           </div>
           <div>
             <label className="text-xs font-semibold text-zinc-800">Password</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <div className="relative mt-1">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="text-xs font-semibold text-zinc-800">Confirm password</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <div className="relative mt-1">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                minLength={8}
+                className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
