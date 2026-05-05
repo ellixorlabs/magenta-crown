@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+
+const SIGNUP_PENDING_EMAIL_KEY = "mc_signup_pending_email";
 
 function VerifyEmailInner() {
   const router = useRouter();
@@ -15,12 +17,18 @@ function VerifyEmailInner() {
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = sessionStorage.getItem(SIGNUP_PENDING_EMAIL_KEY)?.trim().toLowerCase() ?? "";
+    if (saved) setResendEmail(saved);
+  }, []);
+
   async function resendConfirmation() {
     setInfo(null);
     setError(null);
     const email = resendEmail.trim().toLowerCase();
     if (!email) {
-      setError("Enter your email to resend verification.");
+      setError("Could not detect signup email. Please return to signup and try again.");
       return;
     }
     setLoading(true);
@@ -34,7 +42,7 @@ function VerifyEmailInner() {
         type: "signup",
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/verification-success")}`
         }
       });
       if (resendError) {
@@ -58,15 +66,9 @@ function VerifyEmailInner() {
         <p className="mt-4 text-center text-sm text-zinc-700">
           Account created successfully. Please verify your email from your inbox, then login.
         </p>
-        <div className="mt-3">
-          <input
-            type="email"
-            placeholder="Enter your email for resend"
-            value={resendEmail}
-            onChange={(e) => setResendEmail(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
-          />
-        </div>
+        <p className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-center text-sm text-zinc-700">
+          {resendEmail ? `Verification email will be resent to ${resendEmail}` : "Preparing your email address..."}
+        </p>
 
         {info ? <p className="mt-3 text-center text-xs text-emerald-700">{info}</p> : null}
         {error ? <p className="mt-3 text-center text-xs text-red-600">{error}</p> : null}

@@ -8,6 +8,8 @@ import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
+const SIGNUP_PENDING_EMAIL_KEY = "mc_signup_pending_email";
+
 function normalizeSupabaseAuthError(err: unknown): string {
   if (!err) return "Could not create account. Please try again.";
   const message =
@@ -101,6 +103,9 @@ function SignUpInner() {
         setError("Email is required.");
         return;
       }
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(SIGNUP_PENDING_EMAIL_KEY, normalizedEmail);
+      }
       if (await checkEmailExists(normalizedEmail)) {
         setError("User already exists. Please login.");
         return;
@@ -111,9 +116,7 @@ function SignUpInner() {
         password,
         options: {
           data: { name: name.trim() },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            callbackUrl
-          )}`
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/verification-success")}`
         }
       });
       if (signUpError) {
@@ -130,6 +133,7 @@ function SignUpInner() {
       // If signup returns a session immediately (email confirmation disabled), sync local profile row now.
       const token = data.session?.access_token;
       if (token) {
+        sessionStorage.removeItem(SIGNUP_PENDING_EMAIL_KEY);
         await fetch("/api/auth/sync-user", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` }

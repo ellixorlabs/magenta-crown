@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthVisualSettingsForm } from "@/components/admin/AuthVisualSettingsForm";
+import { AuthMaintenanceTools } from "@/components/admin/AuthMaintenanceTools";
 import { BrandAssetsSettingsForm } from "@/components/admin/BrandAssetsSettingsForm";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { getBrandSettings } from "@/lib/brand-settings";
@@ -38,6 +39,7 @@ export default async function AdminOthersPage() {
 
       <AuthVisualSettingsForm initialUrl={authVisualImageUrl} initialSizeChartUrl={globalSizeChartImageUrl} />
       <BrandAssetsSettingsForm initial={brandSettings} initialShareTemplate={shareMessageTemplate} />
+      <AuthMaintenanceTools />
     </div>
   );
 }
