@@ -156,6 +156,7 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
   const [past, setPast] = useState<EditSnapshot[]>([]);
   const [future, setFuture] = useState<EditSnapshot[]>([]);
   const [formVersion, setFormVersion] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
   const suppressCaptureRef = useRef(false);
   const captureRafRef = useRef<number | null>(null);
@@ -174,8 +175,13 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
   );
 
   async function saveProduct(formData: FormData) {
-    await updateProduct(formData);
-    router.refresh();
+    setIsSaving(true);
+    try {
+      await updateProduct(formData);
+      router.refresh();
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const scheduleCapture = useCallback(() => {
@@ -349,8 +355,12 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
         <Field label="Fit notes" name="fitNotes" defaultValue={present.fitNotes} />
         <Field label="Care" name="careInstructions" defaultValue={present.careInstructions} />
       </div>
-      <button type="submit" className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white">
-        Save changes
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {isSaving ? "Saving changes..." : "Save changes"}
       </button>
     </form>
   );

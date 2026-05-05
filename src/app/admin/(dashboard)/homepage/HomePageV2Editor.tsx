@@ -40,6 +40,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const [openSectionId, setOpenSectionId] = useState<string | null>(initial.sections[0]?.id ?? null);
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [draggingCircleId, setDraggingCircleId] = useState<string | null>(null);
+  const [uploadingCircleId, setUploadingCircleId] = useState<string | null>(null);
+  const [uploadingPromoSectionId, setUploadingPromoSectionId] = useState<string | null>(null);
 
   const filteredCatalog = useMemo(() => {
     const q = productFilter.trim().toLowerCase();
@@ -243,6 +245,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const uploadPromoImage = useCallback(async (sectionId: string, file: File | null) => {
     if (!file) return;
     setError(null);
+    setUploadingPromoSectionId(sectionId);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -265,8 +268,32 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadingPromoSectionId(null);
     }
   }, [payload, router]);
+
+  const uploadCircleImage = useCallback(async (circleId: string, file: File | null) => {
+    if (!file) return;
+    setError(null);
+    setUploadingCircleId(circleId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("sectionId", `circle-${circleId}`);
+      const res = await fetch("/api/admin/homepage-image", { method: "POST", body: form });
+      const json = (await res.json()) as { url?: string; error?: string };
+      const url = typeof json.url === "string" ? json.url.trim() : "";
+      if (!res.ok || !url) {
+        throw new Error(json.error || "Upload failed.");
+      }
+      patchCircle(circleId, { imageUrl: url });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadingCircleId(null);
+    }
+  }, [patchCircle]);
 
   return (
     <div className="min-w-0 max-w-full space-y-8 overflow-x-hidden">
@@ -384,13 +411,18 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                   />
                 </label>
                 <label className="block text-xs font-semibold text-zinc-600">
-                  Image URL
+                  Circle image
                   <input
-                    type="url"
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                    value={it.imageUrl}
-                    onChange={(e) => patchCircle(it.id, { imageUrl: e.target.value })}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="mt-1 block w-full text-sm"
+                    disabled={uploadingCircleId === it.id}
+                    onChange={(e) => {
+                      void uploadCircleImage(it.id, e.target.files?.[0] ?? null);
+                      e.target.value = "";
+                    }}
                   />
+                  {uploadingCircleId === it.id ? <span className="mt-1 block text-[11px] text-zinc-500">Uploading image...</span> : null}
                 </label>
                 <label className="block text-xs font-semibold text-zinc-600">
                   Redirect type
@@ -532,7 +564,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                 </p>
                 <p className="break-words font-medium text-zinc-900">{section.title}</p>
                 <p className="text-xs text-zinc-500">
-                  {section.type === "promoBanner" ? "Gradient image banner" : `${section.productIds.length} product(s)`}
+                  {section.type === "promoBanner" ? "Image banner" : `${section.productIds.length} product(s)`}
                 </p>
               </button>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-l border-zinc-200 px-3 py-2">
@@ -653,26 +685,6 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                         onChange={(e) => patchSection(section.id, { subtitle: e.target.value })}
                       />
                     </label>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="block text-xs font-semibold text-zinc-600">
-                        Gradient from
-                        <input
-                          type="color"
-                          className="mt-1 h-10 w-full rounded-lg border border-zinc-300 px-1 py-1"
-                          value={section.gradientFrom}
-                          onChange={(e) => patchSection(section.id, { gradientFrom: e.target.value })}
-                        />
-                      </label>
-                      <label className="block text-xs font-semibold text-zinc-600">
-                        Gradient to
-                        <input
-                          type="color"
-                          className="mt-1 h-10 w-full rounded-lg border border-zinc-300 px-1 py-1"
-                          value={section.gradientTo}
-                          onChange={(e) => patchSection(section.id, { gradientTo: e.target.value })}
-                        />
-                      </label>
-                    </div>
                     <label className="block text-xs font-semibold text-zinc-600">
                       Redirect URL
                       <input
@@ -692,22 +704,16 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                         onChange={(e) => void uploadPromoImage(section.id, e.target.files?.[0] ?? null)}
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-zinc-600">
-                      Image URL
-                      <input
-                        type="url"
-                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                        value={section.imageUrl}
-                        onChange={(e) => patchSection(section.id, { imageUrl: e.target.value })}
-                      />
-                    </label>
+                    {uploadingPromoSectionId === section.id ? (
+                      <p className="text-xs text-zinc-500">Uploading banner image...</p>
+                    ) : null}
                     {section.imageUrl ? (
                       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
                         {/* eslint-disable-next-line @next/next/no-img-element -- admin runtime URLs */}
                         <img
                           src={section.imageUrl}
                           alt="Promo banner preview"
-                          className="h-40 w-full rounded-xl object-cover"
+                          className="h-40 w-full rounded-xl object-contain object-center"
                         />
                       </div>
                     ) : null}

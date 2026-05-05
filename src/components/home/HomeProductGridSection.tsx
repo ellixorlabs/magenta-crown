@@ -8,7 +8,6 @@ import { getProductTotalStock } from "@/lib/variant-stock";
 type HomeProductRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
 
 type Props = {
-  eyebrow: string;
   title: string;
   products: HomeProductRow[];
   wishlistIds: Set<string>;
@@ -17,7 +16,6 @@ type Props = {
 };
 
 export function HomeProductGridSection({
-  eyebrow,
   title,
   products,
   wishlistIds,
@@ -28,9 +26,6 @@ export function HomeProductGridSection({
     <section className="section-shell max-w-full min-w-0 py-10 sm:py-12">
       <div className="mb-5 flex min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <p className="text-xs uppercase leading-relaxed tracking-[0.28em] text-zinc-500 sm:tracking-[0.35em]">
-            {eyebrow}
-          </p>
           <h2 className="mt-0 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
             <Link
               href={viewAllHref}

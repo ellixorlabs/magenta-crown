@@ -5,7 +5,7 @@ import { HomeCategoryCirclesSection } from "@/components/home/HomeCategoryCircle
 import { HomeHeroReadyBridge } from "@/components/home/HomeHeroReadyBridge";
 import { HomeProductCarouselSection } from "@/components/home/HomeProductCarouselSection";
 import { HomeProductGridSection } from "@/components/home/HomeProductGridSection";
-import { HomePromoBannerSection } from "@/components/home/HomePromoBannerSection";
+import { HomePromoBannerCarouselSection } from "@/components/home/HomePromoBannerCarouselSection";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { ProductRow } from "@/lib/db/app-types";
 import type { HeroTransitionId } from "@/lib/hero-transition";
@@ -41,6 +41,8 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
   const sortedSections = [...payload.sections]
     .filter((s) => s.enabled)
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  const promoSections = sortedSections.filter((s) => s.type === "promoBanner");
+  const firstPromoIndex = sortedSections.findIndex((s) => s.type === "promoBanner");
 
   return (
     <main className="bg-transparent">
@@ -57,17 +59,19 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
         </SectionReveal>
       ) : null}
 
-      {sortedSections.map((section: DynamicHomeSection) => {
+      {sortedSections.map((section: DynamicHomeSection, index) => {
         if (section.type === "promoBanner") {
+          if (index !== firstPromoIndex) return null;
           return (
             <SectionReveal key={section.id} transition={section.transition}>
-              <HomePromoBannerSection
-                title={section.title}
-                subtitle={section.subtitle}
-                imageUrl={section.imageUrl}
-                targetHref={section.targetHref}
-                gradientFrom={section.gradientFrom}
-                gradientTo={section.gradientTo}
+              <HomePromoBannerCarouselSection
+                banners={promoSections.map((promo) => ({
+                  id: promo.id,
+                  title: promo.title,
+                  subtitle: promo.subtitle,
+                  imageUrl: promo.imageUrl,
+                  targetHref: promo.targetHref
+                }))}
               />
             </SectionReveal>
           );
@@ -86,9 +90,6 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
               <section className="overflow-x-clip bg-[#faf7f8] py-10 sm:py-12">
                 <div className="section-shell max-w-full min-w-0">
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs uppercase leading-relaxed tracking-[0.28em] text-zinc-500 sm:tracking-[0.35em]">
-                      {section.eyebrow}
-                    </p>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
                     <Link href={viewAll} className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 hover:text-crown-900">
                       <span className="min-w-0 break-words">{section.title}</span>
@@ -114,7 +115,6 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
           return (
             <SectionReveal key={section.id} transition={section.transition}>
               <HomeProductGridSection
-                eyebrow={section.eyebrow}
                 title={section.title}
                 products={products}
                 wishlistIds={wishlistIds}
@@ -128,7 +128,6 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
         return (
           <SectionReveal key={section.id} transition={section.transition}>
             <HomeProductCarouselSection
-              eyebrow={section.eyebrow}
               title={section.title}
               products={products}
               wishlistIds={wishlistIds}

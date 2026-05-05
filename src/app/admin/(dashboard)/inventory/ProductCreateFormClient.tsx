@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { createProduct } from "./actions";
+import { createProductAction } from "./actions";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
 import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
@@ -65,6 +67,17 @@ export function ProductCreateFormClient({
   materialOptions: string[];
   tagOptions: string[];
 }) {
+  const router = useRouter();
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [state, formAction] = useActionState(createProductAction, null);
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push("/admin/inventory?created=1");
+      router.refresh();
+    }
+  }, [router, state]);
+
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -80,7 +93,26 @@ export function ProductCreateFormClient({
         </Link>
       </div>
 
-      <form action={createProduct} className="mt-6 grid gap-3 sm:grid-cols-2">
+      <form
+        action={formAction}
+        onSubmit={(e) => {
+          const form = e.currentTarget;
+          const name = String(new FormData(form).get("name") ?? "").trim();
+          const mrp = Number(new FormData(form).get("mrp") ?? 0);
+          if (!name) {
+            e.preventDefault();
+            setClientError("Product name is required.");
+            return;
+          }
+          if (!Number.isFinite(mrp) || mrp <= 0) {
+            e.preventDefault();
+            setClientError("Price must be greater than 0.");
+            return;
+          }
+          setClientError(null);
+        }}
+        className="mt-6 grid gap-3 sm:grid-cols-2"
+      >
         <AdminProductImageFields
           defaultUrlsText=""
           defaultVideoUrlsText=""
@@ -166,6 +198,10 @@ export function ProductCreateFormClient({
         <Field label="Care instructions" name="careInstructions" />
         <div className="sm:col-span-2">
           <SubmitButton />
+          {clientError ? <p className="mt-2 text-sm text-red-600">{clientError}</p> : null}
+          {!state?.success && state?.message ? (
+            <p className="mt-2 text-sm text-red-600">{state.message}</p>
+          ) : null}
         </div>
       </form>
     </div>

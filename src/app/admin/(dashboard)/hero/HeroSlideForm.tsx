@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { ImageFocusPicker } from "@/components/admin/ImageFocusPicker";
 import { deleteHeroSlide, saveHeroSlide } from "./actions";
 
@@ -21,6 +22,15 @@ type Props = {
   slide?: HeroSlide;
   defaultSortOrder?: number;
 };
+
+function SlideSubmitButton({ isEdit }: { isEdit: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-60">
+      {pending ? "Saving..." : isEdit ? "Save slide" : "Create slide"}
+    </button>
+  );
+}
 
 export function HeroSlideForm({ slide, defaultSortOrder = 0 }: Props) {
   const router = useRouter();
@@ -174,9 +184,7 @@ export function HeroSlideForm({ slide, defaultSortOrder = 0 }: Props) {
             <input name="sub2" defaultValue={slide?.sub2 ?? ""} className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm" />
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
-            <button type="submit" className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-white">
-              {slide ? "Save slide" : "Create slide"}
-            </button>
+            <SlideSubmitButton isEdit={Boolean(slide)} />
           </div>
         </form>
 

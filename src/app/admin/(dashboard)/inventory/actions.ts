@@ -125,42 +125,121 @@ function productCommerceFields(formData: FormData) {
   return { prepaidOfferText, pricingFootnote, codEnabled: true };
 }
 
-export async function createProduct(formData: FormData) {
+type CreateProductResult = { success: true; productId: string; slug: string } | { success: false; message: string };
+
+type ProductInsertPayload = {
+  slug: string;
+  name: string;
+  description: string;
+  story: string | null;
+  mrp: number;
+  discountedPrice: number | null;
+  category: string;
+  tags: string[];
+  newTagExpiresAt: string | null;
+  material: string | null;
+  occasion: string | null;
+  style: string | null;
+  fitNotes: string | null;
+  careInstructions: string | null;
+  imageUrls: string[];
+  listImageIndex: number;
+  listImagePosition: string;
+  videoUrls: string[];
+  prepaidOfferText: string | null;
+  pricingFootnote: string | null;
+  codEnabled: boolean;
+};
+
+function validateProductPayload(payload: ProductInsertPayload): string | null {
+  if (!payload.name.trim()) return "Product name is required.";
+  if (!payload.slug.trim()) return "Product slug is required.";
+  if (!payload.description.trim()) return "Product description is required.";
+  if (!Number.isFinite(payload.mrp) || payload.mrp <= 0) return "Price must be greater than 0.";
+  if (
+    payload.discountedPrice != null &&
+    (!Number.isFinite(payload.discountedPrice) || payload.discountedPrice <= 0)
+  ) {
+    return "Sale price must be greater than 0.";
+  }
+  return null;
+}
+
+async function createProductRecord(payload: ProductInsertPayload): Promise<CreateProductResult> {
+  const validationError = validateProductPayload(payload);
+  if (validationError) {
+    return { success: false, message: validationError };
+  }
+  const supabase = getSupabaseServiceRoleClient();
+  try {
+    console.info("Product create attempt", {
+      slug: payload.slug,
+      hasImages: payload.imageUrls.length > 0
+    });
+    const inserted = await (supabase.from("Product") as any)
+      .insert(payload)
+      .select("id,slug")
+      .single();
+    if (inserted.error || !inserted.data?.id) {
+      const maybePolicyError = inserted.error?.code === "42501" || /row-level security|permission denied/i.test(inserted.error?.message ?? "");
+      console.error("Product Insert Error:", {
+        message: inserted.error?.message ?? "Unknown insert failure",
+        code: inserted.error?.code ?? null,
+        details: inserted.error?.details ?? null,
+        hint: inserted.error?.hint ?? null
+      });
+      if (maybePolicyError) {
+        return {
+          success: false,
+          message: "Insert was blocked by database policy (RLS). Please add an authenticated INSERT policy for Product."
+        };
+      }
+      return { success: false, message: "Unable to create product right now. Please try again." };
+    }
+    return { success: true, productId: inserted.data.id, slug: inserted.data.slug };
+  } catch (error) {
+    console.error("Product Insert Error:", error);
+    return { success: false, message: "Unable to create product right now. Please try again." };
+  }
+}
+
+export async function createProduct(formData: FormData): Promise<CreateProductResult> {
   const session = await requireStaff("/admin/inventory");
   if (!isAdminRole(session.user.role)) {
-    throw new Error("Only admins can create products");
+    return { success: false, message: "Only admins can create products." };
   }
+  try {
+    const name = String(formData.get("name") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
+    if (!name || !description) {
+      return { success: false, message: "Name and description are required." };
+    }
 
-  const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  if (!name || !description) throw new Error("Name and description required");
+    const slugRaw = String(formData.get("slug") ?? "").trim();
+    const mrpRaw = formData.get("mrp") ?? formData.get("price");
+    const mrp = Number(mrpRaw);
+    const discountedPrice = formData.get("discountedPrice")
+      ? Number(formData.get("discountedPrice"))
+      : null;
+    const variantRows = ensureVariantRows(parseVariantRowsFromForm(formData));
+    const imageUrls = parseList(String(formData.get("imageUrls") ?? "")).map(normalizeAdminImageUrl);
+    let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
+    if (imageUrls.length > 0) {
+      listImageIndex = Math.min(listImageIndex, imageUrls.length - 1);
+    } else {
+      listImageIndex = 0;
+    }
+    const listImagePosition =
+      String(formData.get("listImagePosition") ?? "center").trim() || "center";
 
-  const slugRaw = String(formData.get("slug") ?? "").trim();
-  const mrp = Number(formData.get("mrp"));
-  const discountedPrice = formData.get("discountedPrice")
-    ? Number(formData.get("discountedPrice"))
-    : null;
-  const variantRows = ensureVariantRows(parseVariantRowsFromForm(formData));
-  const imageUrls = parseList(String(formData.get("imageUrls") ?? "")).map(normalizeAdminImageUrl);
-  let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
-  if (imageUrls.length > 0) {
-    listImageIndex = Math.min(listImageIndex, imageUrls.length - 1);
-  } else {
-    listImageIndex = 0;
-  }
-  const listImagePosition =
-    String(formData.get("listImagePosition") ?? "center").trim() || "center";
+    const commerce = productCommerceFields(formData);
+    const featuredIds = parseFeaturedCouponIds(formData);
+    const tags = parseList(String(formData.get("tags") ?? ""));
+    const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
 
-  const commerce = productCommerceFields(formData);
-  const featuredIds = parseFeaturedCouponIds(formData);
-  const tags = parseList(String(formData.get("tags") ?? ""));
-  const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
-
-  const supabase = getSupabaseServiceRoleClient();
-  const slug = await buildUniqueProductSlug(supabase, slugRaw || name);
-  const createProductResult = await (supabase
-    .from("Product") as any)
-    .insert({
+    const supabase = getSupabaseServiceRoleClient();
+    const slug = await buildUniqueProductSlug(supabase, slugRaw || name);
+    const createResult = await createProductRecord({
       slug,
       name,
       description,
@@ -180,53 +259,63 @@ export async function createProduct(formData: FormData) {
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
       ...commerce
-    })
-    .select("id,slug")
-    .single();
-  if (createProductResult.error) {
-    throw new Error(createProductResult.error.message);
-  }
-  const created = createProductResult.data;
+    });
+    if (!createResult.success) {
+      return createResult;
+    }
 
-  const variantInsert = await (supabase.from("ProductVariant") as any).insert(
-    variantRows.map((r) => ({
-      id: randomId(),
-      productId: created.id,
-      size: r.size,
-      color: r.color,
-      stock: r.stock,
-      isActive: r.isActive
-    }))
-  );
-  if (variantInsert.error) {
-    // Temporary non-atomic flow: clean up product if variants fail.
-    await supabase.from("Product").delete().eq("id", created.id);
-    throw new Error(`Failed to save variants: ${variantInsert.error.message}`);
-  }
+    const variantInsert = await (supabase.from("ProductVariant") as any).insert(
+      variantRows.map((r) => ({
+        id: randomId(),
+        productId: createResult.productId,
+        size: r.size,
+        color: r.color,
+        stock: r.stock,
+        isActive: r.isActive
+      }))
+    );
+    if (variantInsert.error) {
+      // Temporary non-atomic flow: clean up product if variants fail.
+      await supabase.from("Product").delete().eq("id", createResult.productId);
+      console.error("Product variants insert failed:", variantInsert.error);
+      return { success: false, message: "Product details saved failed due to variants. Please retry." };
+    }
 
-  if (featuredIds.length > 0) {
-    const valid = await supabase.from("Coupon").select("id").in("id", featuredIds);
-    const ok = new Set((((valid.data ?? []) as Array<{ id: string }>)).map((v) => v.id));
-    const rows = featuredIds.filter((id) => ok.has(id)).map((couponId) => ({ productId: created.id, couponId }));
-    if (rows.length > 0) {
-      const couponsInsert = await (supabase
-        .from("ProductFeaturedCoupon") as any)
-        .upsert(rows, { onConflict: "productId,couponId" });
-      if (couponsInsert.error) {
-        throw new Error(couponsInsert.error.message);
+    if (featuredIds.length > 0) {
+      const valid = await supabase.from("Coupon").select("id").in("id", featuredIds);
+      const ok = new Set((((valid.data ?? []) as Array<{ id: string }>)).map((v) => v.id));
+      const rows = featuredIds.filter((id) => ok.has(id)).map((couponId) => ({ productId: createResult.productId, couponId }));
+      if (rows.length > 0) {
+        const couponsInsert = await (supabase
+          .from("ProductFeaturedCoupon") as any)
+          .upsert(rows, { onConflict: "productId,couponId" });
+        if (couponsInsert.error) {
+          console.error("Product featured coupons insert failed:", couponsInsert.error);
+          return { success: false, message: "Product created, but failed to attach coupons." };
+        }
       }
     }
-  }
 
-  revalidatePath("/", "layout");
-  revalidatePath("/");
-  revalidatePath("/shop");
-  revalidatePath("/admin/inventory");
-  revalidatePath(`/product/${created.slug}`);
-  // Public caches: homepage + product lists.
-  clearCacheByPrefix("products");
-  clearCacheByPrefix("homepage");
-  redirect("/admin/inventory");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    revalidatePath("/shop");
+    revalidatePath("/admin/inventory");
+    revalidatePath(`/product/${createResult.slug}`);
+    // Public caches: homepage + product lists.
+    clearCacheByPrefix("products");
+    clearCacheByPrefix("homepage");
+    return createResult;
+  } catch (error) {
+    console.error("Product create failed:", error);
+    return { success: false, message: "Unable to create product right now. Please retry." };
+  }
+}
+
+export async function createProductAction(
+  _prevState: CreateProductResult | null,
+  formData: FormData
+): Promise<CreateProductResult> {
+  return createProduct(formData);
 }
 
 export async function updateProduct(formData: FormData) {
