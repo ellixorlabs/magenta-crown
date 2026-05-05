@@ -95,7 +95,6 @@ function SignUpInner() {
               callbackUrl
             )}`
           }
-        }
         }),
         18_000
       );
