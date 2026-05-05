@@ -391,6 +391,10 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
       )}
 
       <div className="flex flex-col gap-3">
+        {canBuy && available > 0 ? (
+          <p className="text-sm text-zinc-500">{`${remaining} left for this option`}</p>
+        ) : null}
+
         {inBag === 0 ? (
           <button
             type="button"
@@ -434,10 +438,6 @@ export function AddToCartSection({ product, reviewAvg, reviewCount }: Props) {
             </button>
           </div>
         )}
-
-        {canBuy && available > 0 ? (
-          <p className="text-sm text-zinc-500">{`${remaining} left for this option`}</p>
-        ) : null}
 
         <button
           type="button"
