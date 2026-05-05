@@ -1,7 +1,24 @@
 import path from "path";
 import type { NextConfig } from "next";
+import withPWAInit from "@ducanh2912/next-pwa";
 
-const nextConfig: NextConfig = {
+const withPWA = withPWAInit({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  reloadOnOnline: true,
+  cacheOnFrontEndNav: true,
+  fallbacks: {
+    document: "/offline"
+  },
+  workboxOptions: {
+    disableDevLogs: true,
+    skipWaiting: true,
+    clientsClaim: true
+  }
+});
+
+const nextConfig = {
   // Avoid resolving deps from a parent folder when multiple lockfiles exist (can cause duplicate React → invalid hook call).
   outputFileTracingRoot: path.join(__dirname),
   /**
@@ -89,6 +106,6 @@ const nextConfig: NextConfig = {
       }
     ]
   }
-};
+} satisfies NextConfig;
 
-export default nextConfig;
+export default withPWA(nextConfig);

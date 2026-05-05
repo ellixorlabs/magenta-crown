@@ -27,6 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const icon = brand.faviconUrl || "/icon.png";
   return {
     metadataBase: new URL(getCanonicalSiteUrl()),
+    applicationName: "Magenta Crown",
+    manifest: "/manifest.json",
     title: {
       default: "Magenta Crown — Luxury women's boutique",
       template: "%s | Magenta Crown"
@@ -39,9 +41,18 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "Magenta Crown"
     },
     twitter: { card: "summary_large_image" },
+    appleWebApp: {
+      capable: true,
+      title: "Magenta Crown",
+      statusBarStyle: "black-translucent"
+    },
     icons: {
-      icon: [{ url: icon }],
-      apple: [{ url: icon }]
+      icon: [
+        { url: icon },
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+      ],
+      apple: [{ url: "/icon-192.png", type: "image/png" }]
     },
     robots: { index: true, follow: true }
   };
@@ -52,7 +63,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  interactiveWidget: "resizes-content"
+  interactiveWidget: "resizes-content",
+  themeColor: "#000000"
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -7,6 +7,7 @@ import { WishlistProvider } from "@/context/WishlistContext";
 import { CookieConsentProvider } from "@/context/CookieConsentContext";
 import { ShopProvider } from "@/context/ShopContext";
 import { HeroReadyProvider } from "@/context/HeroReadyContext";
+import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 
 export function Providers({ children, loaderLogoSrc }: { children: ReactNode; loaderLogoSrc?: string }) {
   return (
@@ -18,6 +19,7 @@ export function Providers({ children, loaderLogoSrc }: { children: ReactNode; lo
               <HeroReadyProvider loaderLogoSrc={loaderLogoSrc}>
                 {children}
               </HeroReadyProvider>
+              <PwaInstallPrompt />
             </CookieConsentProvider>
           </ShopProvider>
         </CartProvider>

@@ -7,3 +7,12 @@ node_modules
 .env
 .env.local
 .env.*
+
+# PWA / Workbox build artifacts (@ducanh2912/next-pwa)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
+public/fallback-*.js
+public/swe-worker-*.js
