@@ -36,15 +36,6 @@ function normalizeSupabaseAuthError(err: unknown): string {
   return raw;
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return await Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      window.setTimeout(() => reject(new Error("SIGNUP_TIMEOUT")), timeoutMs);
-    })
-  ]);
-}
-
 function SignUpInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,21 +76,24 @@ function SignUpInner() {
         return;
       }
 
-      const { data, error: signUpError } = await withTimeout(
-        supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-          options: {
-            data: { name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-              callbackUrl
-            )}`
-          }
-        }),
-        18_000
-      );
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: { name: name.trim() },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+            callbackUrl
+          )}`
+        }
+      });
       if (signUpError) {
         setError(normalizeSupabaseAuthError(signUpError));
+        return;
+      }
+
+      const identities = data.user?.identities;
+      if (Array.isArray(identities) && identities.length === 0) {
+        setError("User already exists. Please login.");
         return;
       }
 
@@ -123,11 +117,7 @@ function SignUpInner() {
       router.push(`/auth/verify-email?callbackUrl=${encodeURIComponent(callbackUrl)}`);
       return;
     } catch (err) {
-      if (err instanceof Error && err.message === "SIGNUP_TIMEOUT") {
-        setError("Signup is taking too long. Please check your network and try again.");
-      } else {
-        setError(normalizeSupabaseAuthError(err));
-      }
+      setError(normalizeSupabaseAuthError(err));
     } finally {
       setLoading(false);
     }
