@@ -9,7 +9,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "echo 'lint disabled'",
-    "vercel-build": "next build"
   },
   "keywords": [
     "nextjs",

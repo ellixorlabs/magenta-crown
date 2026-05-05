@@ -1,9 +1,0 @@
-{
-  "buildCommand": "npm run vercel-build",
-  "crons": [
-    {
-      "path": "/api/cron/cleanup-unverified-users",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
