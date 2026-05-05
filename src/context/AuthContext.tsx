@@ -64,14 +64,19 @@ function AuthContextInner({ children }: { children: ReactNode }) {
   }, []);
 
   const syncServerCookie = useCallback(async (accessToken: string | null) => {
-    if (!accessToken) {
-      await fetch("/api/auth/session", { method: "DELETE" });
-      return;
+    try {
+      if (!accessToken) {
+        await fetch("/api/auth/session", { method: "DELETE", keepalive: true });
+        return;
+      }
+      await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        keepalive: true
+      });
+    } catch {
+      // Avoid surfacing network/transient fetch failures from auth state listeners.
     }
-    await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
   }, []);
 
   useEffect(() => {

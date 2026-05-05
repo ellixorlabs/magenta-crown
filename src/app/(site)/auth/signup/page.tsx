@@ -28,10 +28,7 @@ function normalizeSupabaseAuthError(err: unknown): string {
     lower.includes("user already") ||
     lower.includes("email already")
   ) {
-    return "User already exists. Please login.";
-  }
-  if (lower.includes("rate limit") || lower.includes("too many")) {
-    return "Too many attempts. Please wait a minute and try again.";
+    return "Account already exists. Use a different email or use Forgot password.";
   }
   if (lower.includes("failed to fetch") || lower.includes("network")) {
     return "Network issue while creating account. Please check connection and try again.";
@@ -107,7 +104,7 @@ function SignUpInner() {
         sessionStorage.setItem(SIGNUP_PENDING_EMAIL_KEY, normalizedEmail);
       }
       if (await checkEmailExists(normalizedEmail)) {
-        setError("User already exists. Please login.");
+        setError("Account already exists. Use a different email or use Forgot password.");
         return;
       }
 
@@ -126,7 +123,7 @@ function SignUpInner() {
 
       const identities = data.user?.identities;
       if (Array.isArray(identities) && identities.length === 0) {
-        setError("User already exists. Please login.");
+        setError("Account already exists. Use a different email or use Forgot password.");
         return;
       }
 

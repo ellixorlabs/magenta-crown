@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
         return;
       }
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+        redirectTo: `${window.location.origin}/auth/create-new-password`
       });
       if (resetError) {
         setError(resetError.message || "Could not send reset link.");

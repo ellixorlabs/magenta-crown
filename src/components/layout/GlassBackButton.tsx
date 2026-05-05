@@ -10,6 +10,22 @@ export function GlassBackButton() {
   if (pathname === "/") return null;
   if (pathname?.startsWith("/auth")) return null;
   if (pathname?.startsWith("/admin")) return null;
+  if (pathname === "/404" || pathname?.startsWith("/_not-found")) return null;
+
+  // Hide on unknown paths (e.g. 404 fallthrough routes).
+  const firstSegment = pathname?.split("/").filter(Boolean)[0] ?? "";
+  const allowedSegments = new Set([
+    "about",
+    "account",
+    "cart",
+    "categories",
+    "checkout",
+    "legal",
+    "product",
+    "shop",
+    "support"
+  ]);
+  if (!allowedSegments.has(firstSegment)) return null;
 
   return (
     <button

@@ -18,6 +18,9 @@ function Inner() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailChecked, setEmailChecked] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
   const [magicMessage, setMagicMessage] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -50,8 +53,49 @@ function Inner() {
     };
   }, [callbackUrl]);
 
+  async function checkEmailExists(normalizedEmail: string) {
+    try {
+      const res = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ email: normalizedEmail })
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { exists?: boolean };
+      return Boolean(data.exists);
+    } catch {
+      return false;
+    }
+  }
+
+  async function continueWithEmail() {
+    setError(null);
+    setMagicMessage(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError("Enter your email first.");
+      return;
+    }
+    setCheckingEmail(true);
+    try {
+      const exists = await checkEmailExists(normalizedEmail);
+      setEmailChecked(true);
+      setEmailExists(exists);
+      if (!exists) {
+        setError("Account does not exist. Please sign up.");
+      }
+    } finally {
+      setCheckingEmail(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!emailChecked || !emailExists) {
+      await continueWithEmail();
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -65,7 +109,7 @@ function Inner() {
         password
       });
       if (signInError) {
-        setError(signInError.message || "Invalid email or password.");
+        setError("Invalid email or password.");
         return;
       }
 
@@ -97,6 +141,10 @@ function Inner() {
       setError("Enter your email first to get a magic link.");
       return;
     }
+    if (!emailChecked || !emailExists) {
+      await continueWithEmail();
+      return;
+    }
     setMagicLoading(true);
     try {
       const supabase = await getSupabaseClientOrNull();
@@ -112,7 +160,7 @@ function Inner() {
         }
       });
       if (otpError) {
-        setError(otpError.message || "Could not send magic link.");
+        setError("Could not send magic link. Please try again.");
         return;
       }
       setMagicMessage("Magic link sent. Check your email and open the secure sign-in link.");
@@ -150,53 +198,77 @@ function Inner() {
               placeholder="example@email.com"
               className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailChecked(false);
+                setEmailExists(false);
+                setPassword("");
+                setMagicMessage(null);
+                setError(null);
+              }}
               autoComplete="email"
             />
           </div>
-          <div>
-            <label className="text-xs font-semibold text-zinc-800">Password</label>
-            <div className="relative mt-1">
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="-mt-2 text-right">
-            <Link href="/auth/forgot-password" className="text-xs font-semibold text-crown-800 underline underline-offset-2">
-              Forgot password?
-            </Link>
-          </div>
+          {emailChecked && emailExists ? (
+            <>
+              <div>
+                <label className="text-xs font-semibold text-zinc-800">Password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 pr-11 text-base text-zinc-950 placeholder:text-zinc-400 sm:text-sm"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="-mt-2 text-right">
+                <Link href="/auth/forgot-password" className="text-xs font-semibold text-crown-800 underline underline-offset-2">
+                  Forgot password?
+                </Link>
+              </div>
+            </>
+          ) : null}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {magicMessage && <p className="text-sm text-emerald-700">{magicMessage}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void sendMagicLink()}
-            disabled={magicLoading}
-            className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
-          >
-            {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
-          </button>
+          {!emailChecked || !emailExists ? (
+            <button
+              type="button"
+              onClick={() => void continueWithEmail()}
+              disabled={checkingEmail}
+              className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {checkingEmail ? "Checking..." : "Continue"}
+            </button>
+          ) : (
+            <>
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-1.5 w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {loading ? "Signing in…" : "Sign in with password"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void sendMagicLink()}
+                disabled={magicLoading}
+                className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
+              </button>
+            </>
+          )}
         </form>
 
         <div className="my-3 flex items-center gap-3">
