@@ -54,11 +54,11 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
   const { lines: addrLines, pairs: addrPairs } = formatAddress(order.shippingAddress);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Order</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          <h2 className="mt-1 break-all text-xl font-semibold tracking-tight text-zinc-900">
             {order.publicOrderRef ? (
               <span className="font-mono">{order.publicOrderRef}</span>
             ) : (
@@ -84,13 +84,13 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-zinc-500">Placed at</dt>
-              <dd className="text-right font-medium text-zinc-900">
+                <dd className="break-all text-right font-medium text-zinc-900">
                 {new Date(order.createdAt).toLocaleString()}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-zinc-500">Payment</dt>
-              <dd className="text-right text-zinc-800">{order.paymentMethod ?? "—"}</dd>
+                <dd className="break-all text-right text-zinc-800">{order.paymentMethod ?? "—"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-zinc-500">Subtotal</dt>

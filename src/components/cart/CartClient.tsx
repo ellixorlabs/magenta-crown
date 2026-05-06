@@ -35,8 +35,8 @@ export function CartClient({ upsells }: Props) {
   const recommendRows = similar.length > 0 ? similar : upsells;
 
   return (
-    <main className="min-h-screen bg-[#f8f5f6] py-10">
-      <div className="section-shell">
+    <main className="min-h-screen overflow-x-hidden bg-[#f8f5f6] py-10">
+      <div className="section-shell overflow-x-hidden">
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">Your bag</h1>
 
         {items.length === 0 ? (
@@ -57,7 +57,7 @@ export function CartClient({ upsells }: Props) {
                 const img = line.imageUrl ?? "/branding/mc-loader-logo.png";
                 const productHref = line.slug ? `/product/${line.slug}` : null;
                 return (
-                  <li key={line.lineKey} className="flex gap-4 rounded-2xl border border-zinc-200 bg-white p-4">
+                  <li key={line.lineKey} className="flex flex-wrap gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:flex-nowrap">
                     {productHref ? (
                       <Link href={productHref} className="relative h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                         <Image
@@ -118,7 +118,7 @@ export function CartClient({ upsells }: Props) {
                         </button>
                       </div>
                     </div>
-                    <div className="text-right text-sm font-semibold text-zinc-900">
+                    <div className="ml-auto text-right text-sm font-semibold text-zinc-900 sm:ml-0">
                       Rs {(line.price * line.quantity).toFixed(0)}
                     </div>
                   </li>

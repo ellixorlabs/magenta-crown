@@ -555,8 +555,8 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
           : "Proceed to payment";
 
   return (
-    <main className="min-h-screen bg-[#f8f5f6] py-10">
-      <div className="section-shell max-w-6xl">
+    <main className="min-h-screen overflow-x-hidden bg-[#f8f5f6] py-10">
+      <div className="section-shell max-w-6xl overflow-x-hidden">
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl">
           Checkout
         </h1>
@@ -585,7 +585,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                   <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Order items</h2>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                  <table className="w-full min-w-[520px] border-collapse text-left text-sm sm:min-w-[640px]">
                     <thead>
                       <tr className="border-b border-zinc-200 bg-white">
                         <th className="px-4 py-3 font-semibold text-zinc-600">Item</th>
@@ -608,9 +608,9 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                         const productHref = line.slug ? `/product/${line.slug}` : null;
                         return (
                           <tr key={line.lineKey} className="border-b border-zinc-100 last:border-b-0">
-                            <td className="align-top min-w-0 max-w-[min(100%,36rem)] px-4 py-5">
-                              <div className="flex w-full min-w-0 gap-5">
-                                <div className="relative h-32 w-28 shrink-0 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50">
+                            <td className="align-top min-w-0 max-w-[min(100%,36rem)] px-3 py-4 sm:px-4 sm:py-5">
+                              <div className="flex w-full min-w-0 gap-3 sm:gap-5">
+                                <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50 sm:h-32 sm:w-28">
                                   <Image
                                     src={img}
                                     alt={line.name}
@@ -621,7 +621,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
                                   />
                                 </div>
                                 <div className="min-w-0 flex-1 space-y-2 py-0.5">
-                                  <p className="text-lg font-bold leading-snug tracking-tight text-zinc-950 sm:text-xl md:text-2xl">
+                                  <p className="text-base font-bold leading-snug tracking-tight text-zinc-950 sm:text-xl md:text-2xl">
                                     {line.name}
                                   </p>
                                   {(line.size || line.color) && (

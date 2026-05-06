@@ -20,6 +20,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
 
   const [surfaceReady] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -38,13 +39,22 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
 
   const showHeroOverlay = surfaceReady && pathname === "/" && !heroReady;
 
+  useEffect(() => {
+    if (showHeroOverlay) {
+      setShowOverlay(true);
+      return;
+    }
+    const t = window.setTimeout(() => setShowOverlay(false), 220);
+    return () => window.clearTimeout(t);
+  }, [showHeroOverlay]);
+
   /** Never trap the shell if hero signals stall (mirrors provider fallback, belt-and-suspenders). */
   useEffect(() => {
     if (!showHeroOverlay) return;
     const safety = window.setTimeout(() => {
       markHeroReady();
       clearLoaderChromeFromDocument();
-    }, 5200);
+    }, 1800);
     return () => window.clearTimeout(safety);
   }, [showHeroOverlay, markHeroReady]);
 
@@ -66,7 +76,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
     return;
   }, [showHeroOverlay]);
 
-  const screenBox = useMcLoaderFixedBox(showHeroOverlay);
+  const screenBox = useMcLoaderFixedBox(showOverlay);
 
   useLayoutEffect(() => {
     removeBootScrim();
@@ -78,10 +88,12 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
     };
   }, []);
 
-  const portalNode = showHeroOverlay ? (
+  const portalNode = showOverlay ? (
     <div
       key="hero-shell"
-      className="pointer-events-none flex flex-col items-center justify-center px-6"
+      className={`pointer-events-none flex flex-col items-center justify-center px-6 transition-opacity duration-200 ${
+        showHeroOverlay ? "opacity-100" : "opacity-0"
+      }`}
       style={{
         ...screenBox,
         backgroundColor: MC_LOADER_MAROON

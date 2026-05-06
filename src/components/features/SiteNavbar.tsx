@@ -568,13 +568,13 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
             </Link>
 
             <nav
-              className="absolute left-1/2 top-1/2 z-[10] hidden w-full max-w-[min(920px,calc(100vw-17rem))] -translate-x-1/2 -translate-y-1/2 flex-nowrap items-center justify-center gap-x-3 overflow-visible lg:flex xl:gap-x-5"
+              className="absolute left-1/2 top-1/2 z-[10] hidden w-full max-w-[min(860px,calc(100vw-22rem))] -translate-x-1/2 -translate-y-1/2 flex-nowrap items-center justify-center gap-x-3 overflow-visible lg:flex xl:gap-x-5"
               onMouseEnter={clearMegaCloseTimer}
               onMouseLeave={scheduleMegaClose}
               aria-label="Primary"
             >
               {searchOpen ? (
-                <div className="flex w-full max-w-[min(920px,calc(100vw-17rem))] items-center gap-2">
+                <div className="flex w-full max-w-[min(860px,calc(100vw-22rem))] items-center gap-2">
                   <input
                     autoFocus
                     type="search"

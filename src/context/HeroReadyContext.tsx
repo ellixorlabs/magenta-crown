@@ -14,7 +14,7 @@ const HeroReadyContext = createContext<HeroReadyContextValue | null>(null);
 
 /** If hero images stall (slow mobile/LAN, failed load, missing onLoad), never block the shell forever. */
 /** If hero never signals ready (blocked assets, tunnel misconfig), unblock the shell quickly. */
-const HERO_READY_FALLBACK_MS = 2800;
+const HERO_READY_FALLBACK_MS = 1400;
 
 export function HeroReadyProvider({ children, loaderLogoSrc }: { children: ReactNode; loaderLogoSrc?: string }) {
   const pathname = usePathname();

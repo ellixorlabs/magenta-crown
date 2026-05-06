@@ -7,6 +7,9 @@ export type BrandMarkMode = "text" | "image";
 export type BrandSettings = {
   faviconUrl: string;
   breathingLogoUrl: string;
+  pwaIcon192Url: string;
+  pwaIcon512Url: string;
+  appleTouchIconUrl: string;
   brandMarkMode: BrandMarkMode;
   brandText: string;
   brandImageUrl: string;
@@ -16,6 +19,9 @@ export type BrandSettings = {
 const DEFAULT_BRAND_SETTINGS: BrandSettings = {
   faviconUrl: "",
   breathingLogoUrl: "",
+  pwaIcon192Url: "",
+  pwaIcon512Url: "",
+  appleTouchIconUrl: "",
   brandMarkMode: "text",
   brandText: "MAGENTA CROWN",
   brandImageUrl: "",
@@ -37,6 +43,18 @@ export async function getBrandSettings(): Promise<BrandSettings> {
         typeof payload.breathingLogoUrl === "string"
           ? payload.breathingLogoUrl.trim()
           : DEFAULT_BRAND_SETTINGS.breathingLogoUrl,
+      pwaIcon192Url:
+        typeof payload.pwaIcon192Url === "string"
+          ? payload.pwaIcon192Url.trim()
+          : DEFAULT_BRAND_SETTINGS.pwaIcon192Url,
+      pwaIcon512Url:
+        typeof payload.pwaIcon512Url === "string"
+          ? payload.pwaIcon512Url.trim()
+          : DEFAULT_BRAND_SETTINGS.pwaIcon512Url,
+      appleTouchIconUrl:
+        typeof payload.appleTouchIconUrl === "string"
+          ? payload.appleTouchIconUrl.trim()
+          : DEFAULT_BRAND_SETTINGS.appleTouchIconUrl,
       brandMarkMode:
         payload.brandMarkMode === "image" || payload.brandMarkMode === "text"
           ? payload.brandMarkMode

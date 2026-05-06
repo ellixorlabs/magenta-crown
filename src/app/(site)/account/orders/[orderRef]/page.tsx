@@ -72,7 +72,7 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
   const shipName = ship && typeof ship.fullName === "string" ? ship.fullName : "";
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <Link
         href="/account/orders"
         className="inline-flex items-center gap-2 text-sm font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline"
@@ -83,7 +83,7 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
 
       <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-lg font-semibold text-zinc-950">{order.publicOrderRef}</p>
+          <p className="break-all font-mono text-lg font-semibold text-zinc-950">{order.publicOrderRef}</p>
           <p className="mt-1 text-sm text-zinc-500">
             Placed{" "}
             {new Date(order.createdAt).toLocaleDateString(undefined, {
@@ -136,7 +136,7 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
                   >
                     {item.product.name}
                   </Link>
-                  <p className="mt-1 text-sm text-zinc-500">
+                  <p className="mt-1 break-words text-sm text-zinc-500">
                     Qty {item.quantity}
                     {(item.size || item.color) && (
                       <>

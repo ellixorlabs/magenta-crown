@@ -36,6 +36,8 @@ type Props = {
   deferUrlUntilApply?: boolean;
   /** When `deferUrlUntilApply`, assign `() => push draft + price to URL`. */
   applyFiltersRef?: MutableRefObject<(() => void) | null>;
+  /** Show explicit Apply button (useful for admin bar). */
+  showApplyButton?: boolean;
 };
 
 type ShopFilterDraft = {
@@ -267,7 +269,8 @@ export function ShopFilters({
   priceSliderCommitOnChange = false,
   compact = false,
   deferUrlUntilApply = false,
-  applyFiltersRef
+  applyFiltersRef,
+  showApplyButton = false
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -600,6 +603,22 @@ export function ShopFilters({
           </button>
         </div>
       )}
+
+      {showApplyButton && deferUrlUntilApply ? (
+        <div className={bar ? "flex min-w-0 w-full items-end pb-0.5" : ""}>
+          <button
+            type="button"
+            onClick={pushDeferredFilters}
+            className={
+              bar
+                ? "rounded-full bg-crown-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-crown-900"
+                : "w-full rounded-full bg-crown-800 py-2 text-sm font-medium text-white transition hover:bg-crown-900"
+            }
+          >
+            Apply filters
+          </button>
+        </div>
+      ) : null}
 
       {hideOutOfStockToggle && !bar && (
         <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/90 p-3">

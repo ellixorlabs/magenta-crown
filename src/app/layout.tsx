@@ -24,11 +24,14 @@ const bodyFont = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandSettings();
-  const icon = brand.faviconUrl || "/icon.png";
+  const favicon = brand.faviconUrl || "/icon.png";
+  const pwa192 = brand.pwaIcon192Url || "/icon-192.png";
+  const pwa512 = brand.pwaIcon512Url || "/icon-512.png";
+  const appleTouch = brand.appleTouchIconUrl || pwa192;
   return {
     metadataBase: new URL(getCanonicalSiteUrl()),
     applicationName: "Magenta Crown",
-    manifest: "/manifest.json",
+    manifest: "/manifest.webmanifest",
     title: {
       default: "Magenta Crown — Luxury women's boutique",
       template: "%s | Magenta Crown"
@@ -53,11 +56,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: [
-        { url: icon },
-        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-        { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+        { url: favicon },
+        { url: pwa192, sizes: "192x192", type: "image/png" },
+        { url: pwa512, sizes: "512x512", type: "image/png" }
       ],
-      apple: [{ url: "/icon-192.png", type: "image/png" }]
+      apple: [{ url: appleTouch, type: "image/png" }]
     },
     robots: { index: true, follow: true }
   };
@@ -69,7 +72,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
-  themeColor: "#000000"
+  themeColor: "#7d1e3e"
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

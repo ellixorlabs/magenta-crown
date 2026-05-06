@@ -12,6 +12,9 @@ type Props = {
 export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props) {
   const [faviconUrl, setFaviconUrl] = useState(initial.faviconUrl);
   const [breathingLogoUrl, setBreathingLogoUrl] = useState(initial.breathingLogoUrl);
+  const [pwaIcon192Url, setPwaIcon192Url] = useState(initial.pwaIcon192Url);
+  const [pwaIcon512Url, setPwaIcon512Url] = useState(initial.pwaIcon512Url);
+  const [appleTouchIconUrl, setAppleTouchIconUrl] = useState(initial.appleTouchIconUrl);
   const [brandMarkMode, setBrandMarkMode] = useState<"text" | "image">(initial.brandMarkMode);
   const [brandText, setBrandText] = useState(initial.brandText);
   const [brandImageUrl, setBrandImageUrl] = useState(initial.brandImageUrl);
@@ -21,7 +24,10 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function uploadAsset(kind: "favicon" | "breathing-logo" | "brand-mark-image", file: File | null) {
+  async function uploadAsset(
+    kind: "favicon" | "breathing-logo" | "brand-mark-image" | "pwa-icon-192" | "pwa-icon-512" | "apple-touch-icon",
+    file: File | null
+  ) {
     if (!file) return;
     setMessage(null);
     setUploading(true);
@@ -38,6 +44,9 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
       if (kind === "favicon") setFaviconUrl(json.url);
       if (kind === "breathing-logo") setBreathingLogoUrl(json.url);
       if (kind === "brand-mark-image") setBrandImageUrl(json.url);
+      if (kind === "pwa-icon-192") setPwaIcon192Url(json.url);
+      if (kind === "pwa-icon-512") setPwaIcon512Url(json.url);
+      if (kind === "apple-touch-icon") setAppleTouchIconUrl(json.url);
       setMessage("Upload complete. Save to apply.");
     } catch {
       setMessage("Upload failed.");
@@ -57,6 +66,9 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
         body: JSON.stringify({
           faviconUrl: faviconUrl.trim(),
           breathingLogoUrl: breathingLogoUrl.trim(),
+          pwaIcon192Url: pwaIcon192Url.trim(),
+          pwaIcon512Url: pwaIcon512Url.trim(),
+          appleTouchIconUrl: appleTouchIconUrl.trim(),
           brandMarkMode,
           brandText: brandText.trim(),
           brandImageUrl: brandImageUrl.trim(),
@@ -117,6 +129,62 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
         />
       </label>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <label className="block text-xs font-semibold text-zinc-600">
+          PWA icon 192 upload
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="mt-1 block w-full text-sm"
+            onChange={(e) => void uploadAsset("pwa-icon-192", e.target.files?.[0] ?? null)}
+          />
+          <input
+            type="text"
+            value={pwaIcon192Url}
+            onChange={(e) => setPwaIcon192Url(e.target.value)}
+            placeholder="https://.../icon-192.png"
+            className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block text-xs font-semibold text-zinc-600">
+          PWA icon 512 upload
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="mt-1 block w-full text-sm"
+            onChange={(e) => void uploadAsset("pwa-icon-512", e.target.files?.[0] ?? null)}
+          />
+        </label>
+        <label className="block text-xs font-semibold text-zinc-600">
+          PWA icon 512 URL
+          <input
+            type="text"
+            value={pwaIcon512Url}
+            onChange={(e) => setPwaIcon512Url(e.target.value)}
+            placeholder="https://.../icon-512.png"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block text-xs font-semibold text-zinc-600">
+          Apple touch icon upload
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="mt-1 block w-full text-sm"
+            onChange={(e) => void uploadAsset("apple-touch-icon", e.target.files?.[0] ?? null)}
+          />
+        </label>
+        <label className="block text-xs font-semibold text-zinc-600">
+          Apple touch icon URL
+          <input
+            type="text"
+            value={appleTouchIconUrl}
+            onChange={(e) => setAppleTouchIconUrl(e.target.value)}
+            placeholder="https://.../apple-touch-icon.png"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </label>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-xs font-semibold text-zinc-600">
@@ -193,6 +261,32 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
               ) : (
                 <span className="text-[10px] text-zinc-400">None</span>
               )}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">PWA icons</p>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
+                {pwaIcon192Url ? (
+                  <Image src={pwaIcon192Url} alt="PWA 192 icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                ) : (
+                  <span className="text-[10px] text-zinc-400">192</span>
+                )}
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
+                {pwaIcon512Url ? (
+                  <Image src={pwaIcon512Url} alt="PWA 512 icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                ) : (
+                  <span className="text-[10px] text-zinc-400">512</span>
+                )}
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
+                {appleTouchIconUrl ? (
+                  <Image src={appleTouchIconUrl} alt="Apple touch icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                ) : (
+                  <span className="text-[10px] text-zinc-400">iOS</span>
+                )}
+              </div>
             </div>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-3">

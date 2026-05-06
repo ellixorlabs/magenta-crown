@@ -15,6 +15,9 @@ export async function POST(req: Request) {
     globalSizeChartImageUrl?: string;
     faviconUrl?: string;
     breathingLogoUrl?: string;
+    pwaIcon192Url?: string;
+    pwaIcon512Url?: string;
+    appleTouchIconUrl?: string;
     brandMarkMode?: "text" | "image";
     brandText?: string;
     brandImageUrl?: string;
@@ -25,6 +28,9 @@ export async function POST(req: Request) {
   const globalSizeChartImageUrl = String(body.globalSizeChartImageUrl ?? "").trim();
   const faviconUrl = String(body.faviconUrl ?? "").trim();
   const breathingLogoUrl = String(body.breathingLogoUrl ?? "").trim();
+  const pwaIcon192Url = String(body.pwaIcon192Url ?? "").trim();
+  const pwaIcon512Url = String(body.pwaIcon512Url ?? "").trim();
+  const appleTouchIconUrl = String(body.appleTouchIconUrl ?? "").trim();
   const brandMarkMode = body.brandMarkMode === "image" ? "image" : body.brandMarkMode === "text" ? "text" : null;
   const brandText = String(body.brandText ?? "").trim();
   const brandImageUrl = String(body.brandImageUrl ?? "").trim();
@@ -41,6 +47,9 @@ export async function POST(req: Request) {
   if ("globalSizeChartImageUrl" in body) payload.globalSizeChartImageUrl = globalSizeChartImageUrl;
   if (faviconUrl || "faviconUrl" in body) payload.faviconUrl = faviconUrl;
   if (breathingLogoUrl || "breathingLogoUrl" in body) payload.breathingLogoUrl = breathingLogoUrl;
+  if (pwaIcon192Url || "pwaIcon192Url" in body) payload.pwaIcon192Url = pwaIcon192Url;
+  if (pwaIcon512Url || "pwaIcon512Url" in body) payload.pwaIcon512Url = pwaIcon512Url;
+  if (appleTouchIconUrl || "appleTouchIconUrl" in body) payload.appleTouchIconUrl = appleTouchIconUrl;
   if (brandMarkMode) payload.brandMarkMode = brandMarkMode;
   if (brandText || "brandText" in body) payload.brandText = brandText;
   if (brandImageUrl || "brandImageUrl" in body) payload.brandImageUrl = brandImageUrl;

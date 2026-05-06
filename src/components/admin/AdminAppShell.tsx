@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdminNavItem } from "@/lib/admin-nav";
@@ -14,12 +14,21 @@ function sectionIsActive(item: AdminNavItem, pathname: string | null) {
   return item.activePathPrefixes.some((p) => pathname.startsWith(p));
 }
 
-function childIsActive(pathname: string | null, childHref: string) {
+function childIsActive(pathname: string | null, searchParams: URLSearchParams | null, childHref: string) {
   if (!pathname) return false;
-  if (pathname === childHref) return true;
+  const [childPath, childQuery = ""] = childHref.split("?");
+  if (childPath && pathname === childPath) {
+    if (!childQuery) return true;
+    if (!searchParams) return false;
+    const expected = new URLSearchParams(childQuery);
+    for (const [k, v] of expected.entries()) {
+      if (searchParams.get(k) !== v) return false;
+    }
+    return true;
+  }
   // Keep inventory submenu precise: only highlight the exact leaf page.
-  if (childHref === "/admin/inventory" || childHref === "/admin/inventory/new") return false;
-  return pathname.startsWith(`${childHref}/`);
+  if (childPath === "/admin/inventory" || childPath === "/admin/inventory/new") return false;
+  return pathname.startsWith(`${childPath}/`);
 }
 
 function pageTitle(pathname: string) {
@@ -54,6 +63,7 @@ export function AdminAppShell({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const links = useMemo(() => ADMIN_NAV.filter((l) => !l.adminOnly || isAdmin), [isAdmin]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -179,7 +189,7 @@ export function AdminAppShell({
                           href={c.href}
                           onClick={() => setMobileOpen(false)}
                           className={`block rounded-lg px-3 py-2 text-sm transition ${
-                            childIsActive(pathname, c.href)
+                            childIsActive(pathname, searchParams, c.href)
                               ? "bg-admin-50 font-medium text-admin-800"
                               : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
                           }`}

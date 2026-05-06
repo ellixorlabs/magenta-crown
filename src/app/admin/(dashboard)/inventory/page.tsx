@@ -18,6 +18,7 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const admin = isAdminRole(session?.user?.role);
 
   const sp = await searchParams;
+  const activeStatus = firstString(sp.status)?.toUpperCase() ?? "ALL";
   const deleteError = firstString(sp.deleteError);
   const where = buildProductWhere(sp);
   const { sort } = parseShopSearchParams(sp);
@@ -32,6 +33,16 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
   ]);
   if (productsRaw.error) throw new Error(productsRaw.error.message);
   const filtered = (productsRaw.data ?? []).filter(where).sort(orderBy).slice(0, 300);
+  const allProducts = (productsRaw.data ?? []) as Array<{ status: unknown }>;
+  const inventoryCounts = allProducts.reduce(
+    (acc, p) => {
+      const status = normalizeProductStatus(p.status);
+      acc.all += 1;
+      acc[status] += 1;
+      return acc;
+    },
+    { all: 0, ACTIVE: 0, DRAFT: 0, SOLD_OUT: 0, ARCHIVED: 0 }
+  );
   const productIds = filtered.map((p: { id: string }) => p.id);
   const orderItemsRes =
     productIds.length > 0
@@ -71,8 +82,43 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
 
       <div className="w-full max-w-full">
         <Suspense fallback={<div className="text-sm text-zinc-500">Loading filters…</div>}>
-          <ShopFilters options={filterOptions} basePath="/admin/inventory" layout="adminBar" />
+          <ShopFilters
+            options={filterOptions}
+            basePath="/admin/inventory"
+            layout="adminBar"
+            deferUrlUntilApply
+            showApplyButton
+          />
         </Suspense>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          { label: "All Products", href: "/admin/inventory", count: inventoryCounts.all, id: "ALL" },
+          { label: "Draft", href: "/admin/inventory?status=DRAFT", count: inventoryCounts.DRAFT, id: "DRAFT" },
+          { label: "Sold Out", href: "/admin/inventory?status=SOLD_OUT", count: inventoryCounts.SOLD_OUT, id: "SOLD_OUT" },
+          { label: "Archived", href: "/admin/inventory?status=ARCHIVED", count: inventoryCounts.ARCHIVED, id: "ARCHIVED" },
+          { label: "Active", href: "/admin/inventory?status=ACTIVE", count: inventoryCounts.ACTIVE, id: "ACTIVE" }
+        ].map((tab) => (
+          <Link
+            key={tab.label}
+            href={tab.href}
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              activeStatus === tab.id
+                ? "border border-admin-300 bg-admin-50 text-admin-800 shadow-sm"
+                : "border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
+                activeStatus === tab.id ? "bg-admin-100 text-admin-700" : "bg-zinc-100 text-zinc-600"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </Link>
+        ))}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
