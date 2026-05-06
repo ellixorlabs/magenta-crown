@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistDispatch } from "@/context/WishlistContext";
@@ -47,7 +47,9 @@ type ProductCardProps = {
   reviewSummary?: { avg: number; count: number } | null;
 };
 
-export function ProductCard({
+const STAR_STEPS = [1, 2, 3, 4, 5] as const;
+
+function ProductCardInner({
   product,
   initialWishlisted = false,
   layout = "grid",
@@ -131,13 +133,7 @@ export function ProductCard({
     [applyOptimisticDelta, canWishlist, product.id, router, setServerCount]
   );
 
-  const heartClass = useMemo(
-    () =>
-      wishlisted
-        ? "fill-mc-accent text-mc-accent"
-        : "fill-white text-mc-ink/55",
-    [wishlisted]
-  );
+  const heartClass = wishlisted ? "fill-mc-accent text-mc-accent" : "fill-white text-mc-ink/55";
 
   if (layout === "list") {
     const comfy = listDensity === "comfortable";
@@ -206,8 +202,8 @@ export function ProductCard({
   const pillTag = product.tags?.[0]?.trim();
 
   return (
-    <Link href={`/product/${product.slug}`} className="group mc-tap block w-full min-w-0 max-w-full">
-      <article className="w-full min-w-0 overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md">
+    <Link href={`/product/${product.slug}`} className="group mc-tap block h-full w-full min-w-0 max-w-full">
+      <article className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md">
         <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden bg-mc-creamDeep">
           <Image
             src={primaryImage}
@@ -253,7 +249,7 @@ export function ProductCard({
               aria-label={`Rated ${reviewSummary!.avg.toFixed(1)} from ${reviewSummary!.count} reviews`}
             >
               <span className="flex shrink-0 gap-px">
-                {[1, 2, 3, 4, 5].map((i) => (
+                {STAR_STEPS.map((i) => (
                   <Star
                     key={i}
                     className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${
@@ -310,7 +306,7 @@ export function ProductCard({
             </span>
           </div>
         )}
-        <div className="w-full min-w-0 max-w-full bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3">
+        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3">
           <h3
             className={`break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] ${
               isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
@@ -318,7 +314,7 @@ export function ProductCard({
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+          <div className="mt-1.5 flex min-h-[1.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
             <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
             {showStrikethrough && (
               <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>
@@ -334,3 +330,29 @@ export function ProductCard({
     </Link>
   );
 }
+
+function areEqualProductCardProps(prev: ProductCardProps, next: ProductCardProps) {
+  return (
+    prev.product.id === next.product.id &&
+    prev.product.slug === next.product.slug &&
+    prev.product.name === next.product.name &&
+    prev.product.mrp === next.product.mrp &&
+    prev.product.discountedPrice === next.product.discountedPrice &&
+    prev.product.newTagExpiresAt === next.product.newTagExpiresAt &&
+    prev.product.imageUrls === next.product.imageUrls &&
+    prev.product.tags === next.product.tags &&
+    prev.product.material === next.product.material &&
+    prev.product.occasion === next.product.occasion &&
+    prev.product.listImageIndex === next.product.listImageIndex &&
+    prev.product.listImagePosition === next.product.listImagePosition &&
+    prev.initialWishlisted === next.initialWishlisted &&
+    prev.layout === next.layout &&
+    prev.listDensity === next.listDensity &&
+    prev.outOfStock === next.outOfStock &&
+    prev.reviewSummary?.avg === next.reviewSummary?.avg &&
+    prev.reviewSummary?.count === next.reviewSummary?.count
+  );
+}
+
+export const ProductCard = memo(ProductCardInner, areEqualProductCardProps);
+ProductCard.displayName = "ProductCard";

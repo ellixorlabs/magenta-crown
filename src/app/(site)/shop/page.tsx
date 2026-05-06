@@ -14,9 +14,8 @@ import { ShopPagination } from "@/components/shop/ShopPagination";
 import { getShopProductsCached } from "@/lib/site/shop-products-cache";
 import type { NextAppPageSearch } from "@/types/next-app";
 
-/** Avoid stale RSC/HTML on localhost — external browsers often cache /shop harder than embedded dev browsers. */
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+/** Keep shop responsive while allowing short-lived cache reuse across quick navigations. */
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Shop",

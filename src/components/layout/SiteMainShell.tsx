@@ -23,7 +23,9 @@ export function SiteMainShell({ children }: Readonly<{ children: React.ReactNode
       : "pt-[7.5rem] sm:pt-[8rem]";
   const shellBg = "bg-mc-cream";
   const bottomTabPad =
-    isAuthImmersive || isAdmin ? "" : "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0";
+    isPwa && !(isAuthImmersive || isAdmin)
+      ? "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+      : "";
 
   useEffect(() => {
     if (pathname === "/") {

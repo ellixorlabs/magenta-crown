@@ -59,15 +59,15 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
   }, [imageUrl]);
 
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden bg-mc-maroonDeep md:bg-[#faf7f8]">
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-white md:bg-[#faf7f8]">
       <div className="pointer-events-none absolute inset-0 z-0 md:block" aria-hidden>
-        <div className="absolute inset-0 bg-mc-maroonDeep md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]" />
+        <div className="absolute inset-0 bg-white md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 pb-10 pt-10 md:pb-10 md:pt-28">
         <div className="grid max-h-[calc(100dvh-5rem)] w-full grid-cols-1 gap-4 md:max-h-[calc(100dvh-8.5rem)] md:rounded-[28px] md:border md:border-zinc-200/90 md:bg-white md:p-5 md:shadow-[0_24px_64px_-18px_rgba(0,0,0,0.18)] lg:grid-cols-[0.75fr_1.25fr]">
           <div className="hidden items-center justify-center md:flex">
-            <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-[#f3ecef]">
+            <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-white">
               {!imageReady ? (
                 <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#f7f2f4] via-[#f2e9ed] to-[#f7f2f4]" />
               ) : null}
@@ -79,6 +79,17 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
+                  onError={() => {
+                    // If the cached URL breaks in production (bucket perms / network),
+                    // fall back to a clean white card instead of leaving a stuck overlay.
+                    setImageReady(false);
+                    setImageUrl("");
+                    try {
+                      window.localStorage.removeItem(AUTH_VISUAL_CACHE_KEY);
+                    } catch {
+                      // ignore
+                    }
+                  }}
                   className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-150 ${imageReady ? "opacity-100" : "opacity-0"}`}
                 />
               ) : null}

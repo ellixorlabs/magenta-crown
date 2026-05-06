@@ -25,6 +25,8 @@ type WishlistCountValue = {
 
 const WishlistDispatchContext = createContext<WishlistDispatchValue | null>(null);
 const WishlistCountContext = createContext<WishlistCountValue | null>(null);
+const WISHLIST_COUNT_CACHE_TTL_MS = 45_000;
+let wishlistCountCache: { value: number; expiresAt: number } | null = null;
 
 function isStaffRole(role: string) {
   return role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
@@ -54,6 +56,11 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       setHydrated(true);
       return;
     }
+    if (wishlistCountCache && wishlistCountCache.expiresAt > Date.now()) {
+      setCount(wishlistCountCache.value);
+      setHydrated(true);
+      return;
+    }
     const ac = new AbortController();
     setHydrated(false);
     void (async () => {
@@ -61,6 +68,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         const n = await fetchWishlistCount(ac.signal);
         if (ac.signal.aborted) return;
         setCount(n);
+        wishlistCountCache = { value: n, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
       } catch {
         if (!ac.signal.aborted) setCount(0);
       } finally {
@@ -79,6 +87,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     try {
       const n = await fetchWishlistCount();
       setCount(n);
+      wishlistCountCache = { value: n, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
     } catch {
       setCount(0);
     } finally {
@@ -87,11 +96,17 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [userId, staff]);
 
   const applyOptimisticDelta = useCallback((delta: number) => {
-    setCount((c) => Math.max(0, c + delta));
+    setCount((c) => {
+      const next = Math.max(0, c + delta);
+      wishlistCountCache = { value: next, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
+      return next;
+    });
   }, []);
 
   const setServerCount = useCallback((n: number) => {
-    setCount(Math.max(0, n));
+    const next = Math.max(0, n);
+    wishlistCountCache = { value: next, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
+    setCount(next);
   }, []);
 
   const dispatchValue = useMemo<WishlistDispatchValue>(

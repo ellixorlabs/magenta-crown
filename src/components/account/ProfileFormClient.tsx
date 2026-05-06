@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import type { SavedAddress } from "@/types/profile";
 import { randomId } from "@/lib/random-id";
@@ -33,8 +32,18 @@ function cloneAddresses(items: SavedAddress[]) {
   return items.map((a) => ({ ...a }));
 }
 
+type ProfilePayload = {
+  name: string;
+  email: string;
+  phone: string;
+  addresses: unknown;
+  deletionScheduledFor: string | null;
+};
+
+const PROFILE_CACHE_TTL_MS = 60_000;
+let profileCache: { data: ProfilePayload; expiresAt: number } | null = null;
+
 export function ProfileFormClient() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -67,22 +76,51 @@ export function ProfileFormClient() {
     return { Authorization: `Bearer ${token}` };
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
+    const force = opts?.force === true;
     setLoading(true);
     setError(null);
     try {
+      if (!force && profileCache && profileCache.expiresAt > Date.now()) {
+        const d = profileCache.data;
+        setName(d.name ?? "");
+        setEmail(d.email ?? "");
+        setPhone(d.phone ?? "");
+        setDeletionScheduledFor(d.deletionScheduledFor ?? null);
+        const raw = Array.isArray(d.addresses) ? d.addresses : [];
+        const parsed = raw
+          .filter((x) => x && typeof x === "object")
+          .map((x) => {
+            const o = x as Record<string, unknown>;
+            const kind =
+              o.kind === "home" || o.kind === "work" || o.kind === "other" ? o.kind : undefined;
+            return {
+              id: typeof o.id === "string" && o.id ? o.id : randomId(),
+              kind,
+              customLabel: o.customLabel != null ? String(o.customLabel) : undefined,
+              label: String(o.label ?? ""),
+              line1: String(o.line1 ?? ""),
+              line2: String(o.line2 ?? ""),
+              city: String(o.city ?? ""),
+              state: String(o.state ?? ""),
+              postalCode: String(o.postalCode ?? ""),
+              country: String(o.country ?? ""),
+              phone: String(o.phone ?? "")
+            } satisfies SavedAddress;
+          });
+        setAddresses(cloneAddresses(parsed));
+        setInitialAddresses(cloneAddresses(parsed));
+        setAddressEditingId(null);
+        setPersonalEditing(false);
+        return;
+      }
       const headers = await authHeaders();
       // Ensure profile row exists for fresh Supabase users.
       await fetch("/api/user/profile", { method: "POST", headers });
       const res = await fetch("/api/user/profile", { headers });
       if (!res.ok) throw new Error("Could not load profile");
-      const d = (await res.json()) as {
-        name: string;
-        email: string;
-        phone: string;
-        addresses: unknown;
-        deletionScheduledFor: string | null;
-      };
+      const d = (await res.json()) as ProfilePayload;
+      profileCache = { data: d, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
       setName(d.name ?? "");
       setEmail(d.email ?? "");
       setPhone(d.phone ?? "");
@@ -162,8 +200,8 @@ export function ProfileFormClient() {
       setMessage("Saved.");
       setPersonalEditing(false);
       setAddressEditingId(null);
-      await load();
-      router.refresh();
+      profileCache = null;
+      await load({ force: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {

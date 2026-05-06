@@ -2,7 +2,7 @@
 
 import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistDispatch } from "@/context/WishlistContext";
 import { wishlistPostHeaders } from "@/lib/wishlist-client";
@@ -14,7 +14,7 @@ type Props = {
   variant?: "default" | "overlay";
 };
 
-export function ProductWishlistToggle({ productId, initialWishlisted, className = "", variant = "default" }: Props) {
+function ProductWishlistToggleInner({ productId, initialWishlisted, className = "", variant = "default" }: Props) {
   const router = useRouter();
   const { userId } = useAuth();
   const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();
@@ -101,3 +101,6 @@ export function ProductWishlistToggle({ productId, initialWishlisted, className 
     </button>
   );
 }
+
+export const ProductWishlistToggle = memo(ProductWishlistToggleInner);
+ProductWishlistToggle.displayName = "ProductWishlistToggle";

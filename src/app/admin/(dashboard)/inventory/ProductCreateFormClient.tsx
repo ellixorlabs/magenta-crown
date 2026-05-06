@@ -116,7 +116,6 @@ export function ProductCreateFormClient({
               return;
             }
             router.push("/admin/inventory?created=1");
-            router.refresh();
           } catch {
             setServerError("Unable to create product right now.");
           } finally {

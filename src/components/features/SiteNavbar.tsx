@@ -116,7 +116,7 @@ type Props = {
   brandMark?: BrandMarkProps;
 };
 
-export function SiteNavbar({ serverLinks, brandMark }: Props) {
+export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -814,4 +814,6 @@ export function SiteNavbar({ serverLinks, brandMark }: Props) {
       {mobileDrawer}
     </>
   );
-}
+});
+
+SiteNavbar.displayName = "SiteNavbar";
