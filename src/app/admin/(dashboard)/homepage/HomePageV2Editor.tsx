@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
@@ -30,6 +31,7 @@ function normalizeOrders(sections: DynamicHomeSection[]): DynamicHomeSection[] {
 
 export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [payload, setPayload] = useState<HomePagePayloadV2>(() => ({
     ...initial,
@@ -73,7 +75,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     startTransition(async () => {
       try {
         await saveHomePageConfig(payload);
-        router.refresh();
+        router.replace(pathname || "/admin/homepage");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Save failed");
       }
@@ -265,7 +267,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
       };
       setPayload(nextPayload);
       await saveHomePageConfig(nextPayload);
-      router.refresh();
+      router.replace(pathname || "/admin/homepage");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -709,12 +711,16 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     ) : null}
                     {section.imageUrl ? (
                       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- admin runtime URLs */}
-                        <img
-                          src={section.imageUrl}
-                          alt="Promo banner preview"
-                          className="h-40 w-full rounded-xl object-contain object-center"
-                        />
+                        <div className="relative h-40 w-full overflow-hidden rounded-xl">
+                          <Image
+                            src={section.imageUrl}
+                            alt="Promo banner preview"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 640px"
+                            className="object-contain object-center"
+                            unoptimized
+                          />
+                        </div>
                       </div>
                     ) : null}
                   </div>

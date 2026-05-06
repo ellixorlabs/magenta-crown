@@ -1,11 +1,10 @@
 import { LandingHero } from "@/components/features/LandingHero";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import dynamic from "next/dynamic";
 import { HomeCategoryCirclesSection } from "@/components/home/HomeCategoryCirclesSection";
 import { HomeHeroReadyBridge } from "@/components/home/HomeHeroReadyBridge";
-import { HomeProductCarouselSection } from "@/components/home/HomeProductCarouselSection";
 import { HomeProductGridSection } from "@/components/home/HomeProductGridSection";
-import { HomePromoBannerCarouselSection } from "@/components/home/HomePromoBannerCarouselSection";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { ProductRow } from "@/lib/db/app-types";
 import type { HeroTransitionId } from "@/lib/hero-transition";
@@ -22,6 +21,16 @@ type Props = {
   /** Products referenced by homepage section IDs (includes variants for stock). */
   productById: Map<string, HomeProductRow>;
 };
+
+const HomeProductCarouselSection = dynamic(
+  () => import("@/components/home/HomeProductCarouselSection").then((m) => m.HomeProductCarouselSection),
+  { loading: () => null }
+);
+
+const HomePromoBannerCarouselSection = dynamic(
+  () => import("@/components/home/HomePromoBannerCarouselSection").then((m) => m.HomePromoBannerCarouselSection),
+  { loading: () => null }
+);
 
 function resolveSectionProducts(section: DynamicProductSection, productById: Map<string, HomeProductRow>): HomeProductRow[] {
   const out: HomeProductRow[] = [];

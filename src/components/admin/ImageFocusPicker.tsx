@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 
@@ -155,14 +156,16 @@ export function ImageFocusPicker({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary admin URLs; next/image blocks unknown hosts */}
-        <img
+        <Image
           key={safeSrc}
           src={safeSrc}
           alt=""
+          fill
+          sizes="(max-width: 768px) 100vw, 520px"
           draggable={false}
-          className={`absolute inset-0 h-full w-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
+          className={fit === "cover" ? "object-cover" : "object-contain"}
           style={{ objectPosition: objectPos }}
+          unoptimized
         />
         <div
           className="pointer-events-none absolute h-[22%] min-h-[44px] w-[22%] min-w-[44px] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-white/80 bg-white/25 shadow-md"

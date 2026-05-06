@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { memo } from "react";
 import { useEffect, useState } from "react";
 import { Home, ShoppingBag, ShoppingCart, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { useDevRenderLog } from "@/lib/dev-performance";
 
 const tabs = [
   {
@@ -28,7 +30,8 @@ const tabs = [
   }
 ] as const;
 
-export function McBottomTabBar() {
+function McBottomTabBarInner() {
+  useDevRenderLog("McBottomTabBar", 20);
   const pathname = usePathname() ?? "";
   const { isAuthenticated, isLoading } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
@@ -117,3 +120,6 @@ export function McBottomTabBar() {
     </nav>
   );
 }
+
+export const McBottomTabBar = memo(McBottomTabBarInner);
+McBottomTabBar.displayName = "McBottomTabBar";

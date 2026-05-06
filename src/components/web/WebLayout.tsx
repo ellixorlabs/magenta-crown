@@ -1,5 +1,3 @@
-"use client";
-
 import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { SiteSharedRouteBody } from "@/components/layout/SiteSharedRouteBody";
 

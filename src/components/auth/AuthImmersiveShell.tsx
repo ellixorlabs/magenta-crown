@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const AUTH_VISUAL_CACHE_KEY = "mc_auth_visual_url";
@@ -72,13 +73,14 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
                 <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#f7f2f4] via-[#f2e9ed] to-[#f7f2f4]" />
               ) : null}
               {imageUrl ? (
-                <img
+                <Image
                   src={imageUrl}
+                  fill
+                  sizes="350px"
                   alt=""
                   aria-hidden
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
+                  loading="lazy"
+                  unoptimized
                   onError={() => {
                     // If the cached URL breaks in production (bucket perms / network),
                     // fall back to a clean white card instead of leaving a stuck overlay.
@@ -90,7 +92,7 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
                       // ignore
                     }
                   }}
-                  className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-150 ${imageReady ? "opacity-100" : "opacity-0"}`}
+                  className={`object-cover object-center transition-opacity duration-150 ${imageReady ? "opacity-100" : "opacity-0"}`}
                 />
               ) : null}
             </div>

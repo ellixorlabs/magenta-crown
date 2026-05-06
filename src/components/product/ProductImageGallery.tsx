@@ -397,14 +397,16 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
           >
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-inner">
               {showZoomImage ? (
-                // eslint-disable-next-line @next/next/no-img-element -- dynamic zoom dimensions
-                <img
+                <Image
                   src={mainUrl}
                   alt=""
+                  width={2200}
+                  height={2200}
                   draggable={false}
                   className="select-none"
                   style={zoomStyle}
                   onError={() => markUrlFailed(mainUrl)}
+                  unoptimized
                 />
               ) : (
                 <div className="absolute inset-0 hidden items-center justify-center px-4 text-center text-xs leading-relaxed text-zinc-400 xl:flex">

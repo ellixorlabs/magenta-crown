@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 
 export default function AppShell({ children }: Readonly<{ children: ReactNode }>) {

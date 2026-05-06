@@ -8,22 +8,33 @@ import { CookieConsentProvider } from "@/context/CookieConsentContext";
 import { ShopProvider } from "@/context/ShopContext";
 import { HeroReadyProvider } from "@/context/HeroReadyContext";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
+import { SWRConfig } from "swr";
 
 export function Providers({ children, loaderLogoSrc }: { children: ReactNode; loaderLogoSrc?: string }) {
   return (
-    <AuthProvider>
-      <WishlistProvider>
-        <CartProvider>
-          <ShopProvider>
-            <CookieConsentProvider>
-              <HeroReadyProvider loaderLogoSrc={loaderLogoSrc}>
-                {children}
-              </HeroReadyProvider>
-              <PwaInstallPrompt />
-            </CookieConsentProvider>
-          </ShopProvider>
-        </CartProvider>
-      </WishlistProvider>
-    </AuthProvider>
+    <SWRConfig
+      value={{
+        dedupingInterval: 1500,
+        revalidateOnFocus: false,
+        revalidateOnReconnect: true,
+        shouldRetryOnError: true,
+        keepPreviousData: true
+      }}
+    >
+      <AuthProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <ShopProvider>
+              <CookieConsentProvider>
+                <HeroReadyProvider loaderLogoSrc={loaderLogoSrc}>
+                  {children}
+                </HeroReadyProvider>
+                <PwaInstallPrompt />
+              </CookieConsentProvider>
+            </ShopProvider>
+          </CartProvider>
+        </WishlistProvider>
+      </AuthProvider>
+    </SWRConfig>
   );
 }

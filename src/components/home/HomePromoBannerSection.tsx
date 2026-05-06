@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 
 type Props = {
@@ -29,12 +30,14 @@ export function HomePromoBannerSection({ title, subtitle, imageUrl, targetHref }
             </div>
             <div className="relative h-[180px] sm:h-[280px]">
               {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin controls arbitrary URLs at runtime
-                <img
+                <Image
                   src={imageUrl}
                   alt={title}
-                  className="absolute inset-0 h-full w-full object-contain object-center"
+                  fill
+                  sizes="(max-width: 640px) 70vw, 420px"
+                  className="object-contain object-center"
                   loading="lazy"
+                  unoptimized
                 />
               ) : null}
             </div>

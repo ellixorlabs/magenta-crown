@@ -1,5 +1,3 @@
-"use client";
-
 import { SiteSharedRouteBody } from "@/components/layout/SiteSharedRouteBody";
 import BottomNavigation from "@/components/app/BottomNavigation";
 import AppShell from "@/components/app/AppShell";

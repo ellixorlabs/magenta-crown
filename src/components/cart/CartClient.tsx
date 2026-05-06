@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoSection";
 import type { ProductRow } from "@/lib/db/app-types";
 import { useCart } from "@/context/CartContext";
 import { ProductCard } from "@/components/features/ProductCard";
+import { swrJsonFetcher } from "@/lib/swr-fetcher";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
 type Props = {
@@ -17,31 +19,18 @@ type Props = {
 export function CartClient({ upsells }: Props) {
   const { items, subtotal, discountedTotal, updateQuantity, removeItem } = useCart();
   const cartProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
-  const [similar, setSimilar] = useState<Props["upsells"]>([]);
-
-  useEffect(() => {
-    if (cartProductIds.length === 0) {
-      setSimilar([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/public/similar-products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productIds: cartProductIds, limit: 4 })
-        });
-        const data = (await res.json()) as { products?: Props["upsells"] };
-        if (!cancelled) setSimilar(Array.isArray(data.products) ? data.products : []);
-      } catch {
-        if (!cancelled) setSimilar([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cartProductIds]);
+  const similarKey = cartProductIds.length ? ["similar-products", ...cartProductIds] : null;
+  const { data } = useSWR<{ products?: Props["upsells"] }>(
+    similarKey,
+    async () =>
+      swrJsonFetcher("/api/public/similar-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productIds: cartProductIds, limit: 4 })
+      }),
+    { dedupingInterval: 20_000, keepPreviousData: true }
+  );
+  const similar = Array.isArray(data?.products) ? data.products : [];
 
   const recommendRows = similar.length > 0 ? similar : upsells;
 

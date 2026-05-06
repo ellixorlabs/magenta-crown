@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   memo,
@@ -545,11 +546,14 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
           >
             <Link href="/" className="relative z-[25] min-w-0 shrink-0 text-left" onClick={scrollHomeToHero}>
               {brandMark?.brandMarkMode === "image" && brandMark.brandImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin-configured remote brand mark
-                <img
+                <Image
                   src={brandMark.brandImageUrl}
                   alt={brandMark.brandText?.trim() || "Magenta Crown"}
+                  width={220}
+                  height={36}
+                  sizes="(max-width: 640px) 140px, 220px"
                   className="h-7 w-auto max-w-[220px] object-contain sm:h-8 lg:h-9"
+                  unoptimized
                 />
               ) : (
                 <span

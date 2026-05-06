@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 type Props = {
@@ -72,7 +73,11 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
           onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
         />
       </label>
-      {url ? <img src={url} alt="Auth visual preview" className="h-44 w-full rounded-2xl object-cover" /> : null}
+      {url ? (
+        <div className="relative h-44 w-full overflow-hidden rounded-2xl">
+          <Image src={url} alt="Auth visual preview" fill sizes="(max-width: 768px) 100vw, 480px" className="object-cover" unoptimized />
+        </div>
+      ) : null}
       <label className="block text-xs font-semibold text-zinc-600">
         Image URL
         <input
@@ -117,7 +122,16 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
           />
         </label>
         {sizeChartUrl ? (
-          <img src={sizeChartUrl} alt="Global size chart preview" className="mt-2 h-44 w-full rounded-2xl object-contain bg-zinc-50" />
+          <div className="relative mt-2 h-44 w-full overflow-hidden rounded-2xl bg-zinc-50">
+            <Image
+              src={sizeChartUrl}
+              alt="Global size chart preview"
+              fill
+              sizes="(max-width: 768px) 100vw, 480px"
+              className="object-contain"
+              unoptimized
+            />
+          </div>
         ) : null}
         <label className="mt-3 block text-xs font-semibold text-zinc-600">
           Size chart URL

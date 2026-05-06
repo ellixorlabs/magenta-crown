@@ -160,6 +160,7 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
   const [future, setFuture] = useState<EditSnapshot[]>([]);
   const [formVersion, setFormVersion] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const suppressCaptureRef = useRef(false);
   const captureRafRef = useRef<number | null>(null);
@@ -179,9 +180,11 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
 
   async function saveProduct(formData: FormData) {
     setIsSaving(true);
+    setSaveNotice(null);
     try {
       await updateProduct(formData);
-      router.refresh();
+      setSaveNotice("Saved.");
+      router.replace(`/admin/inventory/${product.id}`);
     } finally {
       setIsSaving(false);
     }
@@ -378,6 +381,7 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
       >
         {isSaving ? "Saving changes..." : "Save changes"}
       </button>
+      {saveNotice ? <p className="text-sm text-emerald-700">{saveNotice}</p> : null}
     </form>
   );
 }

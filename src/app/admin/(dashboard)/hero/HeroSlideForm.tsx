@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ImageFocusPicker } from "@/components/admin/ImageFocusPicker";
@@ -34,6 +34,7 @@ function SlideSubmitButton({ isEdit }: { isEdit: boolean }) {
 
 export function HeroSlideForm({ slide, defaultSortOrder = 0 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [imageUrl, setImageUrl] = useState(slide?.imageUrl ?? "");
   const [imagePosition, setImagePosition] = useState(slide?.imagePosition ?? "center");
   const [uploading, setUploading] = useState(false);
@@ -42,12 +43,12 @@ export function HeroSlideForm({ slide, defaultSortOrder = 0 }: Props) {
 
   async function submitSlide(formData: FormData) {
     await saveHeroSlide(formData);
-    router.refresh();
+    router.replace(pathname || "/admin/hero");
   }
 
   async function removeSlide(formData: FormData) {
     await deleteHeroSlide(formData);
-    router.refresh();
+    router.replace(pathname || "/admin/hero");
   }
 
   const uploadImage = useCallback(

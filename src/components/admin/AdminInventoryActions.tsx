@@ -32,7 +32,7 @@ export function AdminInventoryActions({ productId, productName, hasOrders, statu
         alert(data.message ?? "Action failed.");
         return;
       }
-      router.refresh();
+      router.replace("/admin/inventory");
     } finally {
       setBusy(null);
       setModal(null);

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { BrandSettings } from "@/lib/brand-settings";
 
@@ -188,8 +189,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Favicon</p>
             <div className="mt-2 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
               {faviconUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin-configured remote preview
-                <img src={faviconUrl} alt="Favicon preview" className="h-7 w-7 object-contain" />
+                <Image src={faviconUrl} alt="Favicon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
               ) : (
                 <span className="text-[10px] text-zinc-400">None</span>
               )}
@@ -199,8 +199,14 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Breathing logo</p>
             <div className="mt-2 flex h-16 items-center justify-center rounded-lg border border-zinc-200 bg-[#6d1432]">
               {breathingLogoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin-configured remote preview
-                <img src={breathingLogoUrl} alt="Breathing logo preview" className="h-12 w-12 object-contain" />
+                <Image
+                  src={breathingLogoUrl}
+                  alt="Breathing logo preview"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 object-contain"
+                  unoptimized
+                />
               ) : (
                 <span className="text-[10px] text-white/70">Default logo</span>
               )}
@@ -210,11 +216,13 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Header brand mark</p>
             <div className="mt-2 flex h-16 items-center rounded-lg border border-zinc-200 bg-zinc-900 px-3">
               {brandMarkMode === "image" && brandImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin-configured remote preview
-                <img
+                <Image
                   src={brandImageUrl}
                   alt={brandText || "Brand mark preview"}
+                  width={180}
+                  height={32}
                   className="h-8 w-auto max-w-[180px] object-contain"
+                  unoptimized
                 />
               ) : (
                 <span

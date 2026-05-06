@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
@@ -47,11 +48,13 @@ export function SizeChartModal({ open, imageUrl, productName, onClose }: Props) 
           </button>
         </div>
         <div className="relative max-h-[min(75vh,720px)] overflow-y-auto bg-zinc-50 p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element -- remote size chart URLs */}
-          <img
+          <Image
             src={imageUrl}
             alt={`Size chart for ${productName}`}
+            width={1200}
+            height={1600}
             className="mx-auto max-h-[70vh] w-auto max-w-full object-contain"
+            unoptimized
           />
         </div>
       </div>

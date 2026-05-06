@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -50,12 +51,14 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
               </div>
               <div className="relative h-[180px] sm:h-[280px]">
                 {current.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- admin runtime URLs
-                  <img
+                  <Image
                     src={current.imageUrl}
                     alt={current.title}
-                    className="absolute inset-0 h-full w-full object-contain object-center"
+                    fill
+                    sizes="(max-width: 640px) 70vw, 420px"
+                    className="object-contain object-center"
                     loading="lazy"
+                    unoptimized
                   />
                 ) : null}
               </div>

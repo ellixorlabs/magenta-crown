@@ -8,6 +8,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistDispatch } from "@/context/WishlistContext";
+import { useDevRenderLog } from "@/lib/dev-performance";
 import { getListImagePosition, getProductDisplayImage } from "@/lib/product-image-display";
 import { productImageAlt } from "@/lib/seo";
 import { wishlistPostHeaders } from "@/lib/wishlist-client";
@@ -57,6 +58,7 @@ function ProductCardInner({
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
+  useDevRenderLog("ProductCard", 25);
   const router = useRouter();
   const { userId } = useAuth();
   const { applyOptimisticDelta, setServerCount } = useWishlistDispatch();

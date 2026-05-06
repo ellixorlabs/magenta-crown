@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 
@@ -122,8 +123,14 @@ export function AdminProductImageFields({
             <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
               {previewUrl ? (
                 <div className="relative aspect-[3/4] w-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Selected product preview" className="h-full w-full object-contain" />
+                  <Image
+                    src={previewUrl}
+                    alt="Selected product preview"
+                    fill
+                    sizes="260px"
+                    className="object-contain"
+                    unoptimized
+                  />
                 </div>
               ) : (
                 <div className="flex aspect-[3/4] w-full items-center justify-center px-4 text-center text-xs text-zinc-400">
@@ -144,8 +151,7 @@ export function AdminProductImageFields({
                           : "border-zinc-200"
                       }`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={u} alt="" className="h-full w-full object-cover" />
+                      <Image src={u} alt="" fill sizes="56px" className="object-cover" unoptimized />
                     </button>
                     <button
                       type="button"

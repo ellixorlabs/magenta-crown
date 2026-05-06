@@ -141,7 +141,6 @@ function SignUpInner() {
           headers: { Authorization: `Bearer ${token}` }
         });
         router.replace(callbackUrl);
-        router.refresh();
         return;
       }
 

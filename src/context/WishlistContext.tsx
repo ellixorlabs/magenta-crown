@@ -4,11 +4,10 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode
 } from "react";
+import useSWR from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { wishlistGetHeaders } from "@/lib/wishlist-client";
 
@@ -45,69 +44,55 @@ async function fetchWishlistCount(signal?: AbortSignal): Promise<number> {
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
   const { userId, isLoading, role } = useAuth();
-  const [count, setCount] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
   const staff = isStaffRole(role);
+  const shouldFetch = !isLoading && Boolean(userId) && !staff;
+  const key = shouldFetch ? `wishlist-count:${userId}` : null;
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!userId || staff) {
-      setCount(0);
-      setHydrated(true);
-      return;
+  const {
+    data: swrCount,
+    mutate
+  } = useSWR<number>(
+    key,
+    async () => {
+      const n = await fetchWishlistCount();
+      wishlistCountCache = { value: n, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
+      return n;
+    },
+    {
+      fallbackData: wishlistCountCache?.expiresAt && wishlistCountCache.expiresAt > Date.now()
+        ? wishlistCountCache.value
+        : 0
     }
-    if (wishlistCountCache && wishlistCountCache.expiresAt > Date.now()) {
-      setCount(wishlistCountCache.value);
-      setHydrated(true);
-      return;
-    }
-    const ac = new AbortController();
-    setHydrated(false);
-    void (async () => {
-      try {
-        const n = await fetchWishlistCount(ac.signal);
-        if (ac.signal.aborted) return;
-        setCount(n);
-        wishlistCountCache = { value: n, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
-      } catch {
-        if (!ac.signal.aborted) setCount(0);
-      } finally {
-        if (!ac.signal.aborted) setHydrated(true);
-      }
-    })();
-    return () => ac.abort();
-  }, [isLoading, userId, staff]);
+  );
+
+  const hydrated = !isLoading;
+  const count = shouldFetch ? (swrCount ?? 0) : 0;
 
   const refresh = useCallback(async () => {
     if (!userId || staff) {
-      setCount(0);
-      setHydrated(true);
+      wishlistCountCache = { value: 0, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
+      await mutate(0, { revalidate: false });
       return;
     }
-    try {
+    await mutate(async () => {
       const n = await fetchWishlistCount();
-      setCount(n);
       wishlistCountCache = { value: n, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
-    } catch {
-      setCount(0);
-    } finally {
-      setHydrated(true);
-    }
-  }, [userId, staff]);
+      return n;
+    });
+  }, [mutate, userId, staff]);
 
   const applyOptimisticDelta = useCallback((delta: number) => {
-    setCount((c) => {
-      const next = Math.max(0, c + delta);
-      wishlistCountCache = { value: next, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
-      return next;
-    });
-  }, []);
+    const base = shouldFetch ? (swrCount ?? 0) : 0;
+    const next = Math.max(0, base + delta);
+    wishlistCountCache = { value: next, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
+    void mutate(next, { revalidate: false });
+  }, [mutate, shouldFetch, swrCount]);
 
   const setServerCount = useCallback((n: number) => {
     const next = Math.max(0, n);
     wishlistCountCache = { value: next, expiresAt: Date.now() + WISHLIST_COUNT_CACHE_TTL_MS };
-    setCount(next);
-  }, []);
+    void mutate(next, { revalidate: false });
+  }, [mutate]);
 
   const dispatchValue = useMemo<WishlistDispatchValue>(
     () => ({

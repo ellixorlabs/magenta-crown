@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import useSWR from "swr";
+import { swrJsonFetcher } from "@/lib/swr-fetcher";
 
 type Mini = { id: string; slug: string; name: string; imageUrls: string[]; mrp: number; discountedPrice: number | null };
 
 export function RecentlyViewed({ excludeId }: { excludeId: string }) {
-  const [items, setItems] = useState<Mini[]>([]);
-
-  useEffect(() => {
+  const idsQuery = useMemo(() => {
+    if (typeof window === "undefined") return "";
     const raw = localStorage.getItem("magenta-crown-recent");
-    if (!raw) return;
+    if (!raw) return "";
     const ids = (JSON.parse(raw) as string[]).filter((id) => id !== excludeId);
-    if (ids.length === 0) return;
-    const q = encodeURIComponent(ids.slice(0, 8).join(","));
-    fetch(`/api/products/by-ids?ids=${q}`)
-      .then((r) => r.json())
-      .then((data: { products: Mini[] }) => setItems(data.products ?? []))
-      .catch(() => {});
+    if (ids.length === 0) return "";
+    return encodeURIComponent(ids.slice(0, 8).join(","));
   }, [excludeId]);
+
+  const { data } = useSWR<{ products: Mini[] }>(
+    idsQuery ? `/api/products/by-ids?ids=${idsQuery}` : null,
+    swrJsonFetcher,
+    { dedupingInterval: 20_000 }
+  );
+  const items = data?.products ?? [];
 
   if (items.length === 0) return null;
 

@@ -13,7 +13,7 @@ const inflight = new Map<string, Promise<void>>();
  * localStorage until `POST /api/auth/session` runs on the client. When those are
  * out of sync, account pages used to `redirect()` to sign-in while the header
  * still showed a logged-in user. This component syncs the cookie and
- * `router.refresh()`es so the server can render.
+ * does a route replace so the server can re-render without hard reload.
  */
 export function AccountSessionRecover({ callbackPath }: { callbackPath: string }) {
   const router = useRouter();
@@ -46,7 +46,7 @@ export function AccountSessionRecover({ callbackPath }: { callbackPath: string }
             headers: { Authorization: `Bearer ${token}` }
           });
           sessionStorage.setItem(attemptsKey, String(n + 1));
-          router.refresh();
+          router.replace(callbackPath);
         })();
         inflight.set(callbackPath, p);
         try {
