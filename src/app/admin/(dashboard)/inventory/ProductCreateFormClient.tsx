@@ -2,16 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { createProductAction } from "./actions";
+import { useState } from "react";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
 import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <button
       type="submit"
@@ -69,14 +66,8 @@ export function ProductCreateFormClient({
 }) {
   const router = useRouter();
   const [clientError, setClientError] = useState<string | null>(null);
-  const [state, formAction] = useActionState(createProductAction, null);
-
-  useEffect(() => {
-    if (state?.success) {
-      router.push("/admin/inventory?created=1");
-      router.refresh();
-    }
-  }, [router, state]);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6">
@@ -94,11 +85,11 @@ export function ProductCreateFormClient({
       </div>
 
       <form
-        action={formAction}
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           const form = e.currentTarget;
-          const name = String(new FormData(form).get("name") ?? "").trim();
-          const mrp = Number(new FormData(form).get("mrp") ?? 0);
+          const formData = new FormData(form);
+          const name = String(formData.get("name") ?? "").trim();
+          const mrp = Number(formData.get("mrp") ?? 0);
           if (!name) {
             e.preventDefault();
             setClientError("Product name is required.");
@@ -109,7 +100,28 @@ export function ProductCreateFormClient({
             setClientError("Price must be greater than 0.");
             return;
           }
+          e.preventDefault();
           setClientError(null);
+          setServerError(null);
+          setPending(true);
+
+          try {
+            const res = await fetch("/api/admin/products/create", {
+              method: "POST",
+              body: formData
+            });
+            const data = (await res.json()) as { success?: boolean; message?: string };
+            if (!res.ok || !data.success) {
+              setServerError(data.message || "Unable to create product right now.");
+              return;
+            }
+            router.push("/admin/inventory?created=1");
+            router.refresh();
+          } catch {
+            setServerError("Unable to create product right now.");
+          } finally {
+            setPending(false);
+          }
         }}
         className="mt-6 grid gap-3 sm:grid-cols-2"
       >
@@ -197,11 +209,9 @@ export function ProductCreateFormClient({
         <Field label="Fit notes" name="fitNotes" />
         <Field label="Care instructions" name="careInstructions" />
         <div className="sm:col-span-2">
-          <SubmitButton />
+          <SubmitButton pending={pending} />
           {clientError ? <p className="mt-2 text-sm text-red-600">{clientError}</p> : null}
-          {!state?.success && state?.message ? (
-            <p className="mt-2 text-sm text-red-600">{state.message}</p>
-          ) : null}
+          {serverError ? <p className="mt-2 text-sm text-red-600">{serverError}</p> : null}
         </div>
       </form>
     </div>

@@ -3,12 +3,12 @@
 import {
   createContext,
   useContext,
-  useLayoutEffect,
+  useEffect,
   useMemo,
   useState,
   type ReactNode
 } from "react";
-import { getIsPwaStandalone, subscribeIsPwaStandalone } from "@/lib/pwa/is-standalone";
+import { isPWA } from "@/lib/isPWA";
 
 const PwaStandaloneContext = createContext(false);
 
@@ -19,9 +19,20 @@ export function usePwaStandalone(): boolean {
 export function PwaStandaloneProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [isPwa, setIsPwa] = useState(false);
 
-  useLayoutEffect(() => {
-    setIsPwa(getIsPwaStandalone());
-    return subscribeIsPwaStandalone(() => setIsPwa(getIsPwaStandalone()));
+  useEffect(() => {
+    setIsPwa(isPWA());
+
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(display-mode: standalone)");
+    const onChange = () => setIsPwa(isPWA());
+
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
+
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
   }, []);
 
   const value = useMemo(() => isPwa, [isPwa]);

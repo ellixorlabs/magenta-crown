@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { RootWrapper } from "@/components/layout/RootWrapper";
+import RootWrapper from "@/components/RootWrapper";
 import { SiteNavSuspenseFallback } from "@/components/layout/SiteNavSuspenseFallback";
 import { SiteNavWithData } from "@/server/SiteNavWithData";
 

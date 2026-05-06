@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Home, ShoppingBag, ShoppingCart, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -31,7 +32,47 @@ export function McBottomTabBar() {
   const pathname = usePathname() ?? "";
   const { isAuthenticated, isLoading } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
+  const [hideForKeyboard, setHideForKeyboard] = useState(false);
   const cartCount = cartItems.reduce((n, it) => n + it.quantity, 0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hasTextFocus = () => {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active) return false;
+      if (active.isContentEditable) return true;
+      const tag = active.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    };
+
+    const onFocusIn = () => setHideForKeyboard(hasTextFocus());
+    const onFocusOut = () => {
+      window.setTimeout(() => setHideForKeyboard(hasTextFocus()), 0);
+    };
+
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+
+    const vv = window.visualViewport;
+    const baseHeight = window.innerHeight;
+    const onViewport = () => {
+      if (!vv) return;
+      const keyboardOpen = baseHeight - vv.height > 140;
+      setHideForKeyboard(keyboardOpen || hasTextFocus());
+    };
+    vv?.addEventListener("resize", onViewport);
+
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+      vv?.removeEventListener("resize", onViewport);
+    };
+  }, []);
+
+  if (hideForKeyboard) {
+    return null;
+  }
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/auth")) {
     return null;

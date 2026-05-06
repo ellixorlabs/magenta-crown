@@ -44,7 +44,12 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       title: "Magenta Crown",
-      statusBarStyle: "black-translucent"
+      statusBarStyle: "default"
+    },
+    other: {
+      "apple-mobile-web-app-capable": "yes",
+      "apple-mobile-web-app-status-bar-style": "default",
+      "apple-mobile-web-app-title": "Magenta Crown"
     },
     icons: {
       icon: [
