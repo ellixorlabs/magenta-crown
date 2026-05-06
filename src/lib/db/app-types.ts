@@ -41,6 +41,7 @@ export type ProductRow = {
   codEnabled: boolean;
   prepaidOfferText: string | null;
   pricingFootnote: string | null;
+  status?: "ACTIVE" | "DRAFT" | "SOLD_OUT" | "ARCHIVED";
 };
 
 export type ProductVariantRow = {

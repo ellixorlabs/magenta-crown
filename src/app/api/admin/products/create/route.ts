@@ -6,6 +6,7 @@ import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 import { clearCacheByPrefix } from "@/lib/cache";
 import { normColorKey, normPart } from "@/lib/product-variants";
 import { randomId } from "@/lib/random-id";
+import { normalizeProductStatus } from "@/lib/product-status";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 function parseList(s: string) {
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
         listImageIndex,
         listImagePosition: String(formData.get("listImagePosition") ?? "center").trim() || "center",
         videoUrls,
+        status: normalizeProductStatus(formData.get("status")),
         prepaidOfferText: String(formData.get("prepaidOfferText") ?? "").trim() || null,
         pricingFootnote: String(formData.get("pricingFootnote") ?? "").trim() || null,
         codEnabled: true

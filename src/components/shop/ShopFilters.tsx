@@ -40,6 +40,7 @@ type Props = {
 
 type ShopFilterDraft = {
   sort: string;
+  status: string[];
   category: string[];
   occasion: string[];
   style: string[];
@@ -58,6 +59,7 @@ function buildShopFilterDraft(sp: { get: (key: string) => string | null; getAll:
   const cols = ([2, 3, 4, 5, 6].includes(colsRaw) ? colsRaw : 5) as 2 | 3 | 4 | 5 | 6;
   return {
     sort: sp.get("sort") ?? "new",
+    status: [...new Set(sp.getAll("status"))],
     category: [...new Set(sp.getAll("category"))],
     occasion: [...new Set(sp.getAll("occasion"))],
     style: [...new Set(sp.getAll("style"))],
@@ -73,6 +75,7 @@ function buildShopFilterDraft(sp: { get: (key: string) => string | null; getAll:
 }
 
 const DRAFT_URL_KEYS = [
+  "status",
   "category",
   "occasion",
   "style",
@@ -95,6 +98,7 @@ function mergeDraftIntoSearchParams(
 ): URLSearchParams {
   const next = new URLSearchParams(base.toString());
   for (const k of DRAFT_URL_KEYS) next.delete(k);
+  for (const v of draft.status) next.append("status", v);
   for (const v of draft.category) next.append("category", v);
   for (const v of draft.occasion) next.append("occasion", v);
   for (const v of draft.style) next.append("style", v);
@@ -164,7 +168,7 @@ function MultiFilterGroup({
       : "max-h-52 overflow-y-auto";
 
   return (
-    <div className={bar ? "min-w-[120px] flex-1" : ""}>
+    <div className={bar ? "min-w-0 w-full" : ""}>
       <div className="flex items-baseline justify-between gap-2">
         <span className={lab}>{label}</span>
         {selected.length > 0 ? (
@@ -294,7 +298,7 @@ export function ShopFilters({
       if (deferUrlUntilApply) {
         const multiKey = key as keyof Pick<
           ShopFilterDraft,
-          "category" | "occasion" | "style" | "material" | "color" | "size"
+          "status" | "category" | "occasion" | "style" | "material" | "color" | "size"
         >;
         setDraft((d) => {
           if (!d) return d;
@@ -321,7 +325,7 @@ export function ShopFilters({
       if (deferUrlUntilApply) {
         const multiKey = key as keyof Pick<
           ShopFilterDraft,
-          "category" | "occasion" | "style" | "material" | "color" | "size"
+          "status" | "category" | "occasion" | "style" | "material" | "color" | "size"
         >;
         setDraft((d) => (d ? { ...d, [multiKey]: [] } : d));
         return;
@@ -348,12 +352,14 @@ export function ShopFilters({
   const cols = [2, 3, 4, 5, 6].includes(colsRaw) ? (colsRaw as 2 | 3 | 4 | 5 | 6) : 5;
 
   const categorySelFromUrl = useMemo(() => [...new Set(searchParams.getAll("category"))], [searchParams]);
+  const statusSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("status"))], [searchParams]);
   const occasionSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("occasion"))], [searchParams]);
   const styleSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("style"))], [searchParams]);
   const materialSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("material"))], [searchParams]);
   const colorSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("color"))], [searchParams]);
   const sizeSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("size"))], [searchParams]);
 
+  const statusSel = deferUrlUntilApply && draft ? draft.status : statusSelFromUrl;
   const categorySel = deferUrlUntilApply && draft ? draft.category : categorySelFromUrl;
   const occasionSel = deferUrlUntilApply && draft ? draft.occasion : occasionSelFromUrl;
   const styleSel = deferUrlUntilApply && draft ? draft.style : styleSelFromUrl;
@@ -425,7 +431,7 @@ export function ShopFilters({
   const filters = (
     <>
       {!omitSort && (
-        <div className={bar ? "min-w-[120px] flex-1" : ""}>
+        <div className={bar ? "min-w-0 w-full" : ""}>
           <label className={lab} htmlFor="sort">
             Sort
           </label>
@@ -455,7 +461,7 @@ export function ShopFilters({
       )}
 
       {enablePriceSlider ? (
-        <div className={bar ? "min-w-[120px] flex-1" : ""}>
+        <div className={bar ? "min-w-0 w-full" : ""}>
           <label className={lab}>Price (MRP)</label>
           <div className={bar ? "mt-1 rounded-xl border border-zinc-200 bg-white/90 px-3 py-3" : "mt-2 rounded-xl border border-zinc-200 bg-white/80 px-3 py-4"}>
             <PriceRangeSlider
@@ -471,7 +477,7 @@ export function ShopFilters({
           </div>
         </div>
       ) : (
-        <div className={bar ? "min-w-[200px] flex-[2]" : ""}>
+        <div className={bar ? "min-w-0 w-full" : ""}>
           <label className={lab}>Price Bucket</label>
           <select
             id="price"
@@ -497,6 +503,19 @@ export function ShopFilters({
           </select>
         </div>
       )}
+
+      {bar && options.statuses?.length ? (
+        <MultiFilterGroup
+          fieldName="status"
+          label="Status"
+          options={options.statuses}
+          selected={statusSel}
+          compact={compact}
+          bar={bar}
+          onToggle={(v) => toggleMulti("status", v)}
+          onClear={() => clearMulti("status")}
+        />
+      ) : null}
 
       <MultiFilterGroup
         fieldName="category"
@@ -542,7 +561,7 @@ export function ShopFilters({
         onClear={() => clearMulti("material")}
       />
 
-      <div className={bar ? "grid min-w-[200px] flex-[1.5] grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
+      <div className={bar ? "grid min-w-0 w-full grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-2 gap-3"}>
         <MultiFilterGroup
           fieldName="color"
           label="Color"
@@ -567,7 +586,7 @@ export function ShopFilters({
 
 
       {!hideClearButton && (
-        <div className={bar ? "flex shrink-0 items-end pb-0.5" : ""}>
+        <div className={bar ? "flex min-w-0 w-full items-end pb-0.5" : ""}>
           <button
             type="button"
             className={
@@ -606,7 +625,7 @@ export function ShopFilters({
   if (bar) {
     return (
       <div className="rounded-2xl border border-zinc-300/90 bg-gradient-to-r from-white via-zinc-50/98 to-white/95 p-4 shadow-lg shadow-zinc-900/10 backdrop-blur-xl">
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-4">{filters}</div>
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{filters}</div>
       </div>
     );
   }

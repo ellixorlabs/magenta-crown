@@ -52,6 +52,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const supabase = getSupabaseServiceRoleClient();
   const { data: product, error } = await (supabase.from("Product") as any)
     .select("name,description,slug,category,tags,occasion,style,material,imageUrls")
+    .eq("status", "ACTIVE")
     .eq("slug", slug)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -94,6 +95,7 @@ export default async function ProductPage({ params }: PageProps) {
       .select(
         "*,variants:ProductVariant(*),reviews:Review(*),featuredCoupons:ProductFeaturedCoupon(coupon:Coupon(*))"
       )
+      .eq("status", "ACTIVE")
       .eq("slug", slug)
       .maybeSingle(),
     auth(),
@@ -110,6 +112,7 @@ export default async function ProductPage({ params }: PageProps) {
     (supabase.from("Review") as any).select("rating").eq("productId", productData.id),
     (supabase.from("Product") as any)
       .select("*,variants:ProductVariant(stock,isActive)")
+      .eq("status", "ACTIVE")
       .eq("category", productData.category)
       .neq("id", productData.id)
       .order("createdAt", { ascending: false })

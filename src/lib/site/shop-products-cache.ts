@@ -83,6 +83,7 @@ export async function getShopProductsCached(sp: Record<string, string | string[]
     .select(
       "id,slug,name,description,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,tags,newTagExpiresAt,material,occasion,style,variants:ProductVariant(stock,isActive,color,size),reviews:Review(rating)"
     )
+    .eq("status", "ACTIVE")
     .limit(1200);
   if (error) throw new Error(error.message);
   const allProducts = (data ?? []) as ProductRow[];

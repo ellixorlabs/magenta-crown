@@ -27,25 +27,37 @@ export async function POST(req: Request) {
     existingById.data || !email
       ? null
       : await supabase.from("User").select(selectUser).eq("email", email).maybeSingle<UserRow>();
-  const targetId = existingById.data?.id ?? existingByEmail?.data?.id ?? user.id;
-  const role = existingById.data?.role ?? existingByEmail?.data?.role ?? "CUSTOMER";
-  const onboardingComplete =
-    existingById.data?.onboardingComplete ?? existingByEmail?.data?.onboardingComplete ?? true;
+  const existing = existingById.data ?? existingByEmail?.data ?? null;
+  const targetId = existing?.id ?? user.id;
+  const onboardingComplete = existing?.onboardingComplete ?? true;
 
   const nowIso = new Date().toISOString();
-  const upsert = await (supabase.from("User") as any).upsert(
-    {
+  if (existing) {
+    // Existing account: never touch role during sign-in/session sync.
+    const update = await (supabase.from("User") as any)
+      .update({
+        email,
+        name,
+        onboardingComplete,
+        lastLoginAt: nowIso
+      })
+      .eq("id", targetId);
+    if (update.error) {
+      return NextResponse.json({ error: "Failed to sync user" }, { status: 500 });
+    }
+  } else {
+    // First-time row creation only: default role is CUSTOMER.
+    const insert = await (supabase.from("User") as any).insert({
       id: targetId,
       email,
       name,
-      role,
-      onboardingComplete,
+      role: "CUSTOMER",
+      onboardingComplete: true,
       lastLoginAt: nowIso
-    },
-    { onConflict: "id" }
-  );
-  if (upsert.error) {
-    return NextResponse.json({ error: "Failed to sync user" }, { status: 500 });
+    });
+    if (insert.error) {
+      return NextResponse.json({ error: "Failed to sync user" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

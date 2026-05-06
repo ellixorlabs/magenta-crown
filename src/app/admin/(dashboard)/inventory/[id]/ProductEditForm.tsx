@@ -37,6 +37,7 @@ type EditSnapshot = {
   mrp: string;
   discountedPrice: string;
   category: string;
+  status: string;
   prepaidOfferText: string;
   pricingFootnote: string;
   occasion: string;
@@ -69,6 +70,7 @@ function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
     mrp: String(product.mrp),
     discountedPrice: product.discountedPrice != null ? String(product.discountedPrice) : "",
     category: product.category,
+    status: String((product as { status?: string }).status ?? "ACTIVE"),
     prepaidOfferText: product.prepaidOfferText ?? "",
     pricingFootnote: product.pricingFootnote ?? "",
     occasion: product.occasion ?? "",
@@ -130,6 +132,7 @@ function snapshotFromFormData(formData: FormData, base: EditSnapshot): EditSnaps
     mrp: get("mrp"),
     discountedPrice: get("discountedPrice"),
     category: get("category"),
+    status: get("status"),
     prepaidOfferText: get("prepaidOfferText"),
     pricingFootnote: get("pricingFootnote"),
     occasion: get("occasion"),
@@ -293,6 +296,19 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
           step="0.01"
           defaultValue={present.discountedPrice}
         />
+        <div>
+          <label className="text-xs font-semibold text-zinc-600">Status</label>
+          <select
+            name="status"
+            defaultValue={present.status || "ACTIVE"}
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="SOLD_OUT">SOLD_OUT</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+        </div>
         <Field label="Category" name="category" defaultValue={present.category} />
         <div className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-600">
           Total stock on the storefront is the sum of active variant rows: <strong>{totalStock}</strong> units.

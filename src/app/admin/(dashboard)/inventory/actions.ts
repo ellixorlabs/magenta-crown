@@ -7,6 +7,7 @@ import { normColorKey, normPart } from "@/lib/product-variants";
 import { randomId } from "@/lib/random-id";
 import { isAdminRole, requireStaff } from "@/lib/admin-auth";
 import { clearCacheByPrefix } from "@/lib/cache";
+import { normalizeProductStatus } from "@/lib/product-status";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 function slugifyProductName(input: string) {
@@ -149,6 +150,7 @@ type ProductInsertPayload = {
   prepaidOfferText: string | null;
   pricingFootnote: string | null;
   codEnabled: boolean;
+  status: "ACTIVE" | "DRAFT" | "SOLD_OUT" | "ARCHIVED";
 };
 
 function validateProductPayload(payload: ProductInsertPayload): string | null {
@@ -258,6 +260,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      status: normalizeProductStatus(formData.get("status")),
       ...commerce
     });
     if (!createResult.success) {
@@ -383,6 +386,7 @@ export async function updateProduct(formData: FormData) {
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      status: normalizeProductStatus(formData.get("status")),
       ...commerce
     })
     .eq("id", id)
@@ -453,8 +457,7 @@ export async function deleteProduct(
   if ((orderLines.count ?? 0) > 0) {
     return {
       ok: false,
-      message:
-        "This product cannot be deleted because it appears on past orders. Edit the listing to take it off sale instead."
+      message: "This product appears on past orders and cannot be deleted. Archive it to remove from storefront."
     };
   }
   try {

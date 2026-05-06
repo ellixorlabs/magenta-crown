@@ -12,6 +12,7 @@ export default async function CartPage() {
   const supabase = getSupabaseServiceRoleClient();
   const { data: upsells, error } = await (supabase.from("Product") as any)
     .select("*,variants:ProductVariant(stock,isActive)")
+    .eq("status", "ACTIVE")
     .order("createdAt", { ascending: false })
     .limit(3);
   if (error) throw new Error(error.message);

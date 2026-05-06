@@ -55,6 +55,7 @@ async function loadUncachedBundle(): Promise<HomePageDbBundle> {
       const supabase = getSupabaseServiceRoleClient();
       const { data: rows, error } = await (supabase.from("Product") as any)
         .select("*,variants:ProductVariant(stock,isActive)")
+        .eq("status", "ACTIVE")
         .in("id", allIds);
       if (error) throw new Error(error.message);
       productById = new Map((rows ?? []).map((p: any) => [p.id, p]));

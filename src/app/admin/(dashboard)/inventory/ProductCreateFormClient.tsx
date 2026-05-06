@@ -149,6 +149,15 @@ export function ProductCreateFormClient({
         </div>
         <Field label="MRP (Rs)" name="mrp" type="number" step="0.01" required />
         <Field label="Sale price (optional)" name="discountedPrice" type="number" step="0.01" />
+        <div>
+          <label className="text-xs font-semibold text-zinc-600">Status</label>
+          <select name="status" defaultValue="ACTIVE" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="SOLD_OUT">SOLD_OUT</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+        </div>
         <Field label="Category" name="category" placeholder="Sarees" />
 
         <div className="sm:col-span-2">

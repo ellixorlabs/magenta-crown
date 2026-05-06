@@ -10,6 +10,7 @@ export type ShopFilterOptions = {
   materials: string[];
   colors: string[];
   sizes: string[];
+  statuses?: string[];
   /** Min/max MRP in catalog for price slider (shop only). */
   priceMin: number;
   priceMax: number;

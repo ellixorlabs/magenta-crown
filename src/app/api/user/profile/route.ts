@@ -100,24 +100,47 @@ export async function POST(req: Request) {
       ? user.user_metadata.name.trim()
       : null;
   const fallbackName = email.split("@")[0] ?? "Customer";
-  const upsert = await ((supabase
-    .from("User") as any)
-    .upsert(
-      {
-        id: targetId,
-        email,
-        name: metaName ?? fallbackName,
-        role: "CUSTOMER",
-        onboardingComplete: true
-      },
-      { onConflict: "id" }
-    )
-    .select("name,email,phone,addresses,deletionRequestedAt,deletionScheduledFor")
-    .single());
-  if (upsert.error) {
+  const existing = await (supabase.from("User") as any)
+    .select("id")
+    .eq("id", targetId)
+    .maybeSingle();
+  if (existing.error) {
     return NextResponse.json({ error: "Failed to sync profile" }, { status: 500 });
   }
-  const u = upsert.data as ProfileRow;
+
+  if (existing.data?.id) {
+    // Existing user: patch profile fields only; never overwrite role.
+    const update = await (supabase.from("User") as any)
+      .update({
+        email,
+        name: metaName ?? fallbackName
+      })
+      .eq("id", targetId);
+    if (update.error) {
+      return NextResponse.json({ error: "Failed to sync profile" }, { status: 500 });
+    }
+  } else {
+    // First-time create only: assign CUSTOMER role.
+    const insert = await (supabase.from("User") as any).insert({
+      id: targetId,
+      email,
+      name: metaName ?? fallbackName,
+      role: "CUSTOMER",
+      onboardingComplete: true
+    });
+    if (insert.error) {
+      return NextResponse.json({ error: "Failed to sync profile" }, { status: 500 });
+    }
+  }
+
+  const row = await (supabase.from("User") as any)
+    .select("name,email,phone,addresses,deletionRequestedAt,deletionScheduledFor")
+    .eq("id", targetId)
+    .single();
+  if (row.error) {
+    return NextResponse.json({ error: "Failed to load synced profile" }, { status: 500 });
+  }
+  const u = row.data as ProfileRow;
 
   return NextResponse.json({
     name: u.name ?? "",

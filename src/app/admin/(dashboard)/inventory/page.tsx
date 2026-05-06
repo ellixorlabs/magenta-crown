@@ -5,10 +5,11 @@ import { isAdminRole } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getShopFilterOptions } from "@/lib/shop-filter-options";
 import { buildProductOrderBy, buildProductWhere, firstString, parseShopSearchParams } from "@/lib/shop-query";
+import { normalizeProductStatus } from "@/lib/product-status";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
-import { deleteProductForm } from "./actions";
 import type { NextAppPageSearch } from "@/types/next-app";
+import { AdminInventoryActions } from "@/components/admin/AdminInventoryActions";
 
 type PageProps = NextAppPageSearch<Record<string, string | string[] | undefined>>;
 
@@ -24,13 +25,22 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServiceRoleClient();
 
   const [filterOptions, productsRaw] = await Promise.all([
-    getShopFilterOptions(),
+    getShopFilterOptions({ includeAllStatuses: true }),
     (supabase.from("Product") as any)
-      .select("*,variants:ProductVariant(stock,isActive,color,size)")
+      .select("id,name,slug,mrp,discountedPrice,status,variants:ProductVariant(stock,isActive,color,size)")
       .limit(1000)
   ]);
   if (productsRaw.error) throw new Error(productsRaw.error.message);
   const filtered = (productsRaw.data ?? []).filter(where).sort(orderBy).slice(0, 300);
+  const productIds = filtered.map((p: { id: string }) => p.id);
+  const orderItemsRes =
+    productIds.length > 0
+      ? await (supabase.from("OrderItem") as any).select("productId").in("productId", productIds)
+      : { data: [], error: null };
+  if (orderItemsRes.error) throw new Error(orderItemsRes.error.message);
+  const productsWithOrders = new Set(
+    ((orderItemsRes.data ?? []) as Array<{ productId: string }>).map((r) => r.productId)
+  );
 
   const products = [...filtered].sort(
     (a, b) => getProductTotalStock(a.variants) - getProductTotalStock(b.variants)
@@ -72,6 +82,7 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
               <th className="px-4 py-3">Stock</th>
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">Slug</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -97,27 +108,35 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
                   <td className="px-4 py-3 font-medium text-zinc-900">{p.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-zinc-600">{p.slug}</td>
                   <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${
+                        normalizeProductStatus(p.status) === "ARCHIVED"
+                          ? "bg-zinc-200 text-zinc-700"
+                          : normalizeProductStatus(p.status) === "DRAFT"
+                            ? "bg-violet-100 text-violet-800"
+                            : normalizeProductStatus(p.status) === "SOLD_OUT"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {normalizeProductStatus(p.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
                     Rs {p.discountedPrice ?? p.mrp}
                     {p.discountedPrice != null && (
                       <span className="ml-1 text-xs text-zinc-400 line-through">{p.mrp}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {admin && (
-                        <Link href={`/admin/inventory/${p.id}`} className="text-xs font-medium text-crown-800 underline">
-                          Edit
-                        </Link>
-                      )}
-                      {admin && (
-                        <form action={deleteProductForm} className="inline">
-                          <input type="hidden" name="productId" value={p.id} />
-                          <button type="submit" className="text-xs font-medium text-red-600 underline">
-                            Delete
-                          </button>
-                        </form>
-                      )}
-                    </div>
+                    {admin ? (
+                      <AdminInventoryActions
+                        productId={p.id}
+                        productName={p.name}
+                        hasOrders={productsWithOrders.has(p.id)}
+                        status={normalizeProductStatus(p.status)}
+                      />
+                    ) : null}
                   </td>
                 </tr>
               );

@@ -54,6 +54,7 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
     occasion: allParamValues(sp, "occasion"),
     style: allParamValues(sp, "style"),
     material: allParamValues(sp, "material"),
+    status: allParamValues(sp, "status"),
     color: allParamValues(sp, "color"),
     size: allParamValues(sp, "size"),
     minPrice: firstString(sp.minPrice),
@@ -72,6 +73,7 @@ export function parseShopSearchParams(sp: Record<string, string | string[] | und
 }
 
 type ProductLike = {
+  status?: unknown;
   category?: unknown;
   occasion?: unknown;
   style?: unknown;
@@ -89,6 +91,12 @@ export function buildProductWhere(sp: Record<string, string | string[] | undefin
   const hideOos = p.hideOutOfStock === "1" || p.hideOutOfStock === "true";
 
   return (product: ProductLike) => {
+    if (
+      p.status.length &&
+      !p.status.some((s) => norm(product.status) === norm(s))
+    ) {
+      return false;
+    }
     if (
       p.category.length &&
       !p.category.some((c) => norm(product.category) === norm(c))

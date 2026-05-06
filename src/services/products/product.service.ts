@@ -106,6 +106,7 @@ export async function listProductsForApi(input: ListProductsParams) {
     "id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)",
     { count: "exact" }
   );
+  query = query.eq("status", "ACTIVE");
   if (input.category?.trim()) query = query.eq("category", input.category.trim());
   if (input.q?.trim()) query = query.ilike("name", `%${input.q.trim()}%`);
   if (input.sort === "price_asc") query = query.order("mrp", { ascending: true }).order("id", { ascending: true });
@@ -132,6 +133,7 @@ export async function getProductByIdForApi(id: string) {
     .select(
       "id,slug,name,description,story,mrp,discountedPrice,category,tags,material,occasion,style,fitNotes,careInstructions,sizeChartImageUrl,codEnabled,prepaidOfferText,pricingFootnote,imageUrls,listImageIndex,listImagePosition,videoUrls,createdAt,variants:ProductVariant(id,color,size,stock,isActive)"
     )
+    .eq("status", "ACTIVE")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -189,6 +191,7 @@ export async function getLatestProductsForApi(limit: number) {
   const supabase = getSupabaseServiceRoleClient();
   const { data, error } = await (supabase.from("Product") as any)
     .select("id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)")
+    .eq("status", "ACTIVE")
     .order("createdAt", { ascending: false })
     .order("id", { ascending: false })
     .limit(take);
@@ -208,6 +211,7 @@ export async function getProductsByIdsForApi(ids: string[]) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: rows, error } = await (supabase.from("Product") as any)
     .select("id,slug,name,imageUrls,mrp,discountedPrice")
+    .eq("status", "ACTIVE")
     .in("id", ids);
   if (error) throw new Error(error.message);
   const order = new Map(ids.map((id, i) => [id, i]));

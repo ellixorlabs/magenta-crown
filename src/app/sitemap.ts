@@ -37,8 +37,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const supabase = getSupabaseServiceRoleClient();
     const [{ data: products, error: productsError }, { data: categoryRows, error: categoryError }] =
       await Promise.all([
-        (supabase.from("Product") as any).select("slug,createdAt").order("createdAt", { ascending: false }),
-        (supabase.from("Product") as any).select("category")
+        (supabase.from("Product") as any).select("slug,createdAt").eq("status", "ACTIVE").order("createdAt", { ascending: false }),
+        (supabase.from("Product") as any).select("category").eq("status", "ACTIVE")
       ]);
     if (productsError) throw new Error(productsError.message);
     if (categoryError) throw new Error(categoryError.message);

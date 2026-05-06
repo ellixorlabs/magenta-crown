@@ -8,13 +8,14 @@ export async function POST(req: Request) {
     if (productIds.length === 0) return NextResponse.json({ products: [] });
     const limit = Math.min(Math.max(Number(body.limit ?? 4), 1), 12);
     const supabase = getSupabaseServiceRoleClient();
-    const base = await (supabase.from("Product") as any).select("id,category").in("id", productIds);
+    const base = await (supabase.from("Product") as any).select("id,category").eq("status", "ACTIVE").in("id", productIds);
     const categories = [...new Set(((base.data ?? []) as Array<{ category?: string }>).map((p) => p.category).filter(Boolean))];
     if (categories.length === 0) return NextResponse.json({ products: [] });
     const similar = await (supabase.from("Product") as any)
       .select(
         "id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,tags,newTagExpiresAt,material,occasion,style,variants:ProductVariant(stock,isActive)"
       )
+      .eq("status", "ACTIVE")
       .in("category", categories)
       .order("createdAt", { ascending: false })
       .limit(limit * 3);

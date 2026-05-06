@@ -28,6 +28,7 @@ export default async function WishlistPage() {
   if (ids.length > 0) {
     const { data: products, error } = await (supabase.from("Product") as any)
       .select("*,variants:ProductVariant(stock,isActive)")
+      .eq("status", "ACTIVE")
       .in("id", ids);
     if (error) throw new Error(error.message);
     const byId = new Map(((products ?? []) as any[]).map((p) => [p.id, p]));
