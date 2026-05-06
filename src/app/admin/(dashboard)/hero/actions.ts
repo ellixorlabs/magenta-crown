@@ -19,6 +19,8 @@ export async function saveHeroSlide(formData: FormData) {
   await requireHeroAdmin();
   const id = formData.get("id") as string | null;
   const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+  const imageUrlMobile = String(formData.get("imageUrlMobile") ?? "").trim();
+  const imageUrlDesktop = String(formData.get("imageUrlDesktop") ?? "").trim();
   const imagePosition = String(formData.get("imagePosition") ?? "center").trim() || "center";
   const eyebrow = String(formData.get("eyebrow") ?? "").trim();
   const line1 = String(formData.get("line1") ?? "").trim();
@@ -36,12 +38,34 @@ export async function saveHeroSlide(formData: FormData) {
 
   if (existingId) {
     const { error } = await (supabase.from("HeroSlide") as any)
-      .update({ imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder })
+      .update({
+        imageUrl,
+        imageUrlMobile: imageUrlMobile || imageUrl,
+        imageUrlDesktop: imageUrlDesktop || imageUrl,
+        imagePosition,
+        eyebrow,
+        line1,
+        accent,
+        sub1,
+        sub2,
+        sortOrder
+      })
       .eq("id", existingId);
     if (error) throw new Error(error.message);
   } else {
     const { error } = await (supabase.from("HeroSlide") as any)
-      .insert({ imageUrl, imagePosition, eyebrow, line1, accent, sub1, sub2, sortOrder });
+      .insert({
+        imageUrl,
+        imageUrlMobile: imageUrlMobile || imageUrl,
+        imageUrlDesktop: imageUrlDesktop || imageUrl,
+        imagePosition,
+        eyebrow,
+        line1,
+        accent,
+        sub1,
+        sub2,
+        sortOrder
+      });
     if (error) throw new Error(error.message);
   }
   revalidatePath("/", "layout");
@@ -86,6 +110,8 @@ export async function seedDefaultHeroSlides() {
     rows.push({
       sortOrder: i++,
       imageUrl: s.bg,
+      imageUrlMobile: s.bgMobile || s.bg,
+      imageUrlDesktop: s.bgDesktop || s.bg,
       eyebrow: s.label,
       line1: s.line1,
       accent: s.accent,

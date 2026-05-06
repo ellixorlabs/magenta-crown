@@ -142,6 +142,8 @@ export type DynamicPromoBannerSection = {
   title: string;
   subtitle?: string;
   imageUrl: string;
+  imageUrlMobile?: string;
+  imageUrlDesktop?: string;
   targetHref: string;
   gradientFrom: string;
   gradientTo: string;

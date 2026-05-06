@@ -9,6 +9,8 @@ export type HeroSlideVM = {
   accent: string;
   sub: string[];
   bg: string;
+  bgMobile?: string;
+  bgDesktop?: string;
   /** CSS object-position for hero background image */
   imagePosition: string;
 };
@@ -23,6 +25,8 @@ export const DEFAULT_HERO_SLIDES: HeroSlideVM[] = [
       "Each piece a testament to artisan mastery."
     ],
     bg: "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?auto=format&fit=crop&w=1920&q=80",
+    bgMobile: "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?auto=format&fit=crop&w=900&q=80",
+    bgDesktop: "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?auto=format&fit=crop&w=1920&q=80",
     imagePosition: "center"
   },
   {
@@ -34,6 +38,8 @@ export const DEFAULT_HERO_SLIDES: HeroSlideVM[] = [
       "Limited atelier drops — never mass-produced."
     ],
     bg: "https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=1920&q=80",
+    bgMobile: "https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=900&q=80",
+    bgDesktop: "https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=1920&q=80",
     imagePosition: "center"
   },
   {
@@ -45,6 +51,8 @@ export const DEFAULT_HERO_SLIDES: HeroSlideVM[] = [
       "Designed for movement, built to last."
     ],
     bg: "https://images.unsplash.com/photo-1604147495798-57beb5d6af73?auto=format&fit=crop&w=1920&q=80",
+    bgMobile: "https://images.unsplash.com/photo-1604147495798-57beb5d6af73?auto=format&fit=crop&w=900&q=80",
+    bgDesktop: "https://images.unsplash.com/photo-1604147495798-57beb5d6af73?auto=format&fit=crop&w=1920&q=80",
     imagePosition: "center"
   }
 ];

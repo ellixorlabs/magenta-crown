@@ -79,6 +79,8 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
                   title: promo.title,
                   subtitle: promo.subtitle,
                   imageUrl: promo.imageUrl,
+                  imageUrlMobile: promo.imageUrlMobile,
+                  imageUrlDesktop: promo.imageUrlDesktop,
                   targetHref: promo.targetHref
                 }))}
               />

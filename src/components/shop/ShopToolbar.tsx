@@ -28,17 +28,18 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
     openFilters();
   }, [openFilters]);
 
-  const sortValue = searchParams.get("sort") ?? "new";
+  const rawSort = searchParams.get("sort") ?? "new";
+  const sortValue = rawSort === "price_desc" ? "price-desc" : rawSort === "price_asc" ? "price-asc" : rawSort;
 
   return (
     <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-stretch sm:gap-3">
       <button
         type="button"
         onClick={onFilterClick}
-        className="inline-flex min-h-[48px] shrink-0 flex-1 items-center justify-center gap-2 rounded-2xl border-0 bg-mc-maroon px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-mc-maroonDeep sm:flex-initial sm:justify-start"
+        className="inline-flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-full border border-mc-ink/20 bg-white px-5 py-2 text-sm font-semibold text-mc-ink shadow-sm transition hover:bg-zinc-50 sm:flex-initial"
       >
-        <SlidersHorizontal className="h-4 w-4 text-white" aria-hidden />
-        Filter
+        <SlidersHorizontal className="h-4 w-4" aria-hidden />
+        Filter & Sort
       </button>
 
       <div className="flex w-full shrink-0 flex-col sm:w-auto sm:min-w-[11rem] sm:max-w-[min(100%,18rem)] sm:flex-1">
@@ -47,7 +48,7 @@ export function ShopToolbar({ basePath, isList, cols }: Props) {
         </label>
         <select
           id={sortId}
-          className="min-h-[48px] w-full rounded-2xl border-0 bg-mc-gold px-4 py-2.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep sm:min-w-[11rem]"
+          className="min-h-[46px] w-full rounded-full border border-mc-ink/20 bg-white px-4 py-2 text-sm font-semibold text-mc-ink shadow-sm transition hover:bg-zinc-50 sm:min-w-[11rem]"
           value={sortValue}
           onChange={(e) => {
             const p = new URLSearchParams(searchParams.toString());

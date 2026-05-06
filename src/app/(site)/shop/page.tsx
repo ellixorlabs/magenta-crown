@@ -63,6 +63,24 @@ export default async function ShopPage({ searchParams }: PageProps) {
 
   const products = shopProducts.products;
   const { pagination } = shopProducts;
+  const selectedCategoryRaw = (Array.isArray(sp.category) ? sp.category[0] : sp.category)?.trim() ?? "";
+  const selectedCategory = (() => {
+    try {
+      return decodeURIComponent(selectedCategoryRaw);
+    } catch {
+      return selectedCategoryRaw;
+    }
+  })();
+  const rawSort = (Array.isArray(sp.sort) ? sp.sort[0] : sp.sort)?.trim().toLowerCase() ?? "";
+  const heading =
+    selectedCategory ||
+    (rawSort === "price_desc" || parsed.sort === "price-desc"
+      ? "Trending now"
+      : rawSort === "new" || parsed.sort === "new"
+        ? "New arrivals"
+        : rawSort === "price_asc" || parsed.sort === "price-asc"
+          ? "Value picks"
+          : "All products");
 
   const shopBg = "bg-mc-cream";
 
@@ -80,7 +98,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 text-left">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-mc-gold sm:text-xs">Shop</p>
-                  <h1 className="mt-1 font-mc-heading text-2xl font-semibold text-mc-ink sm:text-3xl">All products</h1>
+                  <h1 className="mt-1 font-mc-heading text-2xl font-semibold text-mc-ink sm:text-3xl">{heading}</h1>
                 </div>
 
                 <ShopToolbar basePath="/shop" isList={isList} cols={parsed.cols} />

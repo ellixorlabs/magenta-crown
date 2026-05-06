@@ -10,6 +10,8 @@ type BannerItem = {
   title: string;
   subtitle?: string;
   imageUrl: string;
+  imageUrlMobile?: string;
+  imageUrlDesktop?: string;
   targetHref: string;
 };
 
@@ -30,6 +32,8 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
 
   if (banners.length === 0) return null;
   const current = banners[Math.min(active, banners.length - 1)]!;
+  const mobileImage = current.imageUrlMobile || current.imageUrl || "";
+  const desktopImage = current.imageUrlDesktop || current.imageUrl || mobileImage;
 
   return (
     <section className="bg-mc-cream py-10 sm:py-14">
@@ -39,28 +43,37 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
             href={current.targetHref}
             className="group mc-tap block overflow-hidden rounded-3xl border border-mc-ink/10 shadow-[0_20px_50px_-24px_rgba(80,10,30,0.45)] transition hover:shadow-[0_24px_56px_-24px_rgba(80,10,30,0.55)]"
           >
-            <div className="grid min-h-[320px] items-end gap-4 bg-gradient-to-br from-mc-maroon via-[#5c0818] to-zinc-950 px-6 py-6 sm:min-h-[400px] sm:grid-cols-[1.05fr_0.95fr] sm:px-10 sm:py-8">
-              <div className="max-w-xl text-white">
-                <h3 className="font-mc-heading text-2xl font-semibold leading-tight sm:text-3xl">{current.title}</h3>
-                {current.subtitle ? (
-                  <p className="mt-3 text-sm text-white/85 sm:text-base">{current.subtitle}</p>
-                ) : null}
-                <span className="mt-6 inline-flex items-center rounded-xl bg-mc-gold px-5 py-2.5 text-sm font-bold text-mc-ink transition group-hover:bg-mc-goldDeep">
-                  See more
-                </span>
-              </div>
-              <div className="relative h-[180px] sm:h-[280px]">
-                {current.imageUrl ? (
+            <div className="relative min-h-[68svh] sm:min-h-[460px]">
+              <div className="relative h-[68svh] sm:hidden">
+                {mobileImage ? (
                   <Image
-                    src={current.imageUrl}
+                    src={mobileImage}
                     alt={current.title}
                     fill
-                    sizes="(max-width: 640px) 70vw, 420px"
-                    className="object-contain object-center"
+                    sizes="100vw"
+                    className="object-cover object-center"
                     loading="lazy"
                     unoptimized
                   />
                 ) : null}
+              </div>
+              <div className="relative hidden h-[460px] sm:block">
+                {desktopImage ? (
+                  <Image
+                    src={desktopImage}
+                    alt={current.title}
+                    fill
+                    sizes="(max-width: 1280px) 100vw, 1280px"
+                    className="object-cover object-center"
+                    loading="lazy"
+                    unoptimized
+                  />
+                ) : null}
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 to-transparent sm:h-36" />
+              <div className="absolute inset-x-0 bottom-0 z-[1] p-4 text-white sm:p-6">
+                <h3 className="font-mc-heading text-xl font-semibold leading-tight sm:text-3xl">{current.title}</h3>
+                {current.subtitle ? <p className="mt-2 text-sm text-white/85 sm:text-base">{current.subtitle}</p> : null}
               </div>
             </div>
           </Link>

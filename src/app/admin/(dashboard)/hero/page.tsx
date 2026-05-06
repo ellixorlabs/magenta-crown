@@ -34,8 +34,9 @@ export default async function AdminHeroPage() {
       <div>
         <h2 className="text-xl font-semibold text-zinc-900">Landing hero</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Images and copy for the homepage carousel. Drag inside the preview to set focal point (object-position). If no
-          slides are saved, the site uses built-in defaults until you add rows here.
+          Images and copy for the homepage carousel. Upload portrait (mobile) and landscape (desktop) variants per slide.
+          Drag inside the preview to set focal point (object-position). If no slides are saved, the site uses built-in
+          defaults until you add rows here.
         </p>
       </div>
 

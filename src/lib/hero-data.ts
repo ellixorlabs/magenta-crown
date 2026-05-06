@@ -22,11 +22,21 @@ export async function getHeroSlidesForSite(): Promise<HeroSlideVM[]> {
   try {
     const supabase = getSupabaseServiceRoleClient();
     const { data: rows, error } = await (supabase.from("HeroSlide") as any)
-      .select("eyebrow,line1,accent,sub1,sub2,imageUrl,imagePosition")
+      .select("eyebrow,line1,accent,sub1,sub2,imageUrl,imageUrlMobile,imageUrlDesktop,imagePosition")
       .eq("isActive", true)
       .order("sortOrder", { ascending: true });
     if (error) throw new Error(error.message);
-    const list = (rows ?? []) as Array<{ eyebrow: string | null; line1: string; accent: string; sub1: string | null; sub2: string | null; imageUrl: string; imagePosition: string | null }>;
+    const list = (rows ?? []) as Array<{
+      eyebrow: string | null;
+      line1: string;
+      accent: string;
+      sub1: string | null;
+      sub2: string | null;
+      imageUrl: string;
+      imageUrlMobile: string | null;
+      imageUrlDesktop: string | null;
+      imagePosition: string | null;
+    }>;
     if (list.length === 0) return DEFAULT_HERO_SLIDES;
     return list.map((r) => ({
       label: r.eyebrow || "Magenta Crown",
@@ -34,6 +44,8 @@ export async function getHeroSlidesForSite(): Promise<HeroSlideVM[]> {
       accent: r.accent,
       sub: [r.sub1 || "", r.sub2 || ""].filter(Boolean),
       bg: r.imageUrl,
+      bgMobile: r.imageUrlMobile?.trim() || r.imageUrl,
+      bgDesktop: r.imageUrlDesktop?.trim() || r.imageUrl,
       imagePosition: r.imagePosition?.trim() || "center"
     }));
   } catch {

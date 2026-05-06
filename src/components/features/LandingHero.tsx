@@ -39,6 +39,7 @@ export function LandingHero({ slides, transition }: Props) {
   const labelId = useId();
   const [tilt, setTilt] = useState({ x: 0.5, y: 0.5 });
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const displayIndexRef = useRef(0);
   const incomingIndexRef = useRef<number | null>(null);
@@ -63,6 +64,22 @@ export function LandingHero({ slides, transition }: Props) {
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const on = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  const slideBg = useCallback(
+    (s: HeroSlideVM) => {
+      if (isMobile) return s.bgMobile || s.bg || s.bgDesktop || "";
+      return s.bgDesktop || s.bg || s.bgMobile || "";
+    },
+    [isMobile]
+  );
 
   const commit = useCallback(() => {
     const inc = incomingIndexRef.current;
@@ -284,7 +301,7 @@ export function LandingHero({ slides, transition }: Props) {
           <>
             <div className="absolute inset-0 z-0">
               <Image
-                src={list[incomingIndex! % len].bg}
+                src={slideBg(list[incomingIndex! % len])}
                 alt=""
                 fill
                 className="object-cover"
@@ -305,7 +322,7 @@ export function LandingHero({ slides, transition }: Props) {
               onTransitionEnd={onLayerTransitionEnd}
             >
               <Image
-                src={list[displayIndex % len].bg}
+                src={slideBg(list[displayIndex % len])}
                 alt=""
                 fill
                 className="object-cover"
@@ -321,7 +338,7 @@ export function LandingHero({ slides, transition }: Props) {
           <>
             <div className="absolute inset-0 z-0">
               <Image
-                src={list[displayIndex % len].bg}
+                src={slideBg(list[displayIndex % len])}
                 alt=""
                 fill
                 className="object-cover"
@@ -337,7 +354,7 @@ export function LandingHero({ slides, transition }: Props) {
             {incomingIndex !== null && !reduceMotion && t !== "none" && (
               <div className="absolute inset-0 z-[1] min-h-0" style={incomingOverlayStyle()} onTransitionEnd={onLayerTransitionEnd}>
                 <Image
-                  src={list[incomingIndex % len].bg}
+                  src={slideBg(list[incomingIndex % len])}
                   alt=""
                   fill
                   className="object-cover"

@@ -116,6 +116,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
         title: "Shop by the Occasion",
         subtitle: "Elegance crafted for your special moments.",
         imageUrl: "",
+        imageUrlMobile: "",
+        imageUrlDesktop: "",
         targetHref: "/shop",
         gradientFrom: "#7f1530",
         gradientTo: "#a0173c"
@@ -244,7 +246,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
-  const uploadPromoImage = useCallback(async (sectionId: string, file: File | null) => {
+  const uploadPromoImage = useCallback(async (sectionId: string, variant: "mobile" | "desktop", file: File | null) => {
     if (!file) return;
     setError(null);
     setUploadingPromoSectionId(sectionId);
@@ -262,7 +264,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
         ...payload,
         sections: payload.sections.map((s): DynamicHomeSection => {
           if (s.id !== sectionId || s.type !== "promoBanner") return s;
-          return { ...s, imageUrl: url };
+          return variant === "mobile" ? { ...s, imageUrlMobile: url } : { ...s, imageUrlDesktop: url };
         })
       };
       setPayload(nextPayload);
@@ -634,6 +636,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                                 title: s.title,
                                 subtitle: "",
                                 imageUrl: "",
+                                imageUrlMobile: "",
+                                imageUrlDesktop: "",
                                 targetHref: s.type === "promoBanner" ? s.targetHref : s.viewAllHref || "/shop",
                                 gradientFrom: "#7f1530",
                                 gradientTo: "#a0173c"
@@ -698,28 +702,53 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                       />
                     </label>
                     <label className="block text-xs font-semibold text-zinc-600">
-                      Upload banner image
+                      Upload mobile portrait image
                       <input
                         type="file"
                         accept="image/jpeg,image/png"
                         className="mt-1 block w-full text-sm"
-                        onChange={(e) => void uploadPromoImage(section.id, e.target.files?.[0] ?? null)}
+                        onChange={(e) => void uploadPromoImage(section.id, "mobile", e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-zinc-600">
+                      Upload desktop landscape image
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="mt-1 block w-full text-sm"
+                        onChange={(e) => void uploadPromoImage(section.id, "desktop", e.target.files?.[0] ?? null)}
                       />
                     </label>
                     {uploadingPromoSectionId === section.id ? (
                       <p className="text-xs text-zinc-500">Uploading banner image...</p>
                     ) : null}
-                    {section.imageUrl ? (
+                    {section.imageUrlMobile || section.imageUrlDesktop ? (
                       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
-                        <div className="relative h-40 w-full overflow-hidden rounded-xl">
-                          <Image
-                            src={section.imageUrl}
-                            alt="Promo banner preview"
-                            fill
-                            sizes="(max-width: 768px) 100vw, 640px"
-                            className="object-contain object-center"
-                            unoptimized
-                          />
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100">
+                            {section.imageUrlMobile ? (
+                              <Image
+                                src={section.imageUrlMobile}
+                                alt="Promo mobile preview"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                className="object-cover object-center"
+                                unoptimized
+                              />
+                            ) : null}
+                          </div>
+                          <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100">
+                            {section.imageUrlDesktop ? (
+                              <Image
+                                src={section.imageUrlDesktop}
+                                alt="Promo desktop preview"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                className="object-cover object-center"
+                                unoptimized
+                              />
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ) : null}

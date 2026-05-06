@@ -6,24 +6,21 @@ import WebLayout from "@/components/web/WebLayout";
 import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
 import { PwaStandaloneProvider } from "@/context/PwaStandaloneContext";
 import { isPWA } from "@/lib/isPWA";
+import { MC_LOADER_MAROON } from "@/lib/loader-theme";
 
 function Loader({ fadeOut = false }: { fadeOut?: boolean }) {
   return (
     <div
-      className={`mc-loader-fullscreen z-[5000] flex items-center justify-center overflow-hidden bg-[#3f0812] transition-opacity duration-300 ${
+      className={`mc-loader-fullscreen z-[5000] flex items-center justify-center overflow-hidden transition-opacity duration-300 ${
         fadeOut ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
+      style={{ backgroundColor: MC_LOADER_MAROON }}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(120%_78%_at_50%_42%,rgba(165,37,82,0.24)_0%,rgba(88,10,31,0.08)_45%,rgba(45,4,16,0.38)_100%)]" />
-      <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/25 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/28 to-transparent" />
-      <div className="relative flex h-[min(44vw,13rem)] w-[min(44vw,13rem)] items-center justify-center rounded-[22%] bg-white/5 ring-1 ring-white/10 backdrop-blur-[1.5px] sm:h-52 sm:w-52">
-        <BreathingLogoMark
-          homeIntroBreath
-          sizeClassName="h-[min(34vw,10rem)] w-[min(34vw,10rem)] sm:h-40 sm:w-40"
-          imageSizes="(max-width: 640px) 40vw, 160px"
-        />
-      </div>
+      <BreathingLogoMark
+        homeIntroBreath
+        sizeClassName="h-[min(36vw,10rem)] w-[min(36vw,10rem)] sm:h-40 sm:w-40"
+        imageSizes="(max-width: 640px) 40vw, 160px"
+      />
     </div>
   );
 }
