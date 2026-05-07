@@ -373,8 +373,8 @@ export function SignInClient() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-dvh bg-gradient-to-b from-white via-[#faf7f8] to-[#f0e8ec]">
-          <div className="mx-auto max-w-md pt-32 text-center text-sm text-zinc-500">Loading…</div>
+        <div className="min-h-dvh bg-[radial-gradient(140%_85%_at_50%_30%,#7f0a3a_0%,#6b0028_52%,#5a0023_100%)] md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]">
+          <div className="mx-auto max-w-md pt-32 text-center text-sm text-white/80 md:text-zinc-500">Loading…</div>
         </div>
       }
     >
