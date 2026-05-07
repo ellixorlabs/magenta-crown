@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { ProfileFormClient } from "@/components/account/ProfileFormClient";
 import { useAuth } from "@/context/AuthContext";
 
 export function ProfilePageClient() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, logout } = useAuth();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,18 @@ export function ProfilePageClient() {
       <p className="mt-2 text-sm text-zinc-600">
         Keep your details and saved addresses up to date for a smoother checkout.
       </p>
+      <button
+        type="button"
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+        onClick={() => {
+          void logout().then(() => {
+            router.push("/auth/signin");
+          });
+        }}
+      >
+        <LogOut className="h-4 w-4" />
+        Logout
+      </button>
 
       <div className="mt-8">
         <ProfileFormClient />
