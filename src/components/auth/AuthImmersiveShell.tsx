@@ -2,13 +2,17 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { MC_LOADER_MAROON } from "@/lib/loader-theme";
 
 const AUTH_VISUAL_CACHE_KEY = "mc_auth_visual_url";
 
 /**
  * Auth pages: light shell with a soft brand-tinted gradient (no full-bleed photography).
  */
-export function AuthImmersiveShell({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AuthImmersiveShell({
+  children,
+  mobileAlign = "top"
+}: Readonly<{ children: React.ReactNode; mobileAlign?: "top" | "center" }>) {
   const [imageUrl, setImageUrl] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem(AUTH_VISUAL_CACHE_KEY) ?? "";
@@ -60,13 +64,19 @@ export function AuthImmersiveShell({ children }: Readonly<{ children: React.Reac
   }, [imageUrl]);
 
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden bg-[#6b0028] md:bg-[#faf7f8]">
+    <div className="relative min-h-dvh w-full overflow-x-hidden md:bg-[#faf7f8]" style={{ backgroundColor: MC_LOADER_MAROON }}>
       <div className="pointer-events-none absolute inset-0 z-0 md:block" aria-hidden>
-        <div className="absolute inset-0 bg-[radial-gradient(140%_85%_at_50%_30%,#7f0a3a_0%,#6b0028_52%,#5a0023_100%)] md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]" />
-        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(rgba(255,255,255,0.08)_0.8px,transparent_0.8px)] [background-size:7px_7px] md:hidden" />
+        <div
+          className="absolute inset-0 md:bg-gradient-to-b md:from-white md:via-[#faf7f8] md:to-[#f0e8ec]"
+          style={{ backgroundColor: MC_LOADER_MAROON }}
+        />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-start px-6 pb-8 pt-8 md:items-center md:px-4 md:pb-10 md:pt-28">
+      <div
+        className={`relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl px-6 pb-8 pt-8 md:items-center md:px-4 md:pb-10 md:pt-28 ${
+          mobileAlign === "center" ? "items-center" : "items-start"
+        }`}
+      >
         <div className="grid max-h-[calc(100dvh-5rem)] w-full grid-cols-1 gap-4 md:max-h-[calc(100dvh-8.5rem)] md:rounded-[28px] md:border md:border-zinc-200/90 md:bg-white md:p-5 md:shadow-[0_24px_64px_-18px_rgba(0,0,0,0.18)] lg:grid-cols-[0.75fr_1.25fr]">
           <div className="hidden items-center justify-center md:flex">
             <div className="relative h-[450px] w-[350px] min-h-[380px] overflow-hidden rounded-3xl bg-white">

@@ -214,18 +214,18 @@ function Inner() {
   }
 
   const fieldClass =
-    "mt-1.5 w-full rounded-2xl border-0 bg-mc-input px-4 py-3.5 font-[family-name:var(--font-body)] text-base text-mc-ink placeholder:italic placeholder:text-mc-muted/75 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] outline-none transition focus:ring-2 focus:ring-mc-gold/55 md:border md:border-zinc-200 md:bg-white md:shadow-none md:focus:ring-mc-gold/35 sm:text-sm";
+    "mt-1.5 w-full rounded-2xl border-0 bg-mc-input px-4 py-3 font-[family-name:var(--font-body)] text-base text-mc-ink placeholder:italic placeholder:text-mc-muted/75 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] outline-none transition focus:ring-2 focus:ring-mc-gold/55 md:border md:border-zinc-200 md:bg-white md:shadow-none md:focus:ring-mc-gold/35 sm:text-sm";
   const labelClass =
     "font-mc-heading text-sm font-normal text-white md:text-xs md:font-semibold md:text-zinc-800";
 
   return (
-    <AuthImmersiveShell>
-      <div className="w-full max-w-[400px] px-1 md:max-w-[560px] md:p-2">
-        <McAuthBrandMark className="mb-8 md:mb-0 md:hidden" />
+    <AuthImmersiveShell mobileAlign="center">
+      <div className="w-full max-w-[380px] px-1 md:max-w-[560px] md:p-2">
+        <McAuthBrandMark className="mb-6 md:mb-0 md:hidden" />
         <h1 className="hidden text-center font-mc-heading text-3xl font-semibold text-zinc-950 md:block">Welcome back</h1>
         <p className="mt-1 hidden text-center text-sm text-zinc-500 md:block">Sign in to continue shopping</p>
 
-        <form onSubmit={onSubmit} className="mt-2 space-y-4 md:mt-3.5 md:space-y-2.5">
+        <form onSubmit={onSubmit} className="mt-2 space-y-3 md:mt-3.5 md:space-y-2.5">
           <div>
             <label className={labelClass}>Email</label>
             <input

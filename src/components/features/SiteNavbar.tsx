@@ -119,6 +119,10 @@ type Props = {
 
 export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: Props) {
   const pathname = usePathname();
+  // Auth screens use their own full-bleed chrome (avoid overlap on mobile browser).
+  if (pathname?.startsWith("/auth")) {
+    return null;
+  }
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, role, userName, userEmail, logout } = useAuth();
