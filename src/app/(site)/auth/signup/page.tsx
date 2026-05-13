@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
+import { OAuthExternalContextHint } from "@/components/auth/OAuthExternalContextHint";
 import { McAuthBrandMark } from "@/components/mc/McAuthBrandMark";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
@@ -249,11 +250,14 @@ function SignUpInner() {
           <span className="font-mc-heading text-xs text-white md:text-zinc-500">Or Sign Up with</span>
           <div className="h-px flex-1 bg-white/35 md:bg-zinc-200" />
         </div>
-        <AuthGoogleSection
-          callbackUrl={callbackUrl}
-          compactMobile
-          buttonClassName="mx-auto mt-0 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white shadow-md transition hover:bg-white/95 disabled:cursor-not-allowed disabled:opacity-60 md:mx-0 md:mt-2 md:h-auto md:w-full md:gap-2 md:rounded-full md:border-2 md:border-zinc-300 md:py-3 md:text-sm md:font-semibold md:text-zinc-900"
-        />
+        <div className="mt-2 space-y-3">
+          <OAuthExternalContextHint />
+          <AuthGoogleSection
+            callbackUrl={callbackUrl}
+            compactMobile
+            buttonClassName="mx-auto mt-0 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white shadow-md transition hover:bg-white/95 disabled:cursor-not-allowed disabled:opacity-60 md:mx-0 md:mt-2 md:h-auto md:w-full md:gap-2 md:rounded-full md:border-2 md:border-zinc-300 md:py-3 md:text-sm md:font-semibold md:text-zinc-900"
+          />
+        </div>
 
         <p className="mt-6 flex flex-wrap items-center justify-center gap-1 px-2 text-center text-sm font-medium text-white/90 md:mt-3 md:text-zinc-800">
           <span>Already have an account?</span>

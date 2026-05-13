@@ -1,3 +1,5 @@
+import { categoryLabelFromSlug, type ResolvedSubFilter } from "@/lib/shop-category-url";
+
 export function firstString(v: string | string[] | undefined): string | undefined {
   if (typeof v === "string") return v;
   if (Array.isArray(v) && typeof v[0] === "string") return v[0];
@@ -31,6 +33,37 @@ function parseGridCols(raw: string | undefined): 2 | 3 | 4 | 5 | 6 | null {
   const n = Number.parseInt(raw, 10);
   if (n === 2 || n === 3 || n === 4 || n === 5 || n === 6) return n;
   return null;
+}
+
+/**
+ * Merge SEO path segments into a flat search-params object consumed by `parseShopSearchParams`.
+ * Path category wins over legacy `?category=` when both exist.
+ */
+export function buildMergedShopSearchParams(
+  sp: Record<string, string | string[] | undefined>,
+  knownCategories: readonly string[],
+  path?: { categorySlug?: string; sub?: ResolvedSubFilter | null }
+): Record<string, string | string[] | undefined> {
+  const out: Record<string, string | string[] | undefined> = { ...sp };
+  if (path?.categorySlug) {
+    const label = categoryLabelFromSlug(path.categorySlug, knownCategories);
+    if (label) out.category = label;
+  }
+  if (path?.sub?.value) {
+    const key = path.sub.field === "style" ? "style" : path.sub.field === "occasion" ? "occasion" : "material";
+    out[key] = path.sub.value;
+  }
+  return out;
+}
+
+/** Remove keys from a search-params object (e.g. path-backed category/facet). */
+export function stripKeysFromSearchParams(
+  sp: Record<string, string | string[] | undefined>,
+  keys: readonly string[]
+): Record<string, string | string[] | undefined> {
+  const out: Record<string, string | string[] | undefined> = { ...sp };
+  for (const k of keys) delete out[k];
+  return out;
 }
 
 export function parseShopSearchParams(sp: Record<string, string | string[] | undefined>) {

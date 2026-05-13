@@ -17,6 +17,7 @@ const tabs = [
     match: (p: string) =>
       p === "/shop" ||
       p.startsWith("/shop?") ||
+      p.startsWith("/shop/") ||
       p.startsWith("/product/") ||
       p === "/categories"
   },

@@ -1,5 +1,9 @@
 import "server-only";
 
+/**
+ * In-memory TTL cache for server handlers. For request-scoped deduplication in the App Router,
+ * pair with React `cache()` at module boundaries (see `getShopProductsCached`, `getHomePageDbBundle`).
+ */
 type CacheRecord<T> = {
   value: T;
   /** Unix ms timestamp */

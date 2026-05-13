@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { HomePageView } from "@/components/home/HomePageView";
-import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
 
@@ -38,15 +37,8 @@ export default async function HomePage() {
 
   const { payload, heroSlides, heroCarousel, productById } = bundle;
 
-  const heroEnabled = payload.hero.enabled;
-  const firstHeroBg =
-    heroEnabled && (heroSlides.length ? heroSlides[0].bg : DEFAULT_HERO_SLIDES[0]?.bg);
-
   return (
     <>
-      {firstHeroBg ? (
-        <link rel="preload" as="image" href={firstHeroBg} fetchPriority="high" />
-      ) : null}
       <HomePageView
         payload={payload}
         heroSlides={heroSlides}

@@ -307,7 +307,9 @@ export function LandingHero({ slides, transition }: Props) {
                 className="object-cover"
                 style={{ objectPosition: list[incomingIndex! % len].imagePosition }}
                 sizes="100vw"
-                unoptimized
+                quality={85}
+                loading="lazy"
+                fetchPriority="low"
                 onLoad={notifyHeroReadyOnce}
                 onError={notifyHeroReadyOnce}
               />
@@ -328,7 +330,9 @@ export function LandingHero({ slides, transition }: Props) {
                 className="object-cover"
                 style={{ objectPosition: list[displayIndex % len].imagePosition }}
                 sizes="100vw"
-                unoptimized
+                quality={85}
+                loading="lazy"
+                fetchPriority="low"
                 onLoad={notifyHeroReadyOnce}
                 onError={notifyHeroReadyOnce}
               />
@@ -345,7 +349,7 @@ export function LandingHero({ slides, transition }: Props) {
                 style={{ objectPosition: list[displayIndex % len].imagePosition }}
                 priority={displayIndex === 0 && incomingIndex === null}
                 sizes="100vw"
-                unoptimized
+                quality={85}
                 onLoad={notifyHeroReadyOnce}
                 onError={notifyHeroReadyOnce}
               />
@@ -360,7 +364,9 @@ export function LandingHero({ slides, transition }: Props) {
                   className="object-cover"
                   style={{ objectPosition: list[incomingIndex % len].imagePosition }}
                   sizes="100vw"
-                  unoptimized
+                  quality={85}
+                  loading="lazy"
+                  fetchPriority="low"
                   onLoad={notifyHeroReadyOnce}
                   onError={notifyHeroReadyOnce}
                 />

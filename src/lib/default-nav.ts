@@ -1,4 +1,5 @@
 import type { HeaderNavLinkRow } from "@/lib/db/app-types";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 
 /** Used when the database has no active header links yet */
 export const FALLBACK_PRIMARY: Pick<HeaderNavLinkRow, "label" | "href" | "group">[] = [
@@ -14,9 +15,9 @@ export const FALLBACK_MEGA: Record<string, { label: string; href: string }[]> = 
     { label: "Evening Luxe", href: "/shop" }
   ],
   Collections: [
-    { label: "Sarees", href: "/shop?category=Sarees" },
-    { label: "Lehengas", href: "/shop?category=Lehengas" },
-    { label: "Anarkalis", href: "/shop?category=Anarkalis" },
+    { label: "Sarees", href: shopCategoryHref("Sarees") },
+    { label: "Lehengas", href: shopCategoryHref("Lehengas") },
+    { label: "Anarkalis", href: shopCategoryHref("Anarkalis") },
     { label: "Co-ord Sets", href: "/shop" }
   ],
   "Designer Picks": [

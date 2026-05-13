@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 
 const cats = [
-  { label: "Sarees", href: "/shop?category=Sarees" },
-  { label: "Lehengas", href: "/shop?category=Lehengas" },
-  { label: "Kurtas", href: "/shop?category=Kurtas" },
-  { label: "Anarkalis", href: "/shop?category=Anarkalis" },
-  { label: "Gowns", href: "/shop?category=Gowns" },
+  { label: "Sarees", href: shopCategoryHref("Sarees") },
+  { label: "Lehengas", href: shopCategoryHref("Lehengas") },
+  { label: "Kurtas", href: shopCategoryHref("Kurtas") },
+  { label: "Anarkalis", href: shopCategoryHref("Anarkalis") },
+  { label: "Gowns", href: shopCategoryHref("Gowns") },
   { label: "Festive", href: "/shop?occasion=Festive" },
   { label: "Wedding", href: "/shop?occasion=Wedding" }
 ];

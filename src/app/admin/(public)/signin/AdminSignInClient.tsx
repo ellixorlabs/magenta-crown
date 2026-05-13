@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { OAuthExternalContextHint } from "@/components/auth/OAuthExternalContextHint";
+import { getSafeCallbackUrl, MC_OAUTH_PENDING_EXTERNAL_KEY } from "@/lib/auth-callback";
+import { isStandaloneDisplayMode } from "@/lib/pwa-standalone";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function Inner() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/admin";
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl") ?? "/admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -87,9 +90,11 @@ function Inner() {
         </div>
 
         <div className="rounded-2xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 py-3 text-sm font-medium text-white transition hover:bg-white/15"
+          <div className="space-y-3">
+            <OAuthExternalContextHint variant="admin" />
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 py-3 text-sm font-medium text-white transition hover:bg-white/15"
             onClick={async () => {
               setError(null);
               setLoading(true);
@@ -99,8 +104,18 @@ function Inner() {
                   setError("Supabase is not configured. Add keys in .env and restart dev server.");
                   return;
                 }
+                try {
+                  sessionStorage.setItem(MC_OAUTH_PENDING_EXTERNAL_KEY, String(Date.now()));
+                } catch {
+                  /* ignore */
+                }
                 const origin = window.location.origin.replace(/\/+$/, "");
-                const redirectTo = `${origin}/auth/callback`;
+                const qs = new URLSearchParams();
+                qs.set("next", callbackUrl);
+                if (isStandaloneDisplayMode()) {
+                  qs.set("oauth_context", "pwa_standalone");
+                }
+                const redirectTo = `${origin}/auth/callback?${qs.toString()}`;
                 const { error } = await supabase.auth.signInWithOAuth({
                   provider: "google",
                   options: {
@@ -118,6 +133,7 @@ function Inner() {
           >
             Continue with Google
           </button>
+          </div>
 
           <div className="my-8 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/20" />

@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from "react";
@@ -91,6 +92,79 @@ function AuthContextInner({ children }: { children: ReactNode }) {
     },
     [clearAuthState, syncServerCookie]
   );
+
+  /** Same-tab / Android recovery: refresh tokens + httpOnly cookie + server role. Does not clear auth on failure. */
+  const resyncAuthOnDocumentActive = useCallback(async () => {
+    const supabase = await getSupabaseClientOrNull();
+    if (!supabase) {
+      await refreshServerSession();
+      return;
+    }
+    try {
+      let {
+        data: { session }
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.auth.refreshSession().catch(() => undefined);
+        const latest = (await supabase.auth.getSession()).data.session ?? session;
+        await syncServerCookie(latest?.access_token ?? null);
+        if (latest?.user) {
+          setUserId(latest.user.id);
+          setUserEmail(latest.user.email ?? null);
+          setUserName((latest.user.user_metadata?.name as string | undefined) ?? null);
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : "";
+      if (msg.includes("invalid refresh token") || msg.includes("refresh token not found")) {
+        await recoverFromInvalidRefreshToken(supabase);
+        return;
+      }
+    }
+    await refreshServerSession();
+  }, [recoverFromInvalidRefreshToken, refreshServerSession, syncServerCookie]);
+
+  const resyncTimer = useRef<number | null>(null);
+  const resyncInFlight = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const scheduleResync = () => {
+      if (resyncTimer.current != null) window.clearTimeout(resyncTimer.current);
+      resyncTimer.current = window.setTimeout(() => {
+        resyncTimer.current = null;
+        void (async () => {
+          if (resyncInFlight.current) return;
+          resyncInFlight.current = true;
+          try {
+            await resyncAuthOnDocumentActive();
+          } finally {
+            resyncInFlight.current = false;
+          }
+        })();
+      }, 500);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") scheduleResync();
+    };
+    const onFocus = () => scheduleResync();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) scheduleResync();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow as EventListener);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow as EventListener);
+      if (resyncTimer.current != null) window.clearTimeout(resyncTimer.current);
+    };
+  }, [resyncAuthOnDocumentActive]);
 
   useEffect(() => {
     let mounted = true;

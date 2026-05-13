@@ -12,12 +12,13 @@ import {
   useState,
   type MouseEvent
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronDown, Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { FALLBACK_MEGA, FALLBACK_PRIMARY } from "@/lib/default-nav";
 import { SiteNavbarMegaMenu } from "@/components/features/SiteNavbarMegaMenu";
+import { SiteSearchOverlay } from "@/components/features/SiteSearchOverlay";
 import { useCart } from "@/context/CartContext";
 import { useHeroReady } from "@/context/HeroReadyContext";
 import { useAuth } from "@/context/AuthContext";
@@ -123,7 +124,6 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
   if (pathname?.startsWith("/auth")) {
     return null;
   }
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, role, userName, userEmail, logout } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
@@ -134,7 +134,6 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
   const [accountOpen, setAccountOpen] = useState(false);
   const accountCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
   /** Avoid session/cart UI hydration mismatch (server vs client session). */
   const [mounted, setMounted] = useState(false);
   /** On home: transparent bar over hero until user scrolls past `#landing-hero`, then floating pill. */
@@ -577,66 +576,32 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
               onMouseLeave={scheduleMegaClose}
               aria-label="Primary"
             >
-              {searchOpen ? (
-                <div className="flex w-full max-w-[min(860px,calc(100vw-22rem))] items-center gap-2">
-                  <input
-                    autoFocus
-                    type="search"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setSearchOpen(false);
-                        return;
-                      }
-                      if (e.key !== "Enter") return;
-                      const q = searchValue.trim();
-                      const p = new URLSearchParams();
-                      if (q) p.set("q", q);
-                      p.set("page", "1");
-                      const qs = p.toString();
-                      router.push(qs ? `/shop?${qs}` : "/shop");
-                      setSearchOpen(false);
+              <>
+                {primary.map((item) => (
+                  <Link
+                    key={item.href + item.label}
+                    href={item.href}
+                    className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
+                    onMouseEnter={() => {
+                      clearMegaCloseTimer();
+                      setOpenMegaTitle(null);
                     }}
-                    placeholder="Search by name, tags, material, occasion..."
-                    className="w-full rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-crown-600"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSearchOpen(false)}
-                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
                   >
-                    Close
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {primary.map((item) => (
-                    <Link
-                      key={item.href + item.label}
-                      href={item.href}
-                      className={`font-[family-name:var(--font-body)] text-[11px] font-semibold uppercase tracking-[0.2em] transition ${linkTone}`}
-                      onMouseEnter={() => {
-                        clearMegaCloseTimer();
-                        setOpenMegaTitle(null);
-                      }}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                  {megaEntries.map(([groupTitle, links]) => (
-                    <SiteNavbarMegaMenu
-                      key={groupTitle}
-                      title={groupTitle}
-                      links={links}
-                      isLight={isLight}
-                      isOpen={openMegaTitle === groupTitle}
-                      onOpen={() => openMega(groupTitle)}
-                      onPanelPointerEnter={clearMegaCloseTimer}
-                    />
-                  ))}
-                </>
-              )}
+                    {item.label}
+                  </Link>
+                ))}
+                {megaEntries.map(([groupTitle, links]) => (
+                  <SiteNavbarMegaMenu
+                    key={groupTitle}
+                    title={groupTitle}
+                    links={links}
+                    isLight={isLight}
+                    isOpen={openMegaTitle === groupTitle}
+                    onOpen={() => openMega(groupTitle)}
+                    onPanelPointerEnter={clearMegaCloseTimer}
+                  />
+                ))}
+              </>
             </nav>
 
             <div
@@ -679,6 +644,38 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
 
                   <button
                     type="button"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] lg:hidden ${
+                      isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
+                    }`}
+                    aria-label="Search products"
+                    title="Search products"
+                    aria-expanded={searchOpen}
+                    onClick={() => {
+                      setOpenMegaTitle(null);
+                      setSearchOpen((o) => !o);
+                    }}
+                  >
+                    <Search className="h-5 w-5" strokeWidth={1.8} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`hidden h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] lg:flex ${
+                      isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
+                    }`}
+                    aria-label="Search products"
+                    title="Search products"
+                    aria-expanded={searchOpen}
+                    onClick={() => {
+                      setOpenMegaTitle(null);
+                      setSearchOpen((o) => !o);
+                    }}
+                  >
+                    <Search className="h-5 w-5" strokeWidth={1.8} />
+                  </button>
+
+                  <button
+                    type="button"
                     className={`flex h-11 w-11 shrink-0 items-center justify-center transition lg:hidden ${
                       isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
                     }`}
@@ -689,21 +686,6 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
                   >
                     <Menu className="h-6 w-6" strokeWidth={2} />
                   </button>
-
-                  <Link
-                    href="/shop"
-                    className={`hidden h-11 w-11 shrink-0 items-center justify-center transition active:scale-[0.98] lg:flex ${
-                      isLight ? "text-mc-ink/90 hover:text-mc-maroon" : "text-white hover:text-white/85"
-                    }`}
-                    aria-label="Search products"
-                    title="Search products"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSearchOpen((o) => !o);
-                    }}
-                  >
-                    <Search className="h-5 w-5" strokeWidth={1.8} />
-                  </Link>
 
                   {isLoading ? (
                     <span className={`hidden text-xs lg:inline ${isLight ? "text-zinc-500" : "text-white/80"}`}>…</span>
@@ -820,6 +802,7 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
       </div>
     </header>
       {mobileDrawer}
+      <SiteSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 });

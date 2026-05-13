@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePagePayload } from "@/lib/get-home-page-config";
 import { getHeroCarouselSettings, getHeroSlidesForSite } from "@/lib/hero-data";
@@ -67,7 +69,7 @@ async function loadUncachedBundle(): Promise<HomePageDbBundle> {
   return { payload, heroSlides, heroCarousel, productById };
 }
 
-export async function getHomePageDbBundle(): Promise<HomePageDbBundle> {
+async function loadHomePageDbBundle(): Promise<HomePageDbBundle> {
   const hit = getCache<CachedHomeBundle>(CACHE_KEY);
   if (hit) {
     return {
@@ -90,4 +92,7 @@ export async function getHomePageDbBundle(): Promise<HomePageDbBundle> {
 
   return bundle;
 }
+
+/** Per-request dedupe via React `cache()` plus in-memory TTL above. */
+export const getHomePageDbBundle = cache(loadHomePageDbBundle);
 

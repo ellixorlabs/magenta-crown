@@ -202,10 +202,6 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, closeLb, goPrev, goNext]);
 
-  const imgCommon = {
-    unoptimized: true as const
-  };
-
   const showArrows = urls.length > 1;
 
   const showLens = isLg && pointerInMain && lens && imgBounds;
@@ -274,9 +270,9 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
               className="object-contain"
               style={{ objectPosition: pos }}
               sizes="100vw"
-              priority
+              quality={85}
+              loading="lazy"
               onError={() => markUrlFailed(mainUrl)}
-              {...imgCommon}
             />
           </div>
           {showArrows && (
@@ -338,12 +334,12 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   style={{ objectPosition: pos }}
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   priority
+                  quality={82}
                   onLoad={(e) => {
                     imgRef.current = e.currentTarget;
                     updateBounds();
                   }}
                   onError={() => markUrlFailed(mainUrl)}
-                  {...imgCommon}
                 />
                 {showLens && lens ? (
                   <div
@@ -453,10 +449,10 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   fill
                   className="object-cover"
                   style={{ objectPosition: pos }}
-                  sizes="120px"
+                  sizes="96px"
+                  quality={72}
                   loading="lazy"
                   onError={() => markUrlFailed(url)}
-                  {...imgCommon}
                 />
               </button>
             ))}

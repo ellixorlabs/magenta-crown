@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { auth, type AppSession } from "@/auth";
@@ -173,7 +174,7 @@ export default async function ProductPage({ params }: PageProps) {
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               <Link
-                href={`/shop?category=${encodeURIComponent(product.category)}`}
+                href={shopCategoryHref(product.category)}
                 className="transition hover:text-crown-800 underline-offset-4 hover:underline"
               >
                 {product.category}

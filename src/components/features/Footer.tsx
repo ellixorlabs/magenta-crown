@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { FooterNewsletterForm } from "@/components/features/FooterNewsletterForm";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 
 const categories = [
-  { label: "Sarees", href: "/shop?category=Sarees" },
-  { label: "Lehengas", href: "/shop?category=Lehengas" },
-  { label: "Kurtas", href: "/shop?category=Kurtas" },
+  { label: "Sarees", href: shopCategoryHref("Sarees") },
+  { label: "Lehengas", href: shopCategoryHref("Lehengas") },
+  { label: "Kurtas", href: shopCategoryHref("Kurtas") },
   { label: "Shop all", href: "/shop" }
 ];
 

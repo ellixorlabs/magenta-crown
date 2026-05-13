@@ -3,8 +3,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { SlidersHorizontal, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
+import { buildShopUrlPreservingOnly } from "@/lib/shop-clear-url";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 
@@ -20,6 +21,10 @@ type Props = {
   onOpenChange?: (open: boolean) => void;
   /** Omit sort inside the sheet (sort lives in shop toolbar). */
   omitSortInSheet?: boolean;
+  preserveQueryKeys?: readonly string[];
+  omitUrlFilterKeys?: readonly string[];
+  hideCategoryFilter?: boolean;
+  hideFacetFields?: readonly ("style" | "occasion" | "material")[];
 };
 
 function FiltersBody({
@@ -28,8 +33,23 @@ function FiltersBody({
   enablePriceSlider,
   hideOutOfStockToggle,
   omitSortInSheet,
-  applyFiltersRef
-}: Pick<Props, "options" | "basePath" | "enablePriceSlider" | "hideOutOfStockToggle" | "omitSortInSheet"> & {
+  applyFiltersRef,
+  preserveQueryKeys = [],
+  omitUrlFilterKeys = [],
+  hideCategoryFilter = false,
+  hideFacetFields = []
+}: Pick<
+  Props,
+  | "options"
+  | "basePath"
+  | "enablePriceSlider"
+  | "hideOutOfStockToggle"
+  | "omitSortInSheet"
+  | "preserveQueryKeys"
+  | "omitUrlFilterKeys"
+  | "hideCategoryFilter"
+  | "hideFacetFields"
+> & {
   applyFiltersRef: MutableRefObject<(() => void) | null>;
 }) {
   return (
@@ -45,6 +65,10 @@ function FiltersBody({
       priceSliderCommitOnChange={false}
       deferUrlUntilApply
       applyFiltersRef={applyFiltersRef}
+      preserveQueryKeys={preserveQueryKeys}
+      omitUrlFilterKeys={omitUrlFilterKeys}
+      hideCategoryFilter={hideCategoryFilter}
+      hideFacetFields={hideFacetFields}
     />
   );
 }
@@ -55,6 +79,10 @@ export function ShopFiltersMobileSheet(props: Props) {
     open: controlledOpen,
     onOpenChange,
     omitSortInSheet,
+    preserveQueryKeys = [],
+    omitUrlFilterKeys = [],
+    hideCategoryFilter = false,
+    hideFacetFields = [],
     options,
     basePath,
     enablePriceSlider,
@@ -68,6 +96,7 @@ export function ShopFiltersMobileSheet(props: Props) {
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const applyFiltersRef = useRef<(() => void) | null>(null);
 
   const onClose = useCallback(() => setOpen(false), [setOpen]);
@@ -97,7 +126,7 @@ export function ShopFiltersMobileSheet(props: Props) {
   const overlay =
     open && mounted ? (
       <div
-        className="fixed inset-0 z-[25000]"
+        className="fixed inset-0 z-[25000] lg:hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shop-filters-sheet-title"
@@ -148,6 +177,10 @@ export function ShopFiltersMobileSheet(props: Props) {
                 hideOutOfStockToggle={hideOutOfStockToggle}
                 omitSortInSheet={omitSortInSheet}
                 applyFiltersRef={applyFiltersRef}
+                preserveQueryKeys={preserveQueryKeys}
+                omitUrlFilterKeys={omitUrlFilterKeys}
+                hideCategoryFilter={hideCategoryFilter}
+                hideFacetFields={hideFacetFields}
               />
             </Suspense>
           </div>
@@ -162,17 +195,21 @@ export function ShopFiltersMobileSheet(props: Props) {
                 }}
                 className="rounded-full bg-crown-800 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900"
               >
-                Apply
+                Apply filters
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  router.push(basePath);
+                  const href =
+                    preserveQueryKeys.length > 0
+                      ? buildShopUrlPreservingOnly(basePath, searchParams, preserveQueryKeys)
+                      : basePath;
+                  router.push(href);
                   onClose();
                 }}
                 className="rounded-full border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
               >
-                Clear
+                Clear all
               </button>
             </div>
           </div>

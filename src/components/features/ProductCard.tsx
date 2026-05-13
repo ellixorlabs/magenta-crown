@@ -76,8 +76,11 @@ function ProductCardInner({
     wishlistedRef.current = wishlisted;
   }, [wishlisted]);
 
-  const { url: primaryImage } = getProductDisplayImage(product);
+  const { url: primaryImage, index: primaryImageIndex } = getProductDisplayImage(product);
   const listPos = getListImagePosition(product);
+  const galleryUrls = product.imageUrls ?? [];
+  const hoverSwapUrl =
+    galleryUrls.find((u, i) => Boolean(u) && i !== primaryImageIndex && u !== primaryImage) ?? null;
 
   const salePrice = product.discountedPrice ?? product.mrp;
   const showStrikethrough = product.discountedPrice != null && product.discountedPrice < product.mrp;
@@ -153,9 +156,9 @@ function ProductCardInner({
               fill
               className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
               style={{ objectPosition: listPos }}
-              sizes="144px"
+              sizes={comfy ? "(max-width: 640px) 160px, (max-width: 1024px) 208px, 240px" : "(max-width: 640px) 112px, (max-width: 1024px) 144px, 180px"}
+              quality={78}
               loading="lazy"
-              unoptimized
             />
             {outOfStock && (
               <div className="absolute inset-0 z-[14] flex items-center justify-center bg-zinc-900/30 p-1 backdrop-blur-[0.5px]">
@@ -211,12 +214,26 @@ function ProductCardInner({
             src={primaryImage}
             alt={imgAlt}
             fill
-            className={`object-cover transition duration-500 group-hover:scale-[1.04] ${outOfStock ? "opacity-50 grayscale" : ""}`}
+            className={`object-cover transition duration-500 group-hover:scale-[1.04] ${outOfStock ? "opacity-50 grayscale" : ""} ${
+              hoverSwapUrl ? "group-hover:opacity-0" : ""
+            }`}
             style={{ objectPosition: listPos }}
-            sizes="(max-width: 640px) 44vw, (max-width: 1024px) 28vw, (max-width: 1536px) 22vw, 18vw"
+            sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+            quality={78}
             loading="lazy"
-            unoptimized
           />
+          {hoverSwapUrl ? (
+            <Image
+              src={hoverSwapUrl}
+              alt=""
+              fill
+              className="object-cover opacity-0 transition duration-500 group-hover:scale-[1.04] group-hover:opacity-100"
+              style={{ objectPosition: listPos }}
+              sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+              quality={78}
+              loading="lazy"
+            />
+          ) : null}
           {showMetaOverlay && (
             <div
               className="pointer-events-none absolute inset-0 z-[8] flex flex-col justify-end opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
@@ -310,13 +327,13 @@ function ProductCardInner({
         )}
         <div className="flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3">
           <h3
-            className={`break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] ${
+            className={`min-h-[3.25rem] break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] ${
               isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
             }`}
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex min-h-[1.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+          <div className="mt-1.5 flex min-h-[2.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
             <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
             {showStrikethrough && (
               <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>
@@ -347,6 +364,7 @@ function areEqualProductCardProps(prev: ProductCardProps, next: ProductCardProps
     prev.product.occasion === next.product.occasion &&
     prev.product.listImageIndex === next.product.listImageIndex &&
     prev.product.listImagePosition === next.product.listImagePosition &&
+    prev.product.category === next.product.category &&
     prev.initialWishlisted === next.initialWishlisted &&
     prev.layout === next.layout &&
     prev.listDensity === next.listDensity &&

@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
+import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 
 function parseToPercent(value: string): { x: number; y: number } {
   const v = value.trim().toLowerCase();
@@ -41,7 +42,7 @@ type Props = {
  * Click or drag on the preview to set CSS object-position (focal point).
  * Semi-transparent box shows the center point.
  */
-export function ImageFocusPicker({
+export const ImageFocusPicker = memo(function ImageFocusPicker({
   src,
   value,
   onChange,
@@ -81,26 +82,32 @@ export function ImageFocusPicker({
     [commit]
   );
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    draggingRef.current = true;
-    updateFromClient(e.clientX, e.clientY);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      updateFromClient(e.clientX, e.clientY);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [updateFromClient]
+  );
 
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!draggingRef.current) return;
-    updateFromClient(e.clientX, e.clientY);
-  };
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!draggingRef.current) return;
+      updateFromClient(e.clientX, e.clientY);
+    },
+    [updateFromClient]
+  );
 
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
     draggingRef.current = false;
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
-  };
+  }, []);
 
   const safeSrc = src ? normalizeAdminImageUrl(src) : "";
 
@@ -162,10 +169,12 @@ export function ImageFocusPicker({
           alt=""
           fill
           sizes="(max-width: 768px) 100vw, 520px"
+          quality={72}
+          loading="lazy"
           draggable={false}
           className={fit === "cover" ? "object-cover" : "object-contain"}
           style={{ objectPosition: objectPos }}
-          unoptimized
+          unoptimized={adminRemoteImageSrcUnoptimized(safeSrc)}
         />
         <div
           className="pointer-events-none absolute h-[22%] min-h-[44px] w-[22%] min-w-[44px] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-white/80 bg-white/25 shadow-md"
@@ -176,4 +185,4 @@ export function ImageFocusPicker({
       <p className="mt-2 font-mono text-[10px] text-zinc-500">{objectPos}</p>
     </div>
   );
-}
+});

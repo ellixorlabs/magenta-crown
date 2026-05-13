@@ -1,15 +1,11 @@
 import type { MetadataRoute } from "next";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getCanonicalSiteUrl } from "@/lib/seo";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 
-/** Shop discovery URLs (filters use query params; product URLs remain slug-based). */
-const SHOP_CATEGORY_HREFS = [
-  "/shop?category=Sarees",
-  "/shop?category=Lehengas",
-  "/shop?category=Kurtas",
-  "/shop?category=Anarkalis",
-  "/shop?category=Gowns"
-] as const;
+/** Shop discovery URLs (category uses SEO paths; occasion filters stay query-based). */
+const SHOP_CATEGORY_LABELS = ["Sarees", "Lehengas", "Kurtas", "Anarkalis", "Gowns"] as const;
+const SHOP_CATEGORY_HREFS = SHOP_CATEGORY_LABELS.map((label) => shopCategoryHref(label));
 const SHOP_OCCASION_HREFS = ["/shop?occasion=Festive", "/shop?occasion=Wedding"] as const;
 
 const STATIC_PATHS: { path: string; changeFrequency: MetadataRoute.Sitemap[0]["changeFrequency"]; priority: number }[] = [
@@ -51,7 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const distinctCats = [...new Set(((categoryRows ?? []) as Array<{ category: string }>).map((row) => row.category))];
     categoryShopEntries = distinctCats.map((category) => ({
-      url: `${base}/shop?category=${encodeURIComponent(category)}`,
+      url: `${base}${shopCategoryHref(category)}`,
       lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.75

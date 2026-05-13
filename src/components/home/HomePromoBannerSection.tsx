@@ -35,9 +35,9 @@ export function HomePromoBannerSection({ title, subtitle, imageUrl, targetHref }
                   alt={title}
                   fill
                   sizes="(max-width: 640px) 70vw, 420px"
+                  quality={78}
                   className="object-contain object-center"
                   loading="lazy"
-                  unoptimized
                 />
               ) : null}
             </div>

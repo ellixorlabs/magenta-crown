@@ -18,6 +18,11 @@ type Props = {
    * Other surfaces keep a gentle infinite pulse.
    */
   homeIntroBreath?: boolean;
+  /**
+   * Reserve `priority` for the true LCP image per route (e.g. PDP main image, auth mark).
+   * Full-viewport hero and loaders should stay off the LCP fast path.
+   */
+  priority?: boolean;
 };
 
 /** Brand mark with a subtle breathing scale animation (loader, nav fallbacks, segment loading). */
@@ -26,7 +31,8 @@ export function BreathingLogoMark({
   sizeClassName = "h-28 w-28 sm:h-40 sm:w-40",
   logoSrc = LOADER_LOGO_SRC,
   imageSizes,
-  homeIntroBreath = false
+  homeIntroBreath = false,
+  priority = false
 }: Props) {
   const sizes = imageSizes ?? "(max-width: 640px) 112px, 160px";
 
@@ -50,7 +56,8 @@ export function BreathingLogoMark({
         fill
         className="object-contain"
         sizes={sizes}
-        priority
+        priority={priority}
+        loading={priority ? undefined : "lazy"}
       />
     </motion.div>
   );

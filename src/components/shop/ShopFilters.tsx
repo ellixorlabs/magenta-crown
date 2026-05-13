@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
 import { PRICE_BUCKETS, minMaxToPriceBucket, priceBucketToMinMax } from "@/lib/shop-filter-shared";
 import { PriceRangeSlider, type PriceRangeSliderHandle } from "@/components/shop/PriceRangeSlider";
+import { buildShopUrlPreservingOnly } from "@/lib/shop-clear-url";
+import { CategoryFilterTree } from "@/components/shop/CategoryFilterTree";
+import { CollapsibleFilterSection } from "@/components/shop/CollapsibleFilterSection";
 
 const sortOptions = [
   { value: "new", label: "Newest" },
@@ -38,6 +41,14 @@ type Props = {
   applyFiltersRef?: MutableRefObject<(() => void) | null>;
   /** Show explicit Apply button (useful for admin bar). */
   showApplyButton?: boolean;
+  /** When clearing filters, keep these query keys (e.g. `["q"]` on `/search`). */
+  preserveQueryKeys?: readonly string[];
+  /** Query keys owned by the URL path — never written by filter commits. */
+  omitUrlFilterKeys?: readonly string[];
+  /** Category is fixed by `/shop/[slug]` — hide category picker. */
+  hideCategoryFilter?: boolean;
+  /** Facet columns mirrored in `/shop/[cat]/[sub]` — hide those controls. */
+  hideFacetFields?: readonly ("style" | "occasion" | "material")[];
 };
 
 type ShopFilterDraft = {
@@ -51,14 +62,10 @@ type ShopFilterDraft = {
   size: string[];
   minPrice: string | null;
   maxPrice: string | null;
-  viewList: boolean;
-  cols: 2 | 3 | 4 | 5 | 6;
   hideOutOfStock: boolean;
 };
 
 function buildShopFilterDraft(sp: { get: (key: string) => string | null; getAll: (key: string) => string[] }): ShopFilterDraft {
-  const colsRaw = Number(sp.get("cols") ?? "5");
-  const cols = ([2, 3, 4, 5, 6].includes(colsRaw) ? colsRaw : 5) as 2 | 3 | 4 | 5 | 6;
   return {
     sort: sp.get("sort") ?? "new",
     status: [...new Set(sp.getAll("status"))],
@@ -70,8 +77,6 @@ function buildShopFilterDraft(sp: { get: (key: string) => string | null; getAll:
     size: [...new Set(sp.getAll("size"))],
     minPrice: sp.get("minPrice"),
     maxPrice: sp.get("maxPrice"),
-    viewList: sp.get("view") === "list",
-    cols,
     hideOutOfStock: sp.get("hideOutOfStock") === "1"
   };
 }
@@ -87,8 +92,6 @@ const DRAFT_URL_KEYS = [
   "minPrice",
   "maxPrice",
   "sort",
-  "view",
-  "cols",
   "hideOutOfStock"
 ] as const;
 
@@ -96,25 +99,36 @@ function mergeDraftIntoSearchParams(
   base: URLSearchParams,
   draft: ShopFilterDraft,
   price: { min: string | null; max: string | null },
-  enablePriceSlider: boolean
+  enablePriceSlider: boolean,
+  omitUrlKeys: readonly string[] = []
 ): URLSearchParams {
   const next = new URLSearchParams(base.toString());
+  const omit = new Set(omitUrlKeys);
   for (const k of DRAFT_URL_KEYS) next.delete(k);
-  for (const v of draft.status) next.append("status", v);
-  for (const v of draft.category) next.append("category", v);
-  for (const v of draft.occasion) next.append("occasion", v);
-  for (const v of draft.style) next.append("style", v);
-  for (const v of draft.material) next.append("material", v);
-  for (const v of draft.color) next.append("color", v);
-  for (const v of draft.size) next.append("size", v);
-  next.set("sort", draft.sort);
-  if (draft.viewList) {
-    next.set("view", "list");
-    next.delete("cols");
-  } else {
-    next.delete("view");
-    next.set("cols", String(draft.cols));
+  next.delete("view");
+  next.delete("cols");
+  for (const v of draft.status) {
+    if (!omit.has("status")) next.append("status", v);
   }
+  for (const v of draft.category) {
+    if (!omit.has("category")) next.append("category", v);
+  }
+  for (const v of draft.occasion) {
+    if (!omit.has("occasion")) next.append("occasion", v);
+  }
+  for (const v of draft.style) {
+    if (!omit.has("style")) next.append("style", v);
+  }
+  for (const v of draft.material) {
+    if (!omit.has("material")) next.append("material", v);
+  }
+  for (const v of draft.color) {
+    if (!omit.has("color")) next.append("color", v);
+  }
+  for (const v of draft.size) {
+    if (!omit.has("size")) next.append("size", v);
+  }
+  next.set("sort", draft.sort);
   if (draft.hideOutOfStock) next.set("hideOutOfStock", "1");
   if (enablePriceSlider) {
     if (price.min) next.set("minPrice", price.min);
@@ -137,12 +151,6 @@ function selectClass(bar: boolean, compact: boolean) {
   return "mt-2 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm";
 }
 
-function labelClass(bar: boolean, compact: boolean) {
-  if (bar) return "text-[10px] font-semibold uppercase tracking-wider text-zinc-600";
-  if (compact) return "text-[11px] font-semibold uppercase tracking-wide text-zinc-700";
-  return "font-semibold text-zinc-900";
-}
-
 function MultiFilterGroup({
   fieldName,
   label,
@@ -162,7 +170,6 @@ function MultiFilterGroup({
   onToggle: (value: string) => void;
   onClear: () => void;
 }) {
-  const lab = labelClass(bar, compact);
   const scrollClass = bar
     ? "max-h-28 overflow-y-auto sm:max-h-32"
     : compact
@@ -170,26 +177,16 @@ function MultiFilterGroup({
       : "max-h-52 overflow-y-auto";
 
   return (
-    <div className={bar ? "min-w-0 w-full" : ""}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className={lab}>{label}</span>
-        {selected.length > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-crown-800 hover:text-crown-950"
-          >
-            Clear
-          </button>
-        ) : null}
-      </div>
-      <fieldset
-        className={[
-          "mt-1 rounded-lg border border-zinc-300 bg-white shadow-sm",
-          bar ? "px-2 py-2" : compact ? "px-2 py-2" : "px-3 py-2.5",
-          scrollClass
-        ].join(" ")}
-      >
+    <CollapsibleFilterSection
+      sectionKey={fieldName}
+      title={label}
+      bar={bar}
+      compact={compact}
+      selectionActive={selected.length > 0}
+      showClear={selected.length > 0}
+      onClear={onClear}
+    >
+      <fieldset className={["m-0 min-w-0 border-0 bg-transparent p-0", scrollClass].join(" ")}>
         <legend className="sr-only">{label}</legend>
         {options.length === 0 ? (
           <p className="text-xs text-zinc-500">No values yet</p>
@@ -222,39 +219,7 @@ function MultiFilterGroup({
           </div>
         )}
       </fieldset>
-    </div>
-  );
-}
-
-function ViewToggle({
-  isList,
-  cols,
-  onSet
-}: {
-  isList: boolean;
-  cols: 2 | 3 | 4 | 5 | 6 | null;
-  onSet: (mode: "list" | "grid", gridCols?: 2 | 3 | 4 | 5 | 6) => void;
-}) {
-  const btn = (label: string, active: boolean, onClick: () => void) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${active ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 border border-zinc-200"}`}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">View</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {btn("List", isList, () => onSet("list"))}
-        {btn("2 Col", !isList && cols === 2, () => onSet("grid", 2))}
-        {btn("5 Col", !isList && cols === 5, () => onSet("grid", 5))}
-        {btn("6 Col", !isList && cols === 6, () => onSet("grid", 6))}
-      </div>
-    </div>
+    </CollapsibleFilterSection>
   );
 }
 
@@ -270,7 +235,11 @@ export function ShopFilters({
   compact = false,
   deferUrlUntilApply = false,
   applyFiltersRef,
-  showApplyButton = false
+  showApplyButton = false,
+  preserveQueryKeys = [],
+  omitUrlFilterKeys = [],
+  hideCategoryFilter = false,
+  hideFacetFields = []
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -280,6 +249,12 @@ export function ShopFilters({
   const [draft, setDraft] = useState<ShopFilterDraft | null>(() =>
     deferUrlUntilApply ? buildShopFilterDraft(searchParams) : null
   );
+
+  const searchParamsKey = searchParams.toString();
+  useEffect(() => {
+    if (!deferUrlUntilApply) return;
+    setDraft(buildShopFilterDraft(searchParams));
+  }, [deferUrlUntilApply, searchParams, searchParamsKey]);
 
   const update = useCallback(
     (patch: Record<string, string | null>) => {
@@ -350,9 +325,6 @@ export function ShopFilters({
   );
 
   const hideOos = deferUrlUntilApply && draft ? draft.hideOutOfStock : searchParams.get("hideOutOfStock") === "1";
-  const isList = deferUrlUntilApply && draft ? draft.viewList : searchParams.get("view") === "list";
-  const colsRaw = deferUrlUntilApply && draft ? draft.cols : Number(searchParams.get("cols") ?? "5");
-  const cols = [2, 3, 4, 5, 6].includes(colsRaw) ? (colsRaw as 2 | 3 | 4 | 5 | 6) : 5;
 
   const categorySelFromUrl = useMemo(() => [...new Set(searchParams.getAll("category"))], [searchParams]);
   const statusSelFromUrl = useMemo(() => [...new Set(searchParams.getAll("status"))], [searchParams]);
@@ -369,31 +341,6 @@ export function ShopFilters({
   const materialSel = deferUrlUntilApply && draft ? draft.material : materialSelFromUrl;
   const colorSel = deferUrlUntilApply && draft ? draft.color : colorSelFromUrl;
   const sizeSel = deferUrlUntilApply && draft ? draft.size : sizeSelFromUrl;
-
-  const setLayout = useCallback(
-    (mode: "list" | "grid", gridCols?: 2 | 3 | 4 | 5 | 6) => {
-      if (deferUrlUntilApply) {
-        setDraft((d) => {
-          if (!d) return d;
-          if (mode === "list") return { ...d, viewList: true };
-          return { ...d, viewList: false, cols: gridCols ?? d.cols };
-        });
-        return;
-      }
-      const next = new URLSearchParams(searchParams.toString());
-      if (mode === "list") {
-        next.set("view", "list");
-        next.delete("cols");
-      } else {
-        next.delete("view");
-        if (gridCols != null) next.set("cols", String(gridCols));
-      }
-      next.set("page", "1");
-      const q = next.toString();
-      router.push(q ? `${basePath}?${q}` : basePath);
-    },
-    [basePath, router, searchParams, deferUrlUntilApply]
-  );
 
   const onPriceSliderCommit = useCallback(
     (min: string | null, max: string | null) => {
@@ -413,11 +360,12 @@ export function ShopFilters({
       new URLSearchParams(searchParams.toString()),
       draft,
       price,
-      enablePriceSlider
+      enablePriceSlider,
+      omitUrlFilterKeys
     );
     const q = next.toString();
     router.push(q ? `${basePath}?${q}` : basePath, { scroll: false });
-  }, [deferUrlUntilApply, draft, enablePriceSlider, searchParams, router, basePath]);
+  }, [deferUrlUntilApply, draft, enablePriceSlider, searchParams, router, basePath, omitUrlFilterKeys]);
 
   useLayoutEffect(() => {
     if (!applyFiltersRef) return;
@@ -429,13 +377,20 @@ export function ShopFilters({
   }, [applyFiltersRef, deferUrlUntilApply, pushDeferredFilters]);
 
   const sel = selectClass(bar, compact);
-  const lab = labelClass(bar, compact);
 
   const filters = (
     <>
       {!omitSort && (
-        <div className={bar ? "min-w-0 w-full" : ""}>
-          <label className={lab} htmlFor="sort">
+        <CollapsibleFilterSection
+          sectionKey="sort"
+          title="Sort"
+          bar={bar}
+          compact={compact}
+          selectionActive={
+            (deferUrlUntilApply && draft ? draft.sort : searchParams.get("sort") ?? "new") !== "new"
+          }
+        >
+          <label className="sr-only" htmlFor="sort">
             Sort
           </label>
           <select
@@ -456,17 +411,21 @@ export function ShopFilters({
               </option>
             ))}
           </select>
-        </div>
-      )}
-
-      {compact && (
-        <ViewToggle isList={isList} cols={cols} onSet={setLayout} />
+        </CollapsibleFilterSection>
       )}
 
       {enablePriceSlider ? (
-        <div className={bar ? "min-w-0 w-full" : ""}>
-          <label className={lab}>Price (MRP)</label>
-          <div className={bar ? "mt-1 rounded-xl border border-zinc-200 bg-white/90 px-3 py-3" : "mt-2 rounded-xl border border-zinc-200 bg-white/80 px-3 py-4"}>
+        <CollapsibleFilterSection
+          sectionKey="price-mrp"
+          title="Price (MRP)"
+          bar={bar}
+          compact={compact}
+          selectionActive={Boolean(
+            (deferUrlUntilApply && draft ? draft.minPrice : searchParams.get("minPrice")) ||
+              (deferUrlUntilApply && draft ? draft.maxPrice : searchParams.get("maxPrice"))
+          )}
+        >
+          <div className="min-w-0 py-0.5">
             <PriceRangeSlider
               ref={priceSliderRef}
               boundsMin={options.priceMin}
@@ -478,10 +437,18 @@ export function ShopFilters({
               singleHandle={compact}
             />
           </div>
-        </div>
+        </CollapsibleFilterSection>
       ) : (
-        <div className={bar ? "min-w-0 w-full" : ""}>
-          <label className={lab}>Price Bucket</label>
+        <CollapsibleFilterSection
+          sectionKey="price-bucket"
+          title="Price Bucket"
+          bar={bar}
+          compact={compact}
+          selectionActive={Boolean(priceBucket)}
+        >
+          <label className="sr-only" htmlFor="price">
+            Price bucket
+          </label>
           <select
             id="price"
             className={sel}
@@ -504,7 +471,7 @@ export function ShopFilters({
               </option>
             ))}
           </select>
-        </div>
+        </CollapsibleFilterSection>
       )}
 
       {bar && options.statuses?.length ? (
@@ -520,51 +487,66 @@ export function ShopFilters({
         />
       ) : null}
 
-      <MultiFilterGroup
-        fieldName="category"
-        label="Category"
-        options={options.categories}
-        selected={categorySel}
-        compact={compact}
-        bar={bar}
-        onToggle={(v) => toggleMulti("category", v)}
-        onClear={() => clearMulti("category")}
-      />
+      {!hideCategoryFilter ? (
+        <CollapsibleFilterSection
+          sectionKey="category"
+          title="Category"
+          bar={bar}
+          compact={compact}
+          selectionActive={categorySel.length > 0}
+          showClear={categorySel.length > 0}
+          onClear={() => clearMulti("category")}
+        >
+          <CategoryFilterTree
+            categories={options.categories}
+            selected={categorySel}
+            compact={compact}
+            bar={bar}
+            onToggle={(v) => toggleMulti("category", v)}
+          />
+        </CollapsibleFilterSection>
+      ) : null}
 
-      <MultiFilterGroup
-        fieldName="occasion"
-        label="Occasion"
-        options={options.occasions}
-        selected={occasionSel}
-        compact={compact}
-        bar={bar}
-        onToggle={(v) => toggleMulti("occasion", v)}
-        onClear={() => clearMulti("occasion")}
-      />
+      {!hideFacetFields.includes("occasion") ? (
+        <MultiFilterGroup
+          fieldName="occasion"
+          label="Occasion"
+          options={options.occasions}
+          selected={occasionSel}
+          compact={compact}
+          bar={bar}
+          onToggle={(v) => toggleMulti("occasion", v)}
+          onClear={() => clearMulti("occasion")}
+        />
+      ) : null}
 
-      <MultiFilterGroup
-        fieldName="style"
-        label="Style"
-        options={options.styles}
-        selected={styleSel}
-        compact={compact}
-        bar={bar}
-        onToggle={(v) => toggleMulti("style", v)}
-        onClear={() => clearMulti("style")}
-      />
+      {!hideFacetFields.includes("style") ? (
+        <MultiFilterGroup
+          fieldName="style"
+          label="Style"
+          options={options.styles}
+          selected={styleSel}
+          compact={compact}
+          bar={bar}
+          onToggle={(v) => toggleMulti("style", v)}
+          onClear={() => clearMulti("style")}
+        />
+      ) : null}
 
-      <MultiFilterGroup
-        fieldName="material"
-        label="Material"
-        options={options.materials}
-        selected={materialSel}
-        compact={compact}
-        bar={bar}
-        onToggle={(v) => toggleMulti("material", v)}
-        onClear={() => clearMulti("material")}
-      />
+      {!hideFacetFields.includes("material") ? (
+        <MultiFilterGroup
+          fieldName="material"
+          label="Material"
+          options={options.materials}
+          selected={materialSel}
+          compact={compact}
+          bar={bar}
+          onToggle={(v) => toggleMulti("material", v)}
+          onClear={() => clearMulti("material")}
+        />
+      ) : null}
 
-      <div className={bar ? "grid min-w-0 w-full grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-2 gap-3"}>
+      <div className={bar ? "grid min-w-0 w-full grid-cols-1 gap-4 sm:grid-cols-2" : "grid grid-cols-2 gap-4"}>
         <MultiFilterGroup
           fieldName="color"
           label="Color"
@@ -597,9 +579,13 @@ export function ShopFilters({
                 ? "rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
                 : "w-full rounded-full border border-zinc-300 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100"
             }
-            onClick={() => router.push(basePath)}
+            onClick={() =>
+              preserveQueryKeys.length
+                ? router.push(buildShopUrlPreservingOnly(basePath, searchParams, preserveQueryKeys))
+                : router.push(basePath)
+            }
           >
-            Clear
+            Clear all
           </button>
         </div>
       )}
@@ -621,8 +607,16 @@ export function ShopFilters({
       ) : null}
 
       {hideOutOfStockToggle && !bar && (
-        <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/90 p-3">
-          <p className="text-xs font-semibold text-zinc-700">Availability</p>
+        <div className={bar ? "min-w-0 w-full" : ""}>
+          <p
+            className={
+              compact
+                ? "text-[11px] font-semibold uppercase tracking-wide text-zinc-700"
+                : "font-semibold text-zinc-900"
+            }
+          >
+            Availability
+          </p>
           <button
             type="button"
             className="mt-2 w-full rounded-full border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
@@ -650,6 +644,6 @@ export function ShopFilters({
   }
 
   return (
-    <div className={compact ? "space-y-2.5 text-xs sm:text-sm" : "space-y-5 text-sm"}>{filters}</div>
+    <div className={compact ? "space-y-4 text-xs sm:text-sm" : "space-y-6 text-sm"}>{filters}</div>
   );
 }

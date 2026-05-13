@@ -11,9 +11,11 @@ type Props = {
   items: HomeCategoryCircleItem[];
 };
 
+import { shopCategoryHref } from "@/lib/shop-category-url";
+
 function resolveHref(item: HomeCategoryCircleItem) {
   if (item.targetType === "category") {
-    return `/shop?category=${encodeURIComponent(item.targetValue)}`;
+    return shopCategoryHref(item.targetValue);
   }
   if (item.targetType === "shopFilter") {
     const q = item.targetValue.replace(/^\?+/, "").trim();

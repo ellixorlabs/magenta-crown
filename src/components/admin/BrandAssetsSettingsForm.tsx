@@ -1,13 +1,71 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import type { BrandSettings } from "@/lib/brand-settings";
+import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 
 type Props = {
   initial: BrandSettings;
   initialShareTemplate: string;
 };
+
+const BrandTinyIconPreview = memo(function BrandTinyIconPreview({ src, alt }: { src: string; alt: string }) {
+  const s = src.trim();
+  return (
+    <Image
+      src={s}
+      alt={alt}
+      width={32}
+      height={32}
+      className="h-7 w-7 object-contain"
+      sizes="32px"
+      quality={60}
+      loading="lazy"
+      unoptimized={adminRemoteImageSrcUnoptimized(s)}
+    />
+  );
+});
+
+const BrandBreathingLogoPreview = memo(function BrandBreathingLogoPreview({ src }: { src: string }) {
+  const s = src.trim();
+  return (
+    <Image
+      src={s}
+      alt="Breathing logo preview"
+      width={48}
+      height={48}
+      className="h-12 w-12 object-contain"
+      sizes="48px"
+      quality={65}
+      loading="lazy"
+      unoptimized={adminRemoteImageSrcUnoptimized(s)}
+    />
+  );
+});
+
+const BrandHeaderMarkImagePreview = memo(function BrandHeaderMarkImagePreview({
+  src,
+  altText
+}: {
+  src: string;
+  altText: string;
+}) {
+  const s = src.trim();
+  return (
+    <Image
+      src={s}
+      alt={altText || "Brand mark preview"}
+      width={180}
+      height={40}
+      className="h-8 w-auto max-w-[180px] object-contain"
+      sizes="180px"
+      quality={62}
+      loading="lazy"
+      unoptimized={adminRemoteImageSrcUnoptimized(s)}
+    />
+  );
+});
 
 export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props) {
   const [faviconUrl, setFaviconUrl] = useState(initial.faviconUrl);
@@ -24,38 +82,47 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function uploadAsset(
-    kind: "favicon" | "breathing-logo" | "brand-mark-image" | "pwa-icon-192" | "pwa-icon-512" | "apple-touch-icon",
-    file: File | null
-  ) {
-    if (!file) return;
-    setMessage(null);
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("kind", kind);
-      const res = await fetch("/api/admin/brand-assets", { method: "POST", body: form });
-      const json = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !json.url) {
-        setMessage(json.error || "Upload failed.");
-        return;
+  const uploadAsset = useCallback(
+    async (
+      kind:
+        | "favicon"
+        | "breathing-logo"
+        | "brand-mark-image"
+        | "pwa-icon-192"
+        | "pwa-icon-512"
+        | "apple-touch-icon",
+      file: File | null
+    ) => {
+      if (!file) return;
+      setMessage(null);
+      setUploading(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("kind", kind);
+        const res = await fetch("/api/admin/brand-assets", { method: "POST", body: form });
+        const json = (await res.json()) as { url?: string; error?: string };
+        if (!res.ok || !json.url) {
+          setMessage(json.error || "Upload failed.");
+          return;
+        }
+        if (kind === "favicon") setFaviconUrl(json.url);
+        if (kind === "breathing-logo") setBreathingLogoUrl(json.url);
+        if (kind === "brand-mark-image") setBrandImageUrl(json.url);
+        if (kind === "pwa-icon-192") setPwaIcon192Url(json.url);
+        if (kind === "pwa-icon-512") setPwaIcon512Url(json.url);
+        if (kind === "apple-touch-icon") setAppleTouchIconUrl(json.url);
+        setMessage("Upload complete. Save to apply.");
+      } catch {
+        setMessage("Upload failed.");
+      } finally {
+        setUploading(false);
       }
-      if (kind === "favicon") setFaviconUrl(json.url);
-      if (kind === "breathing-logo") setBreathingLogoUrl(json.url);
-      if (kind === "brand-mark-image") setBrandImageUrl(json.url);
-      if (kind === "pwa-icon-192") setPwaIcon192Url(json.url);
-      if (kind === "pwa-icon-512") setPwaIcon512Url(json.url);
-      if (kind === "apple-touch-icon") setAppleTouchIconUrl(json.url);
-      setMessage("Upload complete. Save to apply.");
-    } catch {
-      setMessage("Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  }
+    },
+    []
+  );
 
-  async function onSave(e: React.FormEvent) {
+  const onSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
     setSaving(true);
@@ -87,7 +154,18 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
     } finally {
       setSaving(false);
     }
-  }
+  }, [
+    faviconUrl,
+    breathingLogoUrl,
+    pwaIcon192Url,
+    pwaIcon512Url,
+    appleTouchIconUrl,
+    brandMarkMode,
+    brandText,
+    brandImageUrl,
+    brandFontFamily,
+    shareMessageTemplate
+  ]);
 
   return (
     <form onSubmit={onSave} className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6">
@@ -257,7 +335,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Favicon</p>
             <div className="mt-2 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
               {faviconUrl ? (
-                <Image src={faviconUrl} alt="Favicon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                <BrandTinyIconPreview src={faviconUrl} alt="Favicon preview" />
               ) : (
                 <span className="text-[10px] text-zinc-400">None</span>
               )}
@@ -268,21 +346,21 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <div className="mt-2 flex items-center gap-2">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
                 {pwaIcon192Url ? (
-                  <Image src={pwaIcon192Url} alt="PWA 192 icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                  <BrandTinyIconPreview src={pwaIcon192Url} alt="PWA 192 icon preview" />
                 ) : (
                   <span className="text-[10px] text-zinc-400">192</span>
                 )}
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
                 {pwaIcon512Url ? (
-                  <Image src={pwaIcon512Url} alt="PWA 512 icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                  <BrandTinyIconPreview src={pwaIcon512Url} alt="PWA 512 icon preview" />
                 ) : (
                   <span className="text-[10px] text-zinc-400">512</span>
                 )}
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
                 {appleTouchIconUrl ? (
-                  <Image src={appleTouchIconUrl} alt="Apple touch icon preview" width={28} height={28} className="h-7 w-7 object-contain" unoptimized />
+                  <BrandTinyIconPreview src={appleTouchIconUrl} alt="Apple touch icon preview" />
                 ) : (
                   <span className="text-[10px] text-zinc-400">iOS</span>
                 )}
@@ -293,14 +371,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Breathing logo</p>
             <div className="mt-2 flex h-16 items-center justify-center rounded-lg border border-zinc-200 bg-[#6d1432]">
               {breathingLogoUrl ? (
-                <Image
-                  src={breathingLogoUrl}
-                  alt="Breathing logo preview"
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 object-contain"
-                  unoptimized
-                />
+                <BrandBreathingLogoPreview src={breathingLogoUrl} />
               ) : (
                 <span className="text-[10px] text-white/70">Default logo</span>
               )}
@@ -310,14 +381,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Header brand mark</p>
             <div className="mt-2 flex h-16 items-center rounded-lg border border-zinc-200 bg-zinc-900 px-3">
               {brandMarkMode === "image" && brandImageUrl ? (
-                <Image
-                  src={brandImageUrl}
-                  alt={brandText || "Brand mark preview"}
-                  width={180}
-                  height={32}
-                  className="h-8 w-auto max-w-[180px] object-contain"
-                  unoptimized
-                />
+                <BrandHeaderMarkImagePreview src={brandImageUrl} altText={brandText} />
               ) : (
                 <span
                   className="block whitespace-nowrap text-xs font-semibold tracking-[0.18em] text-white sm:text-sm"

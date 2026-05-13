@@ -1,5 +1,6 @@
 import { randomId } from "@/lib/random-id";
 import type { DynamicProductSection, HomePagePayloadV1, HomePagePayloadV2 } from "@/lib/home-page-types";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 
 /**
  * One-time migration from legacy v1 JSON to v2 (dynamic product sections).
@@ -21,7 +22,7 @@ export function migrateHomePageV1ToV2(v1: HomePagePayloadV1): HomePagePayloadV2 
       const title = rail.title;
       const viewAllHref =
         rail.type === "sareeCarousel"
-          ? "/shop?category=Sarees"
+          ? shopCategoryHref("Sarees")
           : rail.type === "newArrivals"
             ? "/shop?sort=new"
             : "/shop";

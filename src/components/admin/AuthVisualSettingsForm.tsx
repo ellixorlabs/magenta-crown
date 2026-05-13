@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 
 type Props = {
   initialUrl: string;
@@ -75,7 +76,16 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
       </label>
       {url ? (
         <div className="relative h-44 w-full overflow-hidden rounded-2xl">
-          <Image src={url} alt="Auth visual preview" fill sizes="(max-width: 768px) 100vw, 480px" className="object-cover" unoptimized />
+          <Image
+            src={url}
+            alt="Auth visual preview"
+            fill
+            sizes="(max-width: 768px) 100vw, 480px"
+            quality={72}
+            loading="lazy"
+            className="object-cover"
+            unoptimized={adminRemoteImageSrcUnoptimized(url)}
+          />
         </div>
       ) : null}
       <label className="block text-xs font-semibold text-zinc-600">
@@ -128,8 +138,10 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
               alt="Global size chart preview"
               fill
               sizes="(max-width: 768px) 100vw, 480px"
+              quality={72}
+              loading="lazy"
               className="object-contain"
-              unoptimized
+              unoptimized={adminRemoteImageSrcUnoptimized(sizeChartUrl)}
             />
           </div>
         ) : null}

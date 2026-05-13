@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { memo, useCallback, useMemo, useState, useTransition } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
 import type {
@@ -15,6 +15,7 @@ import type {
   SectionTransition
 } from "@/lib/home-page-types";
 import { randomId } from "@/lib/random-id";
+import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 import { saveHomePageConfig } from "./actions";
 
 export type CatalogProduct = Pick<ProductRow, "id" | "name" | "slug" | "category">;
@@ -28,6 +29,26 @@ function normalizeOrders(sections: DynamicHomeSection[]): DynamicHomeSection[] {
   const sorted = [...sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
   return sorted.map((s, i) => ({ ...s, order: i }));
 }
+
+const HomePromoVariantSlot = memo(function HomePromoVariantSlot({ url, alt }: { url: string; alt: string }) {
+  const trimmed = url.trim();
+  return (
+    <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50/40">
+      {trimmed ? (
+        <Image
+          src={trimmed}
+          alt={alt}
+          fill
+          sizes="(max-width: 640px) 100vw, 360px"
+          quality={68}
+          loading="lazy"
+          className="object-cover object-center"
+          unoptimized={adminRemoteImageSrcUnoptimized(trimmed)}
+        />
+      ) : null}
+    </div>
+  );
+});
 
 export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const router = useRouter();
@@ -725,30 +746,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     {section.imageUrlMobile || section.imageUrlDesktop ? (
                       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100">
-                            {section.imageUrlMobile ? (
-                              <Image
-                                src={section.imageUrlMobile}
-                                alt="Promo mobile preview"
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                className="object-cover object-center"
-                                unoptimized
-                              />
-                            ) : null}
-                          </div>
-                          <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100">
-                            {section.imageUrlDesktop ? (
-                              <Image
-                                src={section.imageUrlDesktop}
-                                alt="Promo desktop preview"
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                className="object-cover object-center"
-                                unoptimized
-                              />
-                            ) : null}
-                          </div>
+                          <HomePromoVariantSlot url={section.imageUrlMobile ?? ""} alt="Promo mobile preview" />
+                          <HomePromoVariantSlot url={section.imageUrlDesktop ?? ""} alt="Promo desktop preview" />
                         </div>
                       </div>
                     ) : null}

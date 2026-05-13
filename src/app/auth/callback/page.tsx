@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  appendMcOAuthHintToNextPath,
+  getSafeCallbackUrl,
+  MC_OAUTH_RETURN_STORAGE_KEY
+} from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function sleep(ms: number) {
@@ -23,6 +28,7 @@ export default function AuthCallbackPage() {
         }
 
         const url = new URL(window.location.href);
+        const oauthContext = url.searchParams.get("oauth_context");
         const code = url.searchParams.get("code");
         const tokenHash = url.searchParams.get("token_hash");
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -38,14 +44,20 @@ export default function AuthCallbackPage() {
 
         // PKCE/email callback support.
         if (code) {
-          await supabase.auth.exchangeCodeForSession(code).catch(() => {
-            /* let session poll decide final status */
-          });
+          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeErr) {
+            const existing = (await supabase.auth.getSession()).data.session;
+            if (!existing?.access_token && !cancelled) {
+              setError("Invalid or expired link.");
+              window.setTimeout(() => window.location.replace("/auth/signin"), 1400);
+              return;
+            }
+          }
         } else if (tokenHash && callbackType) {
           await supabase.auth
             .verifyOtp({
               token_hash: tokenHash,
-              type: callbackType as any
+              type: callbackType as Parameters<typeof supabase.auth.verifyOtp>[0]["type"]
             })
             .catch(() => {
               /* let session poll decide final status */
@@ -69,13 +81,48 @@ export default function AuthCallbackPage() {
 
         const authz = { Authorization: `Bearer ${session.access_token}` };
         await fetch("/api/auth/sync-user", { method: "POST", headers: authz }).catch(() => null);
-        await fetch("/api/auth/session", { method: "POST", headers: authz }).catch(() => null);
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: authz,
+          credentials: "same-origin"
+        }).catch(() => null);
 
-        if (!cancelled) {
-          const redirectTarget =
-            callbackType === "recovery" ? "/auth/create-new-password" : "/auth/verification-success";
-          window.location.replace(redirectTarget);
+        if (cancelled) return;
+
+        let nextRaw = url.searchParams.get("next");
+        if (!nextRaw) {
+          try {
+            nextRaw = sessionStorage.getItem(MC_OAUTH_RETURN_STORAGE_KEY);
+            sessionStorage.removeItem(MC_OAUTH_RETURN_STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
         }
+        let nextSafe = getSafeCallbackUrl(nextRaw);
+        if (oauthContext === "pwa_standalone" && nextSafe.startsWith("/")) {
+          nextSafe = appendMcOAuthHintToNextPath(nextSafe, "pwa");
+        }
+
+        if (callbackType === "recovery") {
+          window.location.replace("/auth/create-new-password");
+          return;
+        }
+
+        if (tokenHash && callbackType && !code) {
+          window.location.replace(nextSafe && nextSafe !== "/auth/callback" ? nextSafe : "/auth/verification-success");
+          return;
+        }
+
+        if (code) {
+          if (nextSafe && nextSafe !== "/auth/callback") {
+            window.location.replace(nextSafe);
+            return;
+          }
+          window.location.replace("/");
+          return;
+        }
+
+        window.location.replace(nextSafe && nextSafe !== "/auth/callback" ? nextSafe : "/auth/verification-success");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -103,4 +150,3 @@ export default function AuthCallbackPage() {
     </main>
   );
 }
-

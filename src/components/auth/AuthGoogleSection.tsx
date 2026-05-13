@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { getSafeCallbackUrl, MC_OAUTH_PENDING_EXTERNAL_KEY } from "@/lib/auth-callback";
+import { isStandaloneDisplayMode } from "@/lib/pwa-standalone";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 type Props = {
@@ -62,7 +64,18 @@ export function AuthGoogleSection({ callbackUrl, buttonClassName, compactMobile 
               return;
             }
             const origin = window.location.origin.replace(/\/+$/, "");
-            const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`;
+            try {
+              sessionStorage.setItem(MC_OAUTH_PENDING_EXTERNAL_KEY, String(Date.now()));
+            } catch {
+              /* ignore */
+            }
+            const nextPath = getSafeCallbackUrl(callbackUrl);
+            const qs = new URLSearchParams();
+            qs.set("next", nextPath);
+            if (isStandaloneDisplayMode()) {
+              qs.set("oauth_context", "pwa_standalone");
+            }
+            const redirectTo = `${origin}/auth/callback?${qs.toString()}`;
             const { error: oauthError } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {

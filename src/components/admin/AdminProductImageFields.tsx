@@ -1,8 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
+import { compressImageFileForUpload } from "@/lib/client-image-compress";
+import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
+
+const MAX_UPLOAD_AFTER_COMPRESS = 8 * 1024 * 1024;
 
 function parseUrls(text: string): string[] {
   return text
@@ -68,11 +72,16 @@ export function AdminProductImageFields({
           if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
             throw new Error(`Unsupported image type: ${f.name}. Use JPEG, PNG, or WEBP.`);
           }
-          if (f.size > 2 * 1024 * 1024) {
-            throw new Error(`${f.name} is larger than 2MB.`);
+          const maxOriginal = 25 * 1024 * 1024;
+          if (f.size > maxOriginal) {
+            throw new Error(`${f.name} is larger than 25MB before compression.`);
+          }
+          const prepared = await compressImageFileForUpload(f);
+          if (prepared.size > MAX_UPLOAD_AFTER_COMPRESS) {
+            throw new Error(`${f.name} is still too large after compression (max 8MB upload).`);
           }
           const fd = new FormData();
-          fd.append("file", f);
+          fd.append("file", prepared);
           if (productId) fd.append("productId", productId);
           const res = await fetch("/api/admin/product-image", { method: "POST", body: fd });
           const data = (await res.json()) as { url?: string; error?: string };
@@ -114,7 +123,7 @@ export function AdminProductImageFields({
           <h4 className="text-sm font-semibold text-zinc-900">Product images</h4>
           <p className="mt-1 text-xs text-zinc-500">
             Drag/drop or choose media from your system. Images go to <span className="font-mono">products-images</span>{" "}
-            (max 2MB), videos go to <span className="font-mono">products-videos</span> (MP4, max 20MB).
+            (up to ~25MB originals; compressed client-side), videos go to <span className="font-mono">products-videos</span> (MP4, max 20MB).
           </p>
         </div>
 
@@ -128,8 +137,10 @@ export function AdminProductImageFields({
                     alt="Selected product preview"
                     fill
                     sizes="260px"
+                    quality={68}
+                    loading="lazy"
                     className="object-contain"
-                    unoptimized
+                    unoptimized={adminRemoteImageSrcUnoptimized(previewUrl)}
                   />
                 </div>
               ) : (
@@ -141,7 +152,7 @@ export function AdminProductImageFields({
             {urls.length > 0 ? (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
                 {urls.map((u, i) => (
-                  <div key={`${u}-${i}`} className="relative">
+                  <div key={`${i}-${u}`} className="relative">
                     <button
                       type="button"
                       onClick={() => setIdx(i)}
@@ -151,7 +162,16 @@ export function AdminProductImageFields({
                           : "border-zinc-200"
                       }`}
                     >
-                      <Image src={u} alt="" fill sizes="56px" className="object-cover" unoptimized />
+                      <Image
+                        src={u}
+                        alt=""
+                        fill
+                        sizes="56px"
+                        quality={55}
+                        loading="lazy"
+                        className="object-cover"
+                        unoptimized={adminRemoteImageSrcUnoptimized(u)}
+                      />
                     </button>
                     <button
                       type="button"
@@ -184,7 +204,7 @@ export function AdminProductImageFields({
               }`}
             >
               <p className="font-medium text-zinc-800">Drop images here</p>
-              <p className="mt-1 text-xs text-zinc-500">JPEG/PNG/WEBP (max 2MB) or MP4 video (max 20MB)</p>
+              <p className="mt-1 text-xs text-zinc-500">JPEG/PNG/WEBP (large files are compressed in-browser) or MP4 video (max 20MB)</p>
               <label className="mt-3 inline-block cursor-pointer rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50">
                 <input
                   type="file"
