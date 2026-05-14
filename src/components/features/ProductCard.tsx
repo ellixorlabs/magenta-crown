@@ -157,7 +157,7 @@ function ProductCardInner({
               className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
               style={{ objectPosition: listPos }}
               sizes={comfy ? "(max-width: 640px) 160px, (max-width: 1024px) 208px, 240px" : "(max-width: 640px) 112px, (max-width: 1024px) 144px, 180px"}
-              quality={78}
+              quality={75}
               loading="lazy"
             />
             {outOfStock && (
@@ -209,7 +209,7 @@ function ProductCardInner({
   return (
     <Link href={`/product/${product.slug}`} className="group mc-tap block h-full w-full min-w-0 max-w-full">
       <article className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md">
-        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden bg-mc-creamDeep">
+        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden bg-mc-creamDeep lg:aspect-[4/5]">
           <Image
             src={primaryImage}
             alt={imgAlt}
@@ -219,7 +219,7 @@ function ProductCardInner({
             }`}
             style={{ objectPosition: listPos }}
             sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
-            quality={78}
+            quality={75}
             loading="lazy"
           />
           {hoverSwapUrl ? (
@@ -230,7 +230,7 @@ function ProductCardInner({
               className="object-cover opacity-0 transition duration-500 group-hover:scale-[1.04] group-hover:opacity-100"
               style={{ objectPosition: listPos }}
               sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
-              quality={78}
+              quality={75}
               loading="lazy"
             />
           ) : null}
@@ -325,15 +325,15 @@ function ProductCardInner({
             </span>
           </div>
         )}
-        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3">
+        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3 lg:px-2.5 lg:pb-2.5 lg:pt-2">
           <h3
-            className={`min-h-[3.25rem] break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] ${
+            className={`min-h-[3.25rem] break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] lg:min-h-[3rem] ${
               isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
             }`}
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex min-h-[2.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+          <div className="mt-1.5 flex min-h-[2.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1 lg:min-h-[2.5rem]">
             <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
             {showStrikethrough && (
               <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>

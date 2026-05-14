@@ -10,7 +10,7 @@ export function TestimonialsSection({ eyebrow, title, quotes }: Props) {
   if (quotes.length === 0) return null;
 
   return (
-    <section className="section-shell py-16">
+    <section className="section-shell py-16 lg:py-14">
       <div className="mb-10 text-center">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
         <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">

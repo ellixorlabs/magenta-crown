@@ -6,7 +6,6 @@ import { Eye, EyeOff } from "lucide-react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { OAuthExternalContextHint } from "@/components/auth/OAuthExternalContextHint";
-import { McAuthBrandMark } from "@/components/mc/McAuthBrandMark";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -115,7 +114,7 @@ function SignUpInner() {
         password,
         options: {
           data: { name: name.trim() },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`
         }
       });
       if (signUpError) {
@@ -161,11 +160,10 @@ function SignUpInner() {
     "font-mc-heading text-sm font-normal text-white md:text-xs md:font-semibold md:text-zinc-800";
 
   return (
-    <AuthImmersiveShell mobileAlign="top">
+    <AuthImmersiveShell mobileAlign="top" minimalChrome>
       <div className="w-full max-w-[380px] px-1 md:max-w-[560px] md:p-2">
-        <McAuthBrandMark className="mb-5 md:mb-0 md:hidden" />
-        <h1 className="hidden text-center font-mc-heading text-3xl font-semibold text-zinc-950 md:block">Create account</h1>
-        <p className="mt-0.5 hidden text-center text-sm text-zinc-500 md:block">Join our exclusive boutique</p>
+        <h1 className="text-center font-mc-heading text-2xl font-semibold text-white md:text-3xl md:text-zinc-950">Create account</h1>
+        <p className="mt-0.5 text-center text-sm text-white/75 md:text-zinc-500">Join our exclusive boutique</p>
         <form onSubmit={onSubmit} className="mt-2 space-y-3 md:mt-3.5 md:space-y-2.5">
           <div>
             <label className={labelClass}>Name</label>

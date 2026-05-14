@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { getSafeCallbackUrl, MC_OAUTH_PENDING_EXTERNAL_KEY } from "@/lib/auth-callback";
+import {
+  getSafeCallbackUrl,
+  MC_OAUTH_PENDING_EXTERNAL_KEY,
+  rememberOAuthReturnForCallback
+} from "@/lib/auth-callback";
 import { isStandaloneDisplayMode } from "@/lib/pwa-standalone";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -70,6 +74,7 @@ export function AuthGoogleSection({ callbackUrl, buttonClassName, compactMobile 
               /* ignore */
             }
             const nextPath = getSafeCallbackUrl(callbackUrl);
+            rememberOAuthReturnForCallback(nextPath);
             const qs = new URLSearchParams();
             qs.set("next", nextPath);
             if (isStandaloneDisplayMode()) {

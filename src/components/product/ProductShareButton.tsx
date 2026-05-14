@@ -90,19 +90,19 @@ export function ProductShareButton({
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/55 bg-gradient-to-b from-white via-[#fff9fb] to-[#fdf4f7] p-5 shadow-[0_40px_110px_-28px_rgba(63,14,34,0.55)] ring-1 ring-white/70"
+            className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/55 bg-gradient-to-b from-white via-[#fff9fb] to-[#fdf4f7] p-5 shadow-[0_40px_110px_-28px_rgba(63,14,34,0.55)] ring-1 ring-white/70 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-semibold tracking-wide text-zinc-900">Share this product</p>
             <div className="mt-3 rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-xs text-zinc-700 break-all shadow-inner">
               {productUrl}
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(buildShareText(shareTemplate, productName, productUrl, couponCode))}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[54px] min-w-[96px] items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-center text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
+                className="inline-flex min-h-[54px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200 bg-white px-3 py-3 text-center text-sm font-semibold leading-snug text-zinc-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 sm:flex-row sm:gap-2 sm:px-4"
               >
                 <svg viewBox="0 0 32 32" className="h-6 w-6 shrink-0 text-[#25D366]" aria-hidden>
                   <path
@@ -123,7 +123,7 @@ export function ProductShareButton({
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(productUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[54px] min-w-[96px] items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-center text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                className="inline-flex min-h-[54px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200 bg-white px-3 py-3 text-center text-sm font-semibold leading-snug text-zinc-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 sm:flex-row sm:gap-2 sm:px-4"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-[#2563eb]" aria-hidden>
                   <path d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.6 4.5-4.6 1.3 0 2.6.2 2.6.2V8h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12Z" />
@@ -134,7 +134,7 @@ export function ProductShareButton({
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(buildShareText(shareTemplate, productName, productUrl, couponCode))}&url=${encodeURIComponent(productUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[54px] min-w-[96px] items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-center text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-100"
+                className="inline-flex min-h-[54px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200 bg-white px-3 py-3 text-center text-sm font-semibold leading-snug text-zinc-800 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-100 sm:flex-row sm:gap-2 sm:px-4"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-black" aria-hidden>
                   <path d="M18.9 2H22l-6.8 7.8L23 22h-6.2l-4.9-6.4L6.3 22H3l7.2-8.3L1 2h6.4l4.4 5.9L18.9 2Zm-1.1 18h1.7L6.5 3.9H4.7L17.8 20Z" />
@@ -156,7 +156,7 @@ export function ProductShareButton({
                   setModalMessage("Native share is unavailable here. Use Copy link.");
                   setTimeout(() => setModalMessage(null), 2000);
                 }}
-                className="min-h-[54px] min-w-[96px] rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+                className="flex min-h-[54px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200 bg-white px-3 py-3 text-center text-sm font-semibold leading-snug text-zinc-800 shadow-sm transition hover:bg-zinc-50 sm:flex-row sm:gap-2 sm:px-4"
               >
                 More
               </button>

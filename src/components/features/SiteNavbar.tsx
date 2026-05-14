@@ -120,10 +120,6 @@ type Props = {
 
 export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: Props) {
   const pathname = usePathname();
-  // Auth screens use their own full-bleed chrome (avoid overlap on mobile browser).
-  if (pathname?.startsWith("/auth")) {
-    return null;
-  }
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, role, userName, userEmail, logout } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
@@ -377,7 +373,8 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
   }
 
   const immersive = isHome && !pastHero;
-  const isLight = !immersive;
+  /** Auth uses maroon immersive shell under the bar — match home-hero dark glass, not cream “light” chrome. */
+  const isLight = !immersive && !pathname?.startsWith("/auth");
 
   const isAuthed = isAuthenticated;
   const isStaff = role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";

@@ -4,9 +4,6 @@ import { HomePageView } from "@/components/home/HomePageView";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export const metadata: Metadata = {
   title: "Home",
   description:

@@ -5,7 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { OAuthExternalContextHint } from "@/components/auth/OAuthExternalContextHint";
-import { getSafeCallbackUrl, MC_OAUTH_PENDING_EXTERNAL_KEY } from "@/lib/auth-callback";
+import {
+  getSafeCallbackUrl,
+  MC_OAUTH_PENDING_EXTERNAL_KEY,
+  rememberOAuthReturnForCallback
+} from "@/lib/auth-callback";
 import { isStandaloneDisplayMode } from "@/lib/pwa-standalone";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -110,6 +114,7 @@ function Inner() {
                   /* ignore */
                 }
                 const origin = window.location.origin.replace(/\/+$/, "");
+                rememberOAuthReturnForCallback(callbackUrl);
                 const qs = new URLSearchParams();
                 qs.set("next", callbackUrl);
                 if (isStandaloneDisplayMode()) {

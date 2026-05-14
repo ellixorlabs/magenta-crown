@@ -3,6 +3,7 @@ import { getBrandSettings } from "@/lib/brand-settings";
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const brand = await getBrandSettings();
+  // Install-time icons: keep stable `/icon-*.png` filenames in `public/` so existing installs keep resolving.
   const icon192 = brand.pwaIcon192Url || "/icon-192.png";
   const icon512 = brand.pwaIcon512Url || "/icon-512.png";
 

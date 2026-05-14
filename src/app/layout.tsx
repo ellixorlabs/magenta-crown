@@ -24,10 +24,12 @@ const bodyFont = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandSettings();
+  // Stable paths: `/icon.png` + `/apple-icon.png` come from `src/app/` metadata routes; PWA sizes live in `public/`.
+  // After icon changes, iOS/Android may cache old art until the user refreshes or reinstalls the PWA.
   const favicon = brand.faviconUrl || "/icon.png";
   const pwa192 = brand.pwaIcon192Url || "/icon-192.png";
   const pwa512 = brand.pwaIcon512Url || "/icon-512.png";
-  const appleTouch = brand.appleTouchIconUrl || pwa192;
+  const appleTouch = brand.appleTouchIconUrl || "/apple-icon.png";
   return {
     metadataBase: new URL(getCanonicalSiteUrl()),
     applicationName: "Magenta Crown",

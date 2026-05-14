@@ -11,6 +11,7 @@ import {
   type ReactNode
 } from "react";
 import { clearAccountRecoverStorageKeys } from "@/lib/account-recover-storage";
+import { fetchAuthSessionDeduped } from "@/lib/auth-session-fetch";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 type Role = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
@@ -48,7 +49,7 @@ function AuthContextInner({ children }: { children: ReactNode }) {
    *  response is common right after cookie sync or if DB row lags; wiping here caused false logouts. */
   const refreshServerSession = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/session", { cache: "no-store" });
+      const res = await fetchAuthSessionDeduped();
       const data = (await res.json()) as {
         session?: { user?: { id?: string; email?: string; name?: string | null; role?: Role } } | null;
       };

@@ -89,6 +89,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Price must be greater than 0." }, { status: 400 });
     }
 
+    const styleCode = String(formData.get("styleCode") ?? "").trim();
+    if (!styleCode) {
+      return NextResponse.json(
+        { success: false, message: "Style code is required (warehouse / rack reference)." },
+        { status: 400 }
+      );
+    }
+
     const discountedRaw = Number(formData.get("discountedPrice"));
     const discountedPrice = Number.isFinite(discountedRaw) && discountedRaw > 0 ? discountedRaw : null;
 
@@ -99,6 +107,9 @@ export async function POST(req: Request) {
     const imageUrls = parseList(String(formData.get("imageUrls") ?? "")).map(normalizeAdminImageUrl);
     const videoUrls = parseList(String(formData.get("videoUrls") ?? ""));
     const variantRows = parseVariantRows(String(formData.get("variantsJson") ?? "[]"));
+    const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
+    const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
+    const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
 
     let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
     listImageIndex = imageUrls.length > 0 ? Math.min(listImageIndex, imageUrls.length - 1) : 0;
@@ -116,12 +127,15 @@ export async function POST(req: Request) {
         material: String(formData.get("material") ?? "").trim() || null,
         occasion: String(formData.get("occasion") ?? "").trim() || null,
         style: String(formData.get("style") ?? "").trim() || null,
+        styleCode,
         fitNotes: String(formData.get("fitNotes") ?? "").trim() || null,
         careInstructions: String(formData.get("careInstructions") ?? "").trim() || null,
         imageUrls,
         listImageIndex,
         listImagePosition: String(formData.get("listImagePosition") ?? "center").trim() || "center",
         videoUrls,
+        sizeChartImageUrl,
+        showSizeChart,
         status: normalizeProductStatus(formData.get("status")),
         prepaidOfferText: String(formData.get("prepaidOfferText") ?? "").trim() || null,
         pricingFootnote: String(formData.get("pricingFootnote") ?? "").trim() || null,

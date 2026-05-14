@@ -15,6 +15,11 @@ export type HeroSlideVM = {
   imagePosition: string;
 };
 
+/** Stable React key / identity for a slide (survives reorder; not index-based). */
+export function heroSlideStableKey(s: HeroSlideVM): string {
+  return `${s.bg}|${s.bgMobile ?? ""}|${s.bgDesktop ?? ""}|${s.label}|${s.line1}`;
+}
+
 export const DEFAULT_HERO_SLIDES: HeroSlideVM[] = [
   {
     label: "New collection • Spring 2026",

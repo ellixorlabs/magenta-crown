@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,6 +8,16 @@ import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
 import { buildShopUrlPreservingOnly } from "@/lib/shop-clear-url";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
+
+function subscribeMaxLg(notify: () => void) {
+  const mq = window.matchMedia("(max-width: 1023px)");
+  mq.addEventListener("change", notify);
+  return () => mq.removeEventListener("change", notify);
+}
+
+function maxLgMatches() {
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
 
 type Props = {
   options: ShopFilterOptions;
@@ -99,6 +109,9 @@ export function ShopFiltersMobileSheet(props: Props) {
   const searchParams = useSearchParams();
   const applyFiltersRef = useRef<(() => void) | null>(null);
 
+  const mobileSheetViewport = useSyncExternalStore(subscribeMaxLg, maxLgMatches, () => false);
+  const shouldLockBodyScroll = Boolean(open && mobileSheetViewport);
+
   const onClose = useCallback(() => setOpen(false), [setOpen]);
 
   useEffect(() => {
@@ -117,16 +130,18 @@ export function ShopFiltersMobileSheet(props: Props) {
     return () => cancelAnimationFrame(raf);
   }, [open]);
 
+  /** Desktop uses `ShopFilterDesktopSidebar` — lock body only when the mobile drawer exists (`< lg`). */
   useEffect(() => {
-    if (!open) return;
+    if (!shouldLockBodyScroll) return;
     lockBodyScroll();
     return () => unlockBodyScroll();
-  }, [open]);
+  }, [shouldLockBodyScroll]);
 
-  const overlay =
-    open && mounted ? (
+  const showMobileOverlay = Boolean(open && mounted && mobileSheetViewport);
+
+  const overlay = showMobileOverlay ? (
       <div
-        className="fixed inset-0 z-[25000] lg:hidden"
+        className="fixed inset-0 z-[25000]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shop-filters-sheet-title"

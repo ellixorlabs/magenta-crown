@@ -102,6 +102,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
       <div className="relative flex flex-col items-center justify-center">
         <BreathingLogoMark
           homeIntroBreath
+          competeWithHeroLcp
           logoSrc={loaderLogoSrc}
           sizeClassName="h-[min(42vw,12.5rem)] w-[min(42vw,12.5rem)] sm:h-52 sm:w-52"
           imageSizes="(max-width: 640px) 50vw, 208px"

@@ -12,7 +12,7 @@ type Props = {
 
 export function HomePromoBannerSection({ title, subtitle, imageUrl, targetHref }: Props) {
   return (
-    <section className="bg-white py-14 sm:py-16">
+    <section className="bg-white py-14 sm:py-16 lg:py-12 xl:py-14">
       <div className="section-shell">
         <Link
           href={targetHref}
@@ -35,7 +35,7 @@ export function HomePromoBannerSection({ title, subtitle, imageUrl, targetHref }
                   alt={title}
                   fill
                   sizes="(max-width: 640px) 70vw, 420px"
-                  quality={78}
+                  quality={75}
                   className="object-contain object-center"
                   loading="lazy"
                 />

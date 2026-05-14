@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { AppRole, UserRow } from "@/lib/db/app-types";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -16,7 +17,7 @@ export type AppSession = {
 
 export const AUTH_COOKIE = "mc-access-token";
 
-export async function auth(): Promise<AppSession | null> {
+async function readAuthSession(): Promise<AppSession | null> {
   const token = (await cookies()).get(AUTH_COOKIE)?.value?.trim();
   if (!token) return null;
 
@@ -50,3 +51,6 @@ export async function auth(): Promise<AppSession | null> {
     }
   };
 }
+
+/** Per-request dedupe: layout + page + route handlers calling `auth()` share one execution. */
+export const auth = cache(readAuthSession);

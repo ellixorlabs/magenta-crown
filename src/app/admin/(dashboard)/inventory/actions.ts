@@ -141,12 +141,15 @@ type ProductInsertPayload = {
   material: string | null;
   occasion: string | null;
   style: string | null;
+  styleCode: string;
   fitNotes: string | null;
   careInstructions: string | null;
   imageUrls: string[];
   listImageIndex: number;
   listImagePosition: string;
   videoUrls: string[];
+  sizeChartImageUrl: string | null;
+  showSizeChart: boolean;
   prepaidOfferText: string | null;
   pricingFootnote: string | null;
   codEnabled: boolean;
@@ -164,6 +167,7 @@ function validateProductPayload(payload: ProductInsertPayload): string | null {
   ) {
     return "Sale price must be greater than 0.";
   }
+  if (!payload.styleCode.trim()) return "Style code is required (warehouse / rack reference).";
   return null;
 }
 
@@ -238,6 +242,9 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     const featuredIds = parseFeaturedCouponIds(formData);
     const tags = parseList(String(formData.get("tags") ?? ""));
     const newTagExpiresAt = computeNewTagExpiresAt(tags, formData.get("newTagDurationDays"));
+    const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
+    const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
+    const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
 
     const supabase = getSupabaseServiceRoleClient();
     const slug = await buildUniqueProductSlug(supabase, slugRaw || name);
@@ -254,12 +261,15 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       material: String(formData.get("material") ?? "").trim() || null,
       occasion: String(formData.get("occasion") ?? "").trim() || null,
       style: String(formData.get("style") ?? "").trim() || null,
+      styleCode: String(formData.get("styleCode") ?? "").trim(),
       fitNotes: String(formData.get("fitNotes") ?? "").trim() || null,
       careInstructions: String(formData.get("careInstructions") ?? "").trim() || null,
       imageUrls,
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      sizeChartImageUrl,
+      showSizeChart,
       status: normalizeProductStatus(formData.get("status")),
       ...commerce
     });
@@ -332,6 +342,10 @@ export async function updateProduct(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const styleCode = String(formData.get("styleCode") ?? "").trim();
+  if (!styleCode) {
+    throw new Error("Style code is required (warehouse / rack reference).");
+  }
   const slugRaw = String(formData.get("slug") ?? "").trim();
   const mrp = Number(formData.get("mrp"));
   const discountedPrice = formData.get("discountedPrice")
@@ -363,6 +377,9 @@ export async function updateProduct(formData: FormData) {
     formData.get("newTagDurationDays"),
     current.data?.newTagExpiresAt ? new Date(current.data.newTagExpiresAt) : null
   );
+  const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
+  const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
+  const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
 
   // Temporary non-atomic multi-step update while Prisma transactions are being removed.
   const productUpdate = await (supabase
@@ -380,12 +397,15 @@ export async function updateProduct(formData: FormData) {
       material: String(formData.get("material") ?? "").trim() || null,
       occasion: String(formData.get("occasion") ?? "").trim() || null,
       style: String(formData.get("style") ?? "").trim() || null,
+      styleCode,
       fitNotes: String(formData.get("fitNotes") ?? "").trim() || null,
       careInstructions: String(formData.get("careInstructions") ?? "").trim() || null,
       imageUrls,
       listImageIndex,
       listImagePosition,
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
+      sizeChartImageUrl,
+      showSizeChart,
       status: normalizeProductStatus(formData.get("status")),
       ...commerce
     })

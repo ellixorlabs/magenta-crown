@@ -13,8 +13,8 @@ export function NewsletterSection({ eyebrow, title, subtitle }: Props) {
   const [status, setStatus] = useState<"idle" | "ok">("idle");
 
   return (
-    <section className="section-shell pb-20">
-      <div className="rounded-3xl border border-zinc-200 bg-white px-6 py-12 text-center sm:px-12">
+    <section className="section-shell pb-20 lg:pb-16">
+      <div className="rounded-3xl border border-zinc-200 bg-white px-6 py-12 text-center sm:px-12 lg:px-10 lg:py-10">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
         <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">{title}</h2>
         <p className="mx-auto mt-3 max-w-lg text-sm text-zinc-600">{subtitle}</p>

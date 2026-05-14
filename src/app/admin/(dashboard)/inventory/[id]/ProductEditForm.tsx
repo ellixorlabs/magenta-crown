@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
+import { AdminSizeChartFormFields } from "@/components/admin/AdminSizeChartFormFields";
 import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
@@ -13,6 +14,7 @@ import { updateProduct } from "../actions";
 type ProductWithRelations = ProductRow & {
   story?: string | null;
   style?: string | null;
+  styleCode?: string | null;
   fitNotes?: string | null;
   careInstructions?: string | null;
   videoUrls: string[];
@@ -42,6 +44,7 @@ type EditSnapshot = {
   pricingFootnote: string;
   occasion: string;
   style: string;
+  styleCode: string;
   material: string;
   tags: string;
   newTagDurationDays: string;
@@ -53,6 +56,8 @@ type EditSnapshot = {
   videoUrls: string;
   variantsJson: string;
   featuredCouponIds: string;
+  sizeChartImageUrl: string;
+  showSizeChart: string;
 };
 
 function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
@@ -75,6 +80,7 @@ function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
     pricingFootnote: product.pricingFootnote ?? "",
     occasion: product.occasion ?? "",
     style: product.style ?? "",
+    styleCode: product.styleCode ?? "",
     material: product.material ?? "",
     tags: product.tags.join(", "),
     newTagDurationDays: defaultNewDays,
@@ -92,7 +98,9 @@ function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
         isActive: v.isActive
       }))
     ),
-    featuredCouponIds: JSON.stringify(product.featuredCoupons.map((f) => f.couponId))
+    featuredCouponIds: JSON.stringify(product.featuredCoupons.map((f) => f.couponId)),
+    sizeChartImageUrl: (product.sizeChartImageUrl ?? "").trim(),
+    showSizeChart: product.showSizeChart === false ? "false" : "true"
   };
 }
 
@@ -137,6 +145,7 @@ function snapshotFromFormData(formData: FormData, base: EditSnapshot): EditSnaps
     pricingFootnote: get("pricingFootnote"),
     occasion: get("occasion"),
     style: get("style"),
+    styleCode: get("styleCode"),
     material: get("material"),
     tags: get("tags"),
     newTagDurationDays: get("newTagDurationDays"),
@@ -147,7 +156,9 @@ function snapshotFromFormData(formData: FormData, base: EditSnapshot): EditSnaps
     listImagePosition: get("listImagePosition"),
     videoUrls: get("videoUrls"),
     variantsJson: get("variantsJson"),
-    featuredCouponIds: get("featuredCouponIds")
+    featuredCouponIds: get("featuredCouponIds"),
+    sizeChartImageUrl: get("sizeChartImageUrl"),
+    showSizeChart: get("showSizeChart")
   };
 }
 
@@ -269,6 +280,13 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
         productId={product.id}
       />
 
+      <AdminSizeChartFormFields
+        key={`${formVersion}-${present.sizeChartImageUrl}-${present.showSizeChart}`}
+        productId={product.id}
+        defaultUrl={present.sizeChartImageUrl}
+        defaultShow={present.showSizeChart !== "false"}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" name="name" defaultValue={present.name} required />
         <Field label="Slug (optional, URL-friendly)" name="slug" defaultValue={present.slug} />
@@ -313,6 +331,13 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
           </select>
         </div>
         <Field label="Category" name="category" defaultValue={present.category} />
+        <Field
+          label="Style code (warehouse / rack)"
+          name="styleCode"
+          defaultValue={present.styleCode}
+          required
+          placeholder="e.g. MC-SS24-0142"
+        />
         <div className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-600">
           Total stock on the storefront is the sum of active variant rows: <strong>{totalStock}</strong> units.
         </div>
@@ -391,6 +416,7 @@ function Field({
   name,
   type = "text",
   required,
+  placeholder,
   defaultValue,
   step
 }: {
@@ -398,6 +424,7 @@ function Field({
   name: string;
   type?: string;
   required?: boolean;
+  placeholder?: string;
   defaultValue?: string;
   step?: string;
 }) {
@@ -408,6 +435,7 @@ function Field({
         name={name}
         type={type}
         required={required}
+        placeholder={placeholder}
         defaultValue={defaultValue}
         step={step}
         className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"

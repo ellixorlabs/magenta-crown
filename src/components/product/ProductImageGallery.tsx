@@ -270,7 +270,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
               className="object-contain"
               style={{ objectPosition: pos }}
               sizes="100vw"
-              quality={85}
+              quality={75}
               loading="lazy"
               onError={() => markUrlFailed(mainUrl)}
             />
@@ -334,7 +334,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   style={{ objectPosition: pos }}
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   priority
-                  quality={82}
+                  quality={75}
                   onLoad={(e) => {
                     imgRef.current = e.currentTarget;
                     updateBounds();
@@ -450,7 +450,7 @@ export function ProductImageGallery({ name, imageAlt, imageUrls, listImageIndex,
                   className="object-cover"
                   style={{ objectPosition: pos }}
                   sizes="96px"
-                  quality={72}
+                  quality={75}
                   loading="lazy"
                   onError={() => markUrlFailed(url)}
                 />

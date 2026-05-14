@@ -20,14 +20,14 @@ export function PriceShopSection({ eyebrow, title, buckets }: Props) {
   if (buckets.length === 0) return null;
 
   return (
-    <section className="section-shell py-16">
-      <div className="mb-8">
+    <section className="section-shell py-16 lg:py-14">
+      <div className="mb-8 lg:mb-7">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>
         <h2 className="mt-2 font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900 sm:text-3xl">
           {title}
         </h2>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3.5">
         {buckets.map((b) => (
           <Link
             key={b.label}

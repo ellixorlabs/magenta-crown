@@ -39,9 +39,9 @@ export function HomeCategoryCirclesSection({ eyebrow, title, shape, items }: Pro
       : "h-24 w-24 sm:h-28 sm:w-28";
 
   return (
-    <section className="bg-mc-cream py-8 sm:py-11">
+    <section className="bg-mc-cream py-8 sm:py-11 lg:py-10">
       <div className="section-shell">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6 lg:mb-5">
           <div className="min-w-0">
             {eyebrow?.trim() ? (
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-mc-gold sm:text-[11px]">{eyebrow}</p>

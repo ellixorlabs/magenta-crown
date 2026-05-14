@@ -29,7 +29,7 @@ export default function AuthLoginAliasPage() {
   }, [router, secondsLeft]);
 
   return (
-    <AuthImmersiveShell>
+    <AuthImmersiveShell minimalChrome>
       <div className="w-full max-w-md rounded-2xl border-2 border-zinc-200 bg-white p-8 text-center shadow-[0_24px_64px_-18px_rgba(0,0,0,0.45)] ring-1 ring-zinc-950/5">
         <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-950">Login</h1>
         <p className="mt-2 text-sm text-zinc-600">Continue to your account.</p>

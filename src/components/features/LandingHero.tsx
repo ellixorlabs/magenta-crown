@@ -1,16 +1,72 @@
 "use client";
 
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { HeroSlideVM } from "@/lib/hero-public";
-import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
+import { DEFAULT_HERO_SLIDES, heroSlideStableKey } from "@/lib/hero-public";
 import { useHeroReady } from "@/context/HeroReadyContext";
 import { TRANS_EASE, TRANS_FADE_IN_MS, TRANS_MS, type HeroTransitionId } from "@/lib/hero-transition";
 
 const gold = "#C5A059";
 
 const AUTO_ADVANCE_MS = 4000;
+
+/** Storefront hero / cards: single quality avoids Next `images.qualities` churn and console warnings. */
+const STORE_IMAGE_QUALITY = 75;
+
+/** Hero URLs come from CMS (Supabase, etc.); bypass optimizer so bad `remotePatterns` / optimizer errors never yield a blank layer. */
+const HERO_BG_UNOPTIMIZED = true;
+
+function heroOptimizerImgUrl(src: string): string {
+  const { props } = getImageProps({
+    alt: "",
+    src,
+    width: 1920,
+    height: 1080,
+    sizes: "100vw",
+    quality: STORE_IMAGE_QUALITY
+  });
+  return props.src;
+}
+
+type HeroBgImageProps = {
+  slide: HeroSlideVM;
+  imageSrc: string;
+  priority?: boolean;
+  loading?: "eager" | "lazy";
+  fetchPriority?: "high" | "low" | "auto";
+  onLoad?: () => void;
+  onError?: () => void;
+};
+
+const HeroBgImage = memo(function HeroBgImage({
+  slide,
+  imageSrc,
+  priority,
+  loading,
+  fetchPriority,
+  onLoad,
+  onError
+}: HeroBgImageProps) {
+  return (
+    <Image
+      src={imageSrc}
+      alt=""
+      fill
+      unoptimized={HERO_BG_UNOPTIMIZED}
+      className="object-cover"
+      style={{ objectPosition: slide.imagePosition }}
+      sizes="100vw"
+      quality={STORE_IMAGE_QUALITY}
+      priority={priority}
+      loading={loading}
+      fetchPriority={fetchPriority}
+      onLoad={onLoad}
+      onError={onError}
+    />
+  );
+});
 
 type Props = {
   slides: HeroSlideVM[];
@@ -80,6 +136,32 @@ export function LandingHero({ slides, transition }: Props) {
     },
     [isMobile]
   );
+
+  const nextSlideBg = useMemo(() => {
+    if (len <= 1) return null;
+    return slideBg(list[(displayIndex + 1) % len]);
+  }, [len, displayIndex, list, slideBg]);
+
+  /** Warm only the upcoming hero frame (match `Image` `src`: optimizer URL vs raw when `unoptimized`). */
+  useEffect(() => {
+    if (!nextSlideBg || reduceMotion) return;
+    let href: string;
+    try {
+      href = HERO_BG_UNOPTIMIZED ? nextSlideBg : heroOptimizerImgUrl(nextSlideBg);
+    } catch {
+      if (!HERO_BG_UNOPTIMIZED) return;
+      href = nextSlideBg;
+    }
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = href;
+    link.setAttribute("fetchpriority", "low");
+    document.head.appendChild(link);
+    return () => {
+      link.remove();
+    };
+  }, [nextSlideBg, reduceMotion]);
 
   const commit = useCallback(() => {
     const inc = incomingIndexRef.current;
@@ -300,14 +382,9 @@ export function LandingHero({ slides, transition }: Props) {
         {fadeOutActive ? (
           <>
             <div className="absolute inset-0 z-0">
-              <Image
-                src={slideBg(list[incomingIndex! % len])}
-                alt=""
-                fill
-                className="object-cover"
-                style={{ objectPosition: list[incomingIndex! % len].imagePosition }}
-                sizes="100vw"
-                quality={85}
+              <HeroBgImage
+                slide={list[incomingIndex! % len]}
+                imageSrc={slideBg(list[incomingIndex! % len])}
                 loading="lazy"
                 fetchPriority="low"
                 onLoad={notifyHeroReadyOnce}
@@ -323,14 +400,9 @@ export function LandingHero({ slides, transition }: Props) {
               }}
               onTransitionEnd={onLayerTransitionEnd}
             >
-              <Image
-                src={slideBg(list[displayIndex % len])}
-                alt=""
-                fill
-                className="object-cover"
-                style={{ objectPosition: list[displayIndex % len].imagePosition }}
-                sizes="100vw"
-                quality={85}
+              <HeroBgImage
+                slide={list[displayIndex % len]}
+                imageSrc={slideBg(list[displayIndex % len])}
                 loading="lazy"
                 fetchPriority="low"
                 onLoad={notifyHeroReadyOnce}
@@ -341,15 +413,12 @@ export function LandingHero({ slides, transition }: Props) {
         ) : (
           <>
             <div className="absolute inset-0 z-0">
-              <Image
-                src={slideBg(list[displayIndex % len])}
-                alt=""
-                fill
-                className="object-cover"
-                style={{ objectPosition: list[displayIndex % len].imagePosition }}
+              <HeroBgImage
+                slide={list[displayIndex % len]}
+                imageSrc={slideBg(list[displayIndex % len])}
                 priority={displayIndex === 0 && incomingIndex === null}
-                sizes="100vw"
-                quality={85}
+                loading={displayIndex === 0 && incomingIndex === null ? "eager" : "lazy"}
+                fetchPriority={displayIndex === 0 && incomingIndex === null ? "high" : "low"}
                 onLoad={notifyHeroReadyOnce}
                 onError={notifyHeroReadyOnce}
               />
@@ -357,14 +426,9 @@ export function LandingHero({ slides, transition }: Props) {
 
             {incomingIndex !== null && !reduceMotion && t !== "none" && (
               <div className="absolute inset-0 z-[1] min-h-0" style={incomingOverlayStyle()} onTransitionEnd={onLayerTransitionEnd}>
-                <Image
-                  src={slideBg(list[incomingIndex % len])}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  style={{ objectPosition: list[incomingIndex % len].imagePosition }}
-                  sizes="100vw"
-                  quality={85}
+                <HeroBgImage
+                  slide={list[incomingIndex % len]}
+                  imageSrc={slideBg(list[incomingIndex % len])}
                   loading="lazy"
                   fetchPriority="low"
                   onLoad={notifyHeroReadyOnce}
@@ -398,15 +462,15 @@ export function LandingHero({ slides, transition }: Props) {
         />
       </div>
 
-      <div className="relative z-10 flex flex-1 flex-col justify-center px-4 pb-28 pt-32 text-center sm:px-6 lg:px-12">
+      <div className="relative z-10 flex flex-1 flex-col justify-center px-4 pb-24 pt-28 text-center sm:px-6 sm:pb-24 sm:pt-28 lg:px-10 lg:pb-20 lg:pt-24 xl:px-12">
         <p
-          className="font-[family-name:var(--font-body)] text-xs font-medium uppercase tracking-[0.35em]"
+          className="font-[family-name:var(--font-body)] text-xs font-medium uppercase tracking-[0.35em] lg:text-[11px]"
           style={{ color: gold }}
         >
           {slide.label}
         </p>
 
-        <h1 className="mt-6 font-[family-name:var(--font-heading)] text-4xl font-semibold leading-tight text-white drop-shadow-lg sm:text-5xl md:text-6xl lg:text-7xl">
+        <h1 className="mt-5 font-[family-name:var(--font-heading)] text-4xl font-semibold leading-tight text-white drop-shadow-lg sm:mt-6 sm:text-5xl md:text-6xl lg:mt-5 lg:text-6xl xl:text-7xl">
           {slide.line1}
           <br />
           <span className="italic" style={{ color: gold }}>
@@ -414,13 +478,13 @@ export function LandingHero({ slides, transition }: Props) {
           </span>
         </h1>
 
-        <div className="mx-auto mt-8 max-w-xl space-y-2 font-[family-name:var(--font-heading)] text-base text-white/95 sm:text-lg">
+        <div className="mx-auto mt-7 max-w-xl space-y-2 font-[family-name:var(--font-heading)] text-base text-white/95 sm:mt-8 sm:text-lg lg:mt-7">
           {subLines.filter(Boolean).map((line, i) => (
-            <p key={`${line}-${i}`}>{line}</p>
+            <p key={`${heroSlideStableKey(slide)}-${i}`}>{line}</p>
           ))}
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-4 lg:mt-8">
           <Link
             href="/shop"
             className="inline-flex min-w-[200px] items-center justify-center px-8 py-3 text-sm font-semibold text-black transition hover:opacity-90 active:scale-[0.98]"
@@ -437,10 +501,10 @@ export function LandingHero({ slides, transition }: Props) {
           </Link>
         </div>
 
-        <div className="mt-14 flex justify-center gap-2" role="tablist" aria-label="Hero slides">
+        <div className="mt-11 flex justify-center gap-2 lg:mt-10" role="tablist" aria-label="Hero slides">
           {list.map((s, i) => (
             <button
-              key={s.label + s.bg}
+              key={heroSlideStableKey(s)}
               type="button"
               role="tab"
               aria-selected={i === visualIndex}

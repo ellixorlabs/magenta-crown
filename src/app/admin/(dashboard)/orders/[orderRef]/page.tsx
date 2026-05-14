@@ -41,7 +41,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
 
   const supabase = getSupabaseServiceRoleClient();
   const { data: order, error } = await (supabase.from("Order") as any)
-    .select("*,items:OrderItem(*,product:Product(name,slug)),user:User(id,email,name)")
+    .select("*,items:OrderItem(*,product:Product(name,slug,styleCode)),user:User(id,email,name)")
     .eq("publicOrderRef", ref)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -168,10 +168,18 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
       <section className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-zinc-900">Line items</h3>
         <ul className="mt-4 divide-y divide-zinc-100 text-sm">
-          {lineItems.map((item: any) => (
+          {lineItems.map((item: any) => {
+            const code =
+              (typeof item.styleCode === "string" && item.styleCode.trim()) ||
+              (typeof item.product?.styleCode === "string" && item.product.styleCode.trim()) ||
+              null;
+            return (
             <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0">
               <div className="min-w-0">
                 <p className="font-medium text-zinc-900">{item.product.name}</p>
+                <p className="mt-0.5 font-mono text-xs font-semibold tracking-wide text-zinc-700">
+                  Style code: {code ?? "—"}
+                </p>
                 <p className="mt-0.5 text-xs text-zinc-500">
                   Qty {item.quantity}
                   {(item.size || item.color) && (
@@ -194,7 +202,8 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                 Rs {(item.price * item.quantity).toFixed(0)}
               </p>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
 

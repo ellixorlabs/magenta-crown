@@ -85,7 +85,8 @@ export function OAuthExternalContextHint({ variant = "immersive" }: Props) {
     <div className={box} role="status">
       <p className="font-medium md:font-semibold">
         Google sign-in may have opened in the system browser (for example when using an installed app on iPhone). That
-        browser keeps its own login session.
+        browser keeps its own login session and storage — httpOnly cookies and local data are not shared with this
+        window, and we cannot merge the two without a deliberate server-side token handoff.
       </p>
       <p className="mt-2">
         <span className="font-semibold">In this window</span>, use email and password or a magic link. Your cart stays on

@@ -131,7 +131,7 @@ export async function getProductByIdForApi(id: string) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: product, error } = await (supabase.from("Product") as any)
     .select(
-      "id,slug,name,description,story,mrp,discountedPrice,category,tags,material,occasion,style,fitNotes,careInstructions,sizeChartImageUrl,codEnabled,prepaidOfferText,pricingFootnote,imageUrls,listImageIndex,listImagePosition,videoUrls,createdAt,variants:ProductVariant(id,color,size,stock,isActive)"
+      "id,slug,name,description,story,mrp,discountedPrice,category,tags,material,occasion,style,fitNotes,careInstructions,sizeChartImageUrl,showSizeChart,codEnabled,prepaidOfferText,pricingFootnote,imageUrls,listImageIndex,listImagePosition,videoUrls,createdAt,variants:ProductVariant(id,color,size,stock,isActive)"
     )
     .eq("status", "ACTIVE")
     .eq("id", id)
@@ -160,6 +160,7 @@ export async function getProductByIdForApi(id: string) {
     fitNotes: product.fitNotes,
     careInstructions: product.careInstructions,
     sizeChartImageUrl: product.sizeChartImageUrl,
+    showSizeChart: product.showSizeChart !== false,
     codEnabled: product.codEnabled,
     prepaidOfferText: product.prepaidOfferText,
     pricingFootnote: product.pricingFootnote,

@@ -50,7 +50,7 @@ export function OccasionSection({ sectionId, eyebrow, title, items }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <section className="section-shell py-16" aria-labelledby={headingId}>
+    <section className="section-shell py-16 lg:py-14" aria-labelledby={headingId}>
       <div className="mb-8 flex items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>

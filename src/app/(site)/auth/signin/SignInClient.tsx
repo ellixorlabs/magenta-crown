@@ -7,7 +7,6 @@ import { Eye, EyeOff } from "lucide-react";
 import { AuthGoogleSection } from "@/components/auth/AuthGoogleSection";
 import { AuthImmersiveShell } from "@/components/auth/AuthImmersiveShell";
 import { OAuthExternalContextHint } from "@/components/auth/OAuthExternalContextHint";
-import { McAuthBrandMark } from "@/components/mc/McAuthBrandMark";
 import { getSafeCallbackUrl } from "@/lib/auth-callback";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
@@ -206,7 +205,7 @@ function Inner() {
 
   if (!sessionChecked) {
     return (
-      <AuthImmersiveShell>
+      <AuthImmersiveShell minimalChrome>
         <div className="mx-auto w-full max-w-[560px] p-1 text-center md:p-2">
           <p className="text-sm text-white/80 md:text-zinc-500">Checking your session…</p>
         </div>
@@ -220,11 +219,10 @@ function Inner() {
     "font-mc-heading text-sm font-normal text-white md:text-xs md:font-semibold md:text-zinc-800";
 
   return (
-    <AuthImmersiveShell mobileAlign="center">
+    <AuthImmersiveShell mobileAlign="center" minimalChrome>
       <div className="w-full max-w-[380px] px-1 md:max-w-[560px] md:p-2">
-        <McAuthBrandMark className="mb-6 md:mb-0 md:hidden" />
-        <h1 className="hidden text-center font-mc-heading text-3xl font-semibold text-zinc-950 md:block">Welcome back</h1>
-        <p className="mt-1 hidden text-center text-sm text-zinc-500 md:block">Sign in to continue shopping</p>
+        <h1 className="text-center font-mc-heading text-2xl font-semibold text-white md:text-3xl md:text-zinc-950">Welcome back</h1>
+        <p className="mt-1 text-center text-sm text-white/75 md:text-zinc-500">Sign in to continue shopping</p>
 
         <form onSubmit={onSubmit} className="mt-2 space-y-3 md:mt-3.5 md:space-y-2.5">
           <div>

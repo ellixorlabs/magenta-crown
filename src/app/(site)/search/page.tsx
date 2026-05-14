@@ -99,7 +99,10 @@ export default async function SearchPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        <div className={`section-shell flex flex-col gap-8 py-6 sm:py-8 lg:flex-row lg:items-start ${shopBg}`}>
+        <div
+          className={`section-shell flex flex-col gap-8 py-6 sm:py-8 lg:flex-row lg:items-start lg:gap-7 lg:py-7 ${shopBg}`}
+          data-shop-catalog-body
+        >
           <ShopFilterDesktopSidebar
             options={filterOptions}
             basePath="/search"

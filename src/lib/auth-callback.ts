@@ -23,7 +23,25 @@ export function getSafeCallbackUrl(raw: string | null | undefined): string {
   if (!t.startsWith("/")) return "/";
   if (t.startsWith("//")) return "/";
   if (t.includes("://")) return "/";
-  return t.slice(0, 2048);
+  if (t.includes("/../") || t.includes("\\") || t === "/..") return "/";
+  try {
+    const u = new URL(t, "https://placeholder.invalid");
+    if (u.pathname.split("/").includes("..")) return "/";
+    return `${u.pathname}${u.search}`.slice(0, 2048);
+  } catch {
+    return "/";
+  }
+}
+
+/** Same-tab fallback when providers strip the `next` query on `/auth/callback` (not visible across iOS Safari vs PWA). */
+export function rememberOAuthReturnForCallback(relativePath: string): void {
+  if (typeof window === "undefined") return;
+  const safe = getSafeCallbackUrl(relativePath);
+  try {
+    sessionStorage.setItem(MC_OAUTH_RETURN_STORAGE_KEY, safe);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Mark post-login URL when OAuth started from standalone PWA (downstream UX only). */

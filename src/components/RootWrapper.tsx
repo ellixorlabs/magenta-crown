@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import AppLayout from "@/components/app/AppLayout";
 import WebLayout from "@/components/web/WebLayout";
 import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
@@ -9,6 +10,9 @@ import { isPWA } from "@/lib/isPWA";
 import { MC_LOADER_MAROON } from "@/lib/loader-theme";
 
 function Loader({ fadeOut = false }: { fadeOut?: boolean }) {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+
   return (
     <div
       className={`mc-loader-fullscreen z-[5000] flex items-center justify-center overflow-hidden transition-opacity duration-300 ${
@@ -18,6 +22,8 @@ function Loader({ fadeOut = false }: { fadeOut?: boolean }) {
     >
       <BreathingLogoMark
         homeIntroBreath
+        competeWithHeroLcp={isHome}
+        priority={!isHome}
         sizeClassName="h-[min(36vw,10rem)] w-[min(36vw,10rem)] sm:h-40 sm:w-40"
         imageSizes="(max-width: 640px) 40vw, 160px"
       />

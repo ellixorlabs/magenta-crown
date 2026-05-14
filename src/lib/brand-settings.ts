@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export type BrandMarkMode = "text" | "image";
@@ -28,7 +29,7 @@ const DEFAULT_BRAND_SETTINGS: BrandSettings = {
   brandFontFamily: ""
 };
 
-export async function getBrandSettings(): Promise<BrandSettings> {
+async function loadBrandSettings(): Promise<BrandSettings> {
   try {
     const supabase = getSupabaseServiceRoleClient();
     const { data: row } = await (supabase.from("HomePageConfig") as any)
@@ -74,3 +75,6 @@ export async function getBrandSettings(): Promise<BrandSettings> {
     return DEFAULT_BRAND_SETTINGS;
   }
 }
+
+/** One HomePageConfig read per request (root layout + any parallel callers). */
+export const getBrandSettings = cache(loadBrandSettings);

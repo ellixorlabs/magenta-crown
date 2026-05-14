@@ -31,8 +31,8 @@ const legal = [
 
 export function Footer() {
   return (
-    <footer className="bg-zinc-950 text-zinc-200">
-      <div className="section-shell grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-6">
+    <footer className="bg-zinc-950 text-zinc-200" data-site-footer>
+      <div className="section-shell grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-6 lg:gap-9 lg:py-12">
         <div className="lg:col-span-2">
           <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold tracking-[0.15em] text-white">
             MAGENTA CROWN
@@ -107,7 +107,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-zinc-800">
-        <div className="section-shell flex flex-col gap-6 py-8 md:flex-row md:items-center md:justify-between">
+        <div className="section-shell flex flex-col gap-6 py-8 md:flex-row md:items-center md:justify-between lg:gap-5 lg:py-7">
           <p className="text-xs text-zinc-500" suppressHydrationWarning>
             © {new Date().getFullYear()} Magenta Crown. All rights reserved.
           </p>

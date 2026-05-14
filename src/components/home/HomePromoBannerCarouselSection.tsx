@@ -36,7 +36,7 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
   const desktopImage = current.imageUrlDesktop || current.imageUrl || mobileImage;
 
   return (
-    <section className="bg-mc-cream py-10 sm:py-14">
+    <section className="bg-mc-cream py-10 sm:py-14 lg:py-12">
       <div className="section-shell">
         <div className="relative">
           <Link

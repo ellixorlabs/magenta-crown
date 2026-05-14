@@ -11,7 +11,7 @@ export function SocialGallerySection({ eyebrow, title, subtitle, images }: Props
   if (images.length === 0) return null;
 
   return (
-    <section className="bg-zinc-100 py-16">
+    <section className="bg-zinc-100 py-16 lg:py-14">
       <div className="section-shell">
         <div className="mb-8 text-center">
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>

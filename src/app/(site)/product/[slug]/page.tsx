@@ -1,22 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
-import { shopCategoryHref } from "@/lib/shop-category-url";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { auth, type AppSession } from "@/auth";
-import { ProductWishlistToggle } from "@/components/product/ProductWishlistToggle";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { ProductCard } from "@/components/features/ProductCard";
-import { AddToCartSection } from "@/components/product/AddToCartSection";
+import { ProductPdpHeroExperience } from "@/components/product/pdp/ProductPdpHeroExperience";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { ReviewForm } from "@/components/product/ReviewForm";
 import { TrackProductView } from "@/components/product/TrackProductView";
-import { ProductImageGallery } from "@/components/product/ProductImageGallery";
-import { LazyProductVideo } from "@/components/product/LazyProductVideo";
-import { ProductShareButton } from "@/components/product/ProductShareButton";
 import type { NextAppPageParams } from "@/types/next-app";
 
 type PageProps = NextAppPageParams<{ slug: string }>;
@@ -152,104 +146,18 @@ export default async function ProductPage({ params }: PageProps) {
       <TrackProductView productId={product.id} />
 
       <div className="section-shell py-10">
-        <div className="grid gap-10 lg:grid-cols-2">
-          <div className="relative">
-            <ProductImageGallery
-              name={product.name}
-              imageAlt={productImageAlt(product)}
-              imageUrls={product.imageUrls}
-              listImageIndex={product.listImageIndex ?? 0}
-              listImagePosition={product.listImagePosition ?? "center"}
-            />
-            {product.videoUrls.length > 0 && (
-              <div className="mt-6 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Video</p>
-                {product.videoUrls.map((url: string) => (
-                  <LazyProductVideo key={url} src={url} title={product.name} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
-              <Link
-                href={shopCategoryHref(product.category)}
-                className="transition hover:text-crown-800 underline-offset-4 hover:underline"
-              >
-                {product.category}
-              </Link>
-            </p>
-            <div className="mt-2 flex flex-wrap items-start gap-3">
-              <h1 className="flex-1 font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900 sm:text-4xl">
-                {product.name}
-              </h1>
-              <div className="flex items-center gap-2">
-                <ProductWishlistToggle
-                  productId={product.id}
-                  initialWishlisted={initialWishlisted}
-                  variant="default"
-                />
-                <ProductShareButton
-                  productName={product.name}
-                  productUrl={absoluteUrl(`/product/${product.slug}`)}
-                  couponCode={firstActiveCouponCode}
-                  shareTemplate={shareMessageTemplate}
-                />
-                {canQuickEdit && (
-                  <Link
-                    href={`/admin/inventory/${product.id}`}
-                    className="inline-flex items-center rounded-full border border-crown-700/30 bg-crown-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-crown-800 transition hover:bg-crown-100"
-                  >
-                    Edit product
-                  </Link>
-                )}
-              </div>
-            </div>
-            <div className="mt-6">
-              <AddToCartSection
-                product={{ ...product, globalSizeChartImageUrl }}
-                reviewAvg={reviewAvg}
-                reviewCount={reviewCount}
-              />
-            </div>
-            <p className="mt-6 text-zinc-600">{product.description}</p>
-
-            {product.story && (
-              <div className="mt-8 border-t border-zinc-200 pt-8">
-                <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-zinc-900">
-                  Product story
-                </h2>
-                <p className="mt-3 whitespace-pre-line text-zinc-700">{product.story}</p>
-              </div>
-            )}
-
-            <div className="mt-8 grid gap-6 border-t border-zinc-200 pt-8 sm:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-900">Fit & style</h3>
-                <p className="mt-2 text-sm text-zinc-600">
-                  {product.fitNotes ?? "Tailored for an elegant drape; model is 5'10\" for reference."}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-900">Material & care</h3>
-                <p className="mt-2 text-sm text-zinc-600">
-                  {product.material && `${product.material}. `}
-                  {product.careInstructions ?? "Dry clean only. Store folded with breathable cover."}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-4 text-sm">
-              <Link href="/support/faqs#sizing" className="text-crown-800 underline underline-offset-4">
-                Size guide
-              </Link>
-              <Link href="/support/shipping" className="text-crown-800 underline underline-offset-4">
-                Delivery & returns
-              </Link>
-            </div>
-          </div>
-        </div>
+        <ProductPdpHeroExperience
+          product={{ ...product, globalSizeChartImageUrl, videoUrls: product.videoUrls ?? [] }}
+          reviewAvg={reviewAvg}
+          reviewCount={reviewCount}
+          initialWishlisted={initialWishlisted}
+          firstActiveCouponCode={firstActiveCouponCode}
+          shareMessageTemplate={shareMessageTemplate}
+          productUrl={absoluteUrl(`/product/${product.slug}`)}
+          imageAlt={productImageAlt(product)}
+          canQuickEdit={canQuickEdit}
+          globalSizeChartImageUrl={globalSizeChartImageUrl}
+        />
 
         <section className="mt-16 border-t border-zinc-200 pt-12">
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">

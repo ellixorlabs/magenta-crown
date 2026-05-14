@@ -206,9 +206,15 @@ export async function POST(req: Request) {
     const productIds = [...new Set(items.map((l) => l.productId))];
     const productsResult = await supabase
       .from("Product")
-      .select("id,mrp,discountedPrice")
+      .select("id,mrp,discountedPrice,styleCode")
       .in("id", productIds);
-    const products = (productsResult.data as Array<{ id: string; mrp: number; discountedPrice: number | null }> | null) ?? [];
+    const products =
+      (productsResult.data as Array<{
+        id: string;
+        mrp: number;
+        discountedPrice: number | null;
+        styleCode: string | null;
+      }> | null) ?? [];
     const productMap = new Map(products.map((p) => [p.id, p]));
     if (productMap.size !== productIds.length) throw new Error("PRODUCT_NOT_FOUND");
 
@@ -302,16 +308,20 @@ export async function POST(req: Request) {
         if (cleared.error) throw new Error(cleared.error.message);
 
         const orderItemsInsert = await (supabase.from("OrderItem") as any).insert(
-          items.map((line, i) => ({
-            id: randomId(),
-            orderId: keep.id,
-            productId: line.productId,
-            quantity: line.quantity,
-            price: unitPriceForLine(line),
-            size: resolved[i]!.size || null,
-            color: resolved[i]!.color || null,
-            variantId: resolved[i]!.variant!.id
-          }))
+          items.map((line, i) => {
+            const sc = (productMap.get(line.productId)?.styleCode ?? "").trim();
+            return {
+              id: randomId(),
+              orderId: keep.id,
+              productId: line.productId,
+              quantity: line.quantity,
+              price: unitPriceForLine(line),
+              size: resolved[i]!.size || null,
+              color: resolved[i]!.color || null,
+              variantId: resolved[i]!.variant!.id,
+              styleCode: sc || null
+            };
+          })
         );
         if (orderItemsInsert.error) throw new Error(`ORDER_ITEMS_CREATE_FAILED:${orderItemsInsert.error.message}`);
 
@@ -351,16 +361,20 @@ export async function POST(req: Request) {
     if (orderInsert.error || !created) throw new Error(orderInsert.error?.message ?? "ORDER_CREATE_FAILED");
 
     const orderItemsInsert = await (supabase.from("OrderItem") as any).insert(
-      items.map((line, i) => ({
-        id: randomId(),
-        orderId: created.id,
-        productId: line.productId,
-        quantity: line.quantity,
-        price: unitPriceForLine(line),
-        size: resolved[i]!.size || null,
-        color: resolved[i]!.color || null,
-        variantId: resolved[i]!.variant!.id
-      }))
+      items.map((line, i) => {
+        const sc = (productMap.get(line.productId)?.styleCode ?? "").trim();
+        return {
+          id: randomId(),
+          orderId: created.id,
+          productId: line.productId,
+          quantity: line.quantity,
+          price: unitPriceForLine(line),
+          size: resolved[i]!.size || null,
+          color: resolved[i]!.color || null,
+          variantId: resolved[i]!.variant!.id,
+          styleCode: sc || null
+        };
+      })
     );
     if (orderItemsInsert.error) throw new Error(`ORDER_ITEMS_CREATE_FAILED:${orderItemsInsert.error.message}`);
 

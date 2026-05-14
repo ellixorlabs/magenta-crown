@@ -10,6 +10,7 @@ import {
   type ReactNode
 } from "react";
 import { ShopFiltersMobileSheet } from "@/components/shop/ShopFiltersMobileSheet";
+import { ShopScrollToTopFab } from "@/components/shop/ShopScrollToTopFab";
 
 type SheetCtx = {
   isFiltersOpen: boolean;
@@ -65,6 +66,7 @@ export function ShopFilterSheetProvider({
         onOpenChange={setOpen}
         omitSortInSheet
       />
+      <ShopScrollToTopFab />
     </ShopFilterSheetContext.Provider>
   );
 }

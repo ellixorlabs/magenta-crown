@@ -31,6 +31,8 @@ export type ProductRow = {
   discountedPrice: number | null;
   category: string;
   tags: string[];
+  /** Internal SKU / rack code for warehouse lookup (shown on PDP and order lines). */
+  styleCode: string | null;
   material: string | null;
   occasion: string | null;
   imageUrls: string[];
@@ -38,6 +40,8 @@ export type ProductRow = {
   listImagePosition: string;
   newTagExpiresAt: string | Date | null;
   sizeChartImageUrl: string | null;
+  /** When false, PDP hides the size guide even if a chart image URL exists. Omitted = show (DB default true). */
+  showSizeChart?: boolean;
   codEnabled: boolean;
   prepaidOfferText: string | null;
   pricingFootnote: string | null;

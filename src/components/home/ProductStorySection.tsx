@@ -14,7 +14,7 @@ type Props = {
 
 export function ProductStorySection({ imageUrl, imageAlt, eyebrow, title, body, bullets, ctaLabel, ctaHref }: Props) {
   return (
-    <section className="section-shell py-16">
+    <section className="section-shell py-16 lg:py-14">
       <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
         <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-zinc-200">
           <Image

@@ -4,6 +4,53 @@ import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { DEFAULT_HERO_SLIDES, type HeroSlideVM } from "@/lib/hero-public";
 import { parseHeroTransition, type HeroTransitionId } from "@/lib/hero-transition";
 
+function trimUrl(s: string | null | undefined): string {
+  return (s ?? "").trim();
+}
+
+/** Prefer https for hosts where http is commonly mis-pasted; keeps image fetches happy. */
+function normalizeImageUrl(url: string): string {
+  const u = url.trim();
+  if (!u) return "";
+  if (
+    u.startsWith("http://") &&
+    (u.includes("supabase.co") || u.includes("supabase.in") || u.includes("unsplash.com"))
+  ) {
+    return `https://${u.slice("http://".length)}`;
+  }
+  return u;
+}
+
+function mapRowToSlide(r: {
+  eyebrow: string | null;
+  line1: string;
+  accent: string;
+  sub1: string | null;
+  sub2: string | null;
+  imageUrl: string | null;
+  imageUrlMobile: string | null;
+  imageUrlDesktop: string | null;
+  imagePosition: string | null;
+}): HeroSlideVM | null {
+  const base = normalizeImageUrl(trimUrl(r.imageUrl));
+  const rawM = normalizeImageUrl(trimUrl(r.imageUrlMobile));
+  const rawD = normalizeImageUrl(trimUrl(r.imageUrlDesktop));
+  const bg = base || rawD || rawM;
+  if (!bg) return null;
+  const bgMobile = rawM || bg;
+  const bgDesktop = rawD || bg;
+  return {
+    label: r.eyebrow || "Magenta Crown",
+    line1: r.line1,
+    accent: r.accent,
+    sub: [r.sub1 || "", r.sub2 || ""].filter(Boolean),
+    bg,
+    bgMobile,
+    bgDesktop,
+    imagePosition: r.imagePosition?.trim() || "center"
+  };
+}
+
 export async function getHeroCarouselSettings(): Promise<{ transition: HeroTransitionId }> {
   try {
     const supabase = getSupabaseServiceRoleClient();
@@ -32,22 +79,14 @@ export async function getHeroSlidesForSite(): Promise<HeroSlideVM[]> {
       accent: string;
       sub1: string | null;
       sub2: string | null;
-      imageUrl: string;
+      imageUrl: string | null;
       imageUrlMobile: string | null;
       imageUrlDesktop: string | null;
       imagePosition: string | null;
     }>;
     if (list.length === 0) return DEFAULT_HERO_SLIDES;
-    return list.map((r) => ({
-      label: r.eyebrow || "Magenta Crown",
-      line1: r.line1,
-      accent: r.accent,
-      sub: [r.sub1 || "", r.sub2 || ""].filter(Boolean),
-      bg: r.imageUrl,
-      bgMobile: r.imageUrlMobile?.trim() || r.imageUrl,
-      bgDesktop: r.imageUrlDesktop?.trim() || r.imageUrl,
-      imagePosition: r.imagePosition?.trim() || "center"
-    }));
+    const mapped = list.map(mapRowToSlide).filter((s): s is HeroSlideVM => s != null);
+    return mapped.length > 0 ? mapped : DEFAULT_HERO_SLIDES;
   } catch {
     if (process.env.NODE_ENV === "development") {
       console.warn("[getHeroSlidesForSite] Database unreachable — using built-in hero slides.");

@@ -98,7 +98,7 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
         if (products.length === 0) {
           return (
             <SectionReveal key={section.id} transition={section.transition}>
-              <section className="overflow-x-clip bg-mc-cream py-8 sm:py-11">
+              <section className="overflow-x-clip bg-mc-cream py-8 sm:py-11 lg:py-10">
                 <div className="section-shell max-w-full min-w-0">
                   <div className="flex flex-col gap-2">
                   <h2 className="font-mc-heading text-xl font-semibold text-mc-ink sm:text-2xl">

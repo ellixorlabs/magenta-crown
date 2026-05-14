@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
+import { AdminSizeChartFormFields } from "@/components/admin/AdminSizeChartFormFields";
 import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
@@ -100,6 +101,12 @@ export function ProductCreateFormClient({
             setClientError("Price must be greater than 0.");
             return;
           }
+          const styleCode = String(formData.get("styleCode") ?? "").trim();
+          if (!styleCode) {
+            e.preventDefault();
+            setClientError("Style code is required for warehouse lookup.");
+            return;
+          }
           e.preventDefault();
           setClientError(null);
           setServerError(null);
@@ -132,6 +139,8 @@ export function ProductCreateFormClient({
           productId="draft"
         />
 
+        <AdminSizeChartFormFields productId="draft" defaultUrl="" defaultShow={true} />
+
         <Field label="Name" name="name" required />
         <Field label="Slug (optional, URL-friendly)" name="slug" placeholder="e.g. ruby-silk-saree" />
         <div className="sm:col-span-2">
@@ -159,6 +168,12 @@ export function ProductCreateFormClient({
           </select>
         </div>
         <Field label="Category" name="category" placeholder="Sarees" />
+        <Field
+          label="Style code (warehouse / rack)"
+          name="styleCode"
+          required
+          placeholder="e.g. MC-SS24-0142"
+        />
 
         <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-600">Prepaid offer text (optional)</label>
