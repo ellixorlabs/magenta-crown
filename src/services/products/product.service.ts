@@ -3,6 +3,8 @@ import "server-only";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { discountPercentOffMrp, effectiveSalePrice } from "@/lib/pricing";
 import { getCache, setCache } from "@/lib/cache";
+import { effectiveShopCatalogTextQuery } from "@/lib/search-query";
+import { shopCatalogSearchRpc } from "@/lib/site/shop-search-rpc";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -48,7 +50,7 @@ export function toProductListItemDto(p: ProductListRow) {
   const urls = p.imageUrls ?? [];
   const idx = Math.min(Math.max(p.listImageIndex, 0), Math.max(urls.length - 1, 0));
   return {
-    id: p.id,
+    id: String(p.id),
     slug: p.slug,
     name: p.name,
     category: p.category,
@@ -102,13 +104,72 @@ export async function listProductsForApi(input: ListProductsParams) {
   const hit = getCache<{ items: ReturnType<typeof toProductListItemDto>[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }>(cacheKey);
   if (hit) return hit;
 
+  const textQ = effectiveShopCatalogTextQuery({
+    q: input.q,
+    category: input.category?.trim() ? [input.category.trim()] : [],
+    occasion: [],
+    style: [],
+    material: []
+  });
+
+  if (textQ.length >= 2) {
+    const sortRpc =
+      input.sort === "price_asc" ? "price_asc" : input.sort === "price_desc" ? "price_desc" : "new";
+    const { rows: ranked, error: rpcErr } = await shopCatalogSearchRpc({
+      query: textQ,
+      category: input.category?.trim() ? [input.category.trim()] : [],
+      occasion: [],
+      style: [],
+      material: [],
+      minMrp: null,
+      maxMrp: null,
+      variantProductIds: null,
+      hideOos: false,
+      sort: sortRpc,
+      page,
+      pageSize
+    });
+    if (rpcErr) {
+      console.error("[listProductsForApi] shop_catalog_search failed:", rpcErr);
+      return {
+        items: [] as ReturnType<typeof toProductListItemDto>[],
+        pagination: { page, pageSize, total: 0, totalPages: 1 }
+      };
+    }
+    const total = ranked[0]?.total_count ?? 0;
+    if (ranked.length === 0) {
+      const payload = {
+        items: [] as ReturnType<typeof toProductListItemDto>[],
+        pagination: { page, pageSize, total: 0, totalPages: 1 }
+      };
+      setCache(cacheKey, payload, LIST_TTL_MS);
+      return payload;
+    }
+    const idOrder = ranked.map((r) => String(r.id));
+    const orderIdx = new Map(idOrder.map((id, i) => [id, i]));
+    const { data, error } = await (supabase.from("Product") as any)
+      .select(
+        "id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)"
+      )
+      .eq("status", "ACTIVE")
+      .in("id", idOrder);
+    if (error) throw new Error(error.message);
+    const rows = ((data ?? []) as ProductListRow[])
+      .map((r) => ({ ...r, id: String((r as { id: unknown }).id) }))
+      .sort((a, b) => (orderIdx.get(a.id) ?? 0) - (orderIdx.get(b.id) ?? 0));
+    const items = rows.map(toProductListItemDto);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const payload = { items, pagination: { page, pageSize, total, totalPages } };
+    setCache(cacheKey, payload, LIST_TTL_MS);
+    return payload;
+  }
+
   let query = (supabase.from("Product") as any).select(
     "id,slug,name,category,mrp,discountedPrice,imageUrls,listImageIndex,listImagePosition,createdAt,newTagExpiresAt,variants:ProductVariant(stock,isActive)",
     { count: "exact" }
   );
   query = query.eq("status", "ACTIVE");
   if (input.category?.trim()) query = query.eq("category", input.category.trim());
-  if (input.q?.trim()) query = query.ilike("name", `%${input.q.trim()}%`);
   if (input.sort === "price_asc") query = query.order("mrp", { ascending: true }).order("id", { ascending: true });
   else if (input.sort === "price_desc") query = query.order("mrp", { ascending: false }).order("id", { ascending: false });
   else query = query.order("createdAt", { ascending: false }).order("id", { ascending: false });

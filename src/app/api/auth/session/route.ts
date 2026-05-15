@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { auth, AUTH_COOKIE } from "@/auth";
+import { getCachedSession, AUTH_COOKIE } from "@/auth";
 import { getSupabaseUserFromRequest } from "@/lib/supabase-server-auth";
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 export async function GET() {
-  const session = await auth();
+  const session = await getCachedSession();
   if (!session) {
     (await cookies()).delete(AUTH_COOKIE);
   }

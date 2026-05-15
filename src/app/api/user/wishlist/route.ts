@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { isStaffRole } from "@/lib/admin-permissions";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getSupabaseUserFromRequest, resolveAppUserIdFromSupabaseUser } from "@/lib/supabase-server-auth";
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   if (!resolved.ok) return resolved.response;
 
   const { userId, supabase, role } = resolved;
-  if (role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT") {
+  if (isStaffRole(role)) {
     return NextResponse.json({ count: 0 });
   }
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
   if (!resolved.ok) return resolved.response;
 
   const { userId, supabase, role } = resolved;
-  if (role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT") {
+  if (isStaffRole(role)) {
     return NextResponse.json({ error: "Staff accounts cannot use wishlist" }, { status: 403 });
   }
 

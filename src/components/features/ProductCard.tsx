@@ -42,6 +42,8 @@ type ProductCardProps = {
   layout?: "grid" | "list" | "carousel";
   /** Wider list row (e.g. shop list view). */
   listDensity?: "compact" | "comfortable";
+  /** Homepage luxury grid / carousel density. */
+  cardDensity?: "default" | "compact";
   /** When true, shows an “Out of stock” tag (e.g. from server-side stock totals). */
   outOfStock?: boolean;
   /** When set, shows the rating pill on grid cards (shop passes aggregated reviews). */
@@ -55,6 +57,7 @@ function ProductCardInner({
   initialWishlisted = false,
   layout = "grid",
   listDensity = "compact",
+  cardDensity = "default",
   outOfStock = false,
   reviewSummary = null
 }: ProductCardProps) {
@@ -150,16 +153,18 @@ function ProductCardInner({
           <div
             className={`relative aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-[#ebe4e0] ${comfy ? "w-40 sm:w-52 md:w-60" : "w-28 sm:w-36"}`}
           >
-            <Image
-              src={primaryImage}
-              alt={imgAlt}
-              fill
-              className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
-              style={{ objectPosition: listPos }}
-              sizes={comfy ? "(max-width: 640px) 160px, (max-width: 1024px) 208px, 240px" : "(max-width: 640px) 112px, (max-width: 1024px) 144px, 180px"}
-              quality={75}
-              loading="lazy"
-            />
+            <div className="relative h-full w-full min-h-0">
+              <Image
+                src={primaryImage}
+                alt={imgAlt}
+                fill
+                className={`object-cover transition duration-700 group-hover:scale-[1.02] ${outOfStock ? "opacity-50 grayscale" : ""}`}
+                style={{ objectPosition: listPos }}
+                sizes={comfy ? "(max-width: 640px) 160px, (max-width: 1024px) 208px, 240px" : "(max-width: 640px) 112px, (max-width: 1024px) 144px, 180px"}
+                quality={75}
+                loading="lazy"
+              />
+            </div>
             {outOfStock && (
               <div className="absolute inset-0 z-[14] flex items-center justify-center bg-zinc-900/30 p-1 backdrop-blur-[0.5px]">
                 <span className="rounded-md border border-white/25 bg-gradient-to-b from-zinc-900/95 to-black/90 px-2 py-2 text-center text-[9px] font-bold uppercase leading-tight tracking-[0.16em] text-white shadow-md">
@@ -204,35 +209,56 @@ function ProductCardInner({
 
   const hasRatingPill = Boolean(reviewSummary && reviewSummary.count > 0);
   const isCarousel = layout === "carousel";
+  const isCompactLuxury = cardDensity === "compact" && (layout === "grid" || layout === "carousel");
   const pillTag = product.tags?.[0]?.trim();
 
   return (
     <Link href={`/product/${product.slug}`} className="group mc-tap block h-full w-full min-w-0 max-w-full">
-      <article className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md">
-        <div className="relative aspect-[3/4] w-full max-w-full overflow-hidden bg-mc-creamDeep lg:aspect-[4/5]">
-          <Image
-            src={primaryImage}
-            alt={imgAlt}
-            fill
-            className={`object-cover transition duration-500 group-hover:scale-[1.04] ${outOfStock ? "opacity-50 grayscale" : ""} ${
-              hoverSwapUrl ? "group-hover:opacity-0" : ""
-            }`}
-            style={{ objectPosition: listPos }}
-            sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
-            quality={75}
-            loading="lazy"
-          />
+      <article
+        className={`flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md ${isCompactLuxury ? "rounded-xl" : ""}`}
+      >
+        <div
+          className={`relative w-full max-w-full min-h-0 overflow-hidden bg-mc-creamDeep ${isCompactLuxury ? "aspect-[3/4]" : "aspect-[3/4] lg:aspect-[4/5]"}`}
+        >
+          <div className="absolute inset-0 min-h-0">
+            <div className="relative h-full w-full min-h-0">
+              <Image
+                src={primaryImage}
+                alt={imgAlt}
+                fill
+                className={`object-cover ${isCompactLuxury ? "transition duration-500 group-hover:scale-[1.02]" : "transition duration-500 group-hover:scale-[1.04]"} ${outOfStock ? "opacity-50 grayscale" : ""} ${
+                  hoverSwapUrl ? "group-hover:opacity-0" : ""
+                }`}
+                style={{ objectPosition: listPos }}
+                sizes={
+                  isCompactLuxury
+                    ? "(max-width: 640px) 46vw, (max-width: 1024px) 28vw, (max-width: 1536px) 20vw, 280px"
+                    : "(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+                }
+                quality={75}
+                loading="lazy"
+              />
+            </div>
+          </div>
           {hoverSwapUrl ? (
-            <Image
-              src={hoverSwapUrl}
-              alt=""
-              fill
-              className="object-cover opacity-0 transition duration-500 group-hover:scale-[1.04] group-hover:opacity-100"
-              style={{ objectPosition: listPos }}
-              sizes="(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
-              quality={75}
-              loading="lazy"
-            />
+            <div className="absolute inset-0 min-h-0">
+              <div className="relative h-full w-full min-h-0">
+                <Image
+                  src={hoverSwapUrl}
+                  alt=""
+                  fill
+                  className={`object-cover opacity-0 ${isCompactLuxury ? "transition duration-500 group-hover:scale-[1.02] group-hover:opacity-100" : "transition duration-500 group-hover:scale-[1.04] group-hover:opacity-100"}`}
+                  style={{ objectPosition: listPos }}
+                  sizes={
+                    isCompactLuxury
+                      ? "(max-width: 640px) 46vw, (max-width: 1024px) 28vw, (max-width: 1536px) 20vw, 280px"
+                      : "(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+                  }
+                  quality={75}
+                  loading="lazy"
+                />
+              </div>
+            </div>
           ) : null}
           {showMetaOverlay && (
             <div
@@ -298,8 +324,13 @@ function ProductCardInner({
               Save {offPct}%
             </span>
           )}
-          {showNewBadge && (
+          {showNewBadge && !isCompactLuxury && (
             <span className="absolute right-2 top-2 z-10 rounded-full bg-[#5c4033] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white shadow-sm ring-2 ring-white/50">
+              New
+            </span>
+          )}
+          {showNewBadge && isCompactLuxury && (
+            <span className="absolute left-2 top-2 z-10 rounded-full bg-[#5c4033] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white shadow-sm ring-2 ring-white/50">
               New
             </span>
           )}
@@ -307,12 +338,10 @@ function ProductCardInner({
             type="button"
             aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
             onClick={toggleWishlist}
-            className={`absolute z-20 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white ${
-              isCarousel
+            className={`absolute right-2 top-2 z-20 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white ${
+              isCarousel && !isCompactLuxury
                 ? "bottom-2 right-2 top-auto"
-                : showNewBadge
-                  ? "left-2 top-2"
-                  : "right-2 top-2"
+                : ""
             }`}
           >
             <Heart className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${heartClass}`} strokeWidth={1.6} />
@@ -325,15 +354,29 @@ function ProductCardInner({
             </span>
           </div>
         )}
-        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card px-3 pb-3 pt-2.5 text-center sm:px-3.5 sm:pb-3.5 sm:pt-3 lg:px-2.5 lg:pb-2.5 lg:pt-2">
+        <div
+          className={`flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card text-center ${
+            isCompactLuxury
+              ? "px-2 pb-2 pt-1.5 sm:px-2.5 sm:pb-2 sm:pt-2"
+              : "px-3 pb-3 pt-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3 lg:px-2.5 lg:pb-2.5 lg:pt-2"
+          }`}
+        >
           <h3
-            className={`min-h-[3.25rem] break-words font-[family-name:var(--font-body)] text-sm font-medium leading-snug text-mc-ink sm:text-[15px] lg:min-h-[3rem] ${
-              isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
+            className={`break-words font-[family-name:var(--font-body)] font-medium leading-snug text-mc-ink ${
+              isCompactLuxury
+                ? "line-clamp-2 min-h-[2.35rem] text-[13px] sm:text-sm"
+                : `min-h-[3.25rem] text-sm sm:text-[15px] lg:min-h-[3rem] ${
+                    isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
+                  }`
             }`}
           >
             {product.name}
           </h3>
-          <div className="mt-1.5 flex min-h-[2.75rem] min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1 lg:min-h-[2.5rem]">
+          <div
+            className={`mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1 ${
+              isCompactLuxury ? "min-h-[2.25rem]" : "min-h-[2.75rem] lg:min-h-[2.5rem]"
+            }`}
+          >
             <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
             {showStrikethrough && (
               <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>
@@ -368,6 +411,7 @@ function areEqualProductCardProps(prev: ProductCardProps, next: ProductCardProps
     prev.initialWishlisted === next.initialWishlisted &&
     prev.layout === next.layout &&
     prev.listDensity === next.listDensity &&
+    prev.cardDensity === next.cardDensity &&
     prev.outOfStock === next.outOfStock &&
     prev.reviewSummary?.avg === next.reviewSummary?.avg &&
     prev.reviewSummary?.count === next.reviewSummary?.count

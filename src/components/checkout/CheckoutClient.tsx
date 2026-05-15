@@ -9,6 +9,7 @@ import { BagPromoAppliedRow, BagPromoSection } from "@/components/cart/BagPromoS
 import { ProductCard } from "@/components/features/ProductCard";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { isStaffRole } from "@/lib/admin-permissions";
 import type { ProductRow } from "@/lib/db/app-types";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 import { getProductTotalStock } from "@/lib/variant-stock";
@@ -33,9 +34,14 @@ type RazorpayCtorOptions = {
   modal?: { ondismiss?: () => void };
 };
 
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: "payment.failed", handler: (response: { error?: { description?: string } }) => void) => void;
+};
+
 declare global {
   interface Window {
-    Razorpay?: new (opts: RazorpayCtorOptions) => { open: () => void };
+    Razorpay?: new (opts: RazorpayCtorOptions) => RazorpayInstance;
   }
 }
 
@@ -144,7 +150,7 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
 
   const email = userEmail ?? "";
 
-  const isStaff = useMemo(() => role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT", [role]);
+  const isStaff = useMemo(() => isStaffRole(role), [role]);
 
   const hasSaved = profileAddresses.length > 0;
   const couponProductIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
@@ -496,6 +502,9 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
               "Payment was not completed. Tap “Proceed to payment” to try again, or switch to cash on delivery if available."
             )
         }
+      });
+      razorpay.on("payment.failed", (response) => {
+        setError(response.error?.description ?? "Payment failed. Try again or use cash on delivery.");
       });
       razorpay.open();
     } catch {

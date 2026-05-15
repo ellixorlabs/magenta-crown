@@ -8,6 +8,8 @@ import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 type Props = {
   initial: BrandSettings;
   initialShareTemplate: string;
+  /** Re-posted on every save so `HomePageConfig.payload.authVisualImageUrl` is never dropped by partial updates. */
+  authVisualImageUrl: string;
 };
 
 const BrandTinyIconPreview = memo(function BrandTinyIconPreview({ src, alt }: { src: string; alt: string }) {
@@ -67,7 +69,7 @@ const BrandHeaderMarkImagePreview = memo(function BrandHeaderMarkImagePreview({
   );
 });
 
-export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props) {
+export function BrandAssetsSettingsForm({ initial, initialShareTemplate, authVisualImageUrl }: Props) {
   const [faviconUrl, setFaviconUrl] = useState(initial.faviconUrl);
   const [breathingLogoUrl, setBreathingLogoUrl] = useState(initial.breathingLogoUrl);
   const [pwaIcon192Url, setPwaIcon192Url] = useState(initial.pwaIcon192Url);
@@ -131,6 +133,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          authVisualImageUrl: authVisualImageUrl.trim(),
           faviconUrl: faviconUrl.trim(),
           breathingLogoUrl: breathingLogoUrl.trim(),
           pwaIcon192Url: pwaIcon192Url.trim(),
@@ -155,6 +158,7 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate }: Props
       setSaving(false);
     }
   }, [
+    authVisualImageUrl,
     faviconUrl,
     breathingLogoUrl,
     pwaIcon192Url,

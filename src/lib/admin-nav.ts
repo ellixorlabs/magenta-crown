@@ -1,29 +1,32 @@
 import type { LucideIcon } from "lucide-react";
 import { Home, LayoutDashboard, LogOut, Package, Percent, Settings2, ShoppingCart, Users } from "lucide-react";
 
-export type AdminNavChild = { href: string; label: string };
+/** Who sees this nav entry (see `src/lib/admin-permissions.ts`). */
+export type AdminNavSection = "staff" | "merch" | "admin";
+
+export type AdminNavChild = { href: string; label: string; section?: AdminNavSection };
 
 export type AdminNavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  adminOnly?: boolean;
-  /** Sub-links under this section (sidebar accordion). */
+  /** Default `staff` when omitted. */
+  section?: AdminNavSection;
   children?: AdminNavChild[];
-  /** Paths that mark this section active (prefix match). Required when `children` is set. */
   activePathPrefixes?: string[];
 };
 
 export const ADMIN_NAV: AdminNavItem[] = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin", label: "Overview", icon: LayoutDashboard, section: "staff" },
   {
     href: "/admin/inventory",
     label: "Inventory",
     icon: Package,
+    section: "staff",
     activePathPrefixes: ["/admin/inventory"],
     children: [
       { href: "/admin/inventory", label: "All Products" },
-      { href: "/admin/inventory/new", label: "Add Product" },
+      { href: "/admin/inventory/new", label: "Add Product", section: "merch" },
       { href: "/admin/inventory?status=ARCHIVED", label: "Archived Products" },
       { href: "/admin/inventory?status=DRAFT", label: "Draft Products" },
       { href: "/admin/inventory?status=SOLD_OUT", label: "Sold Out Products" },
@@ -35,6 +38,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/orders",
     label: "Orders",
     icon: ShoppingCart,
+    section: "admin",
     activePathPrefixes: ["/admin/orders"],
     children: [
       { href: "/admin/orders", label: "All Orders" },
@@ -46,12 +50,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
       { href: "/admin/orders?status=RETURNED", label: "Returns & Refunds" }
     ]
   },
-  { href: "/admin/users", label: "Customers", icon: Users },
+  { href: "/admin/users", label: "Customers", icon: Users, section: "admin" },
   {
     href: "/admin/homepage",
     label: "Homepage",
     icon: Home,
-    adminOnly: true,
+    section: "merch",
     activePathPrefixes: ["/admin/homepage", "/admin/hero"],
     children: [
       { href: "/admin/homepage", label: "Layout & sections" },
@@ -64,19 +68,19 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/coupons",
     label: "Marketing",
     icon: Percent,
-    adminOnly: true,
+    section: "staff",
     activePathPrefixes: ["/admin/coupons"],
     children: [
       { href: "/admin/coupons", label: "Coupons" },
-      { href: "/admin/inventory?featured=1", label: "Featured Products" },
-      { href: "/admin/others", label: "Announcements" }
+      { href: "/admin/inventory?featured=1", label: "Featured Products", section: "staff" },
+      { href: "/admin/others", label: "Announcements", section: "admin" }
     ]
   },
   {
     href: "/admin/navigation",
     label: "Navigation",
     icon: Settings2,
-    adminOnly: true,
+    section: "admin",
     activePathPrefixes: ["/admin/navigation"],
     children: [
       { href: "/admin/navigation", label: "Header Menus" },
@@ -87,7 +91,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/others",
     label: "Settings",
     icon: Settings2,
-    adminOnly: true,
+    section: "admin",
     activePathPrefixes: ["/admin/others"],
     children: [
       { href: "/admin/others", label: "Brand Settings" },

@@ -10,6 +10,7 @@ import type { ProductRow } from "@/lib/db/app-types";
 import type { HeroTransitionId } from "@/lib/hero-transition";
 import type { HeroSlideVM } from "@/lib/hero-public";
 import type { DynamicHomeSection, DynamicProductSection, HomePagePayloadV2 } from "@/lib/home-page-types";
+import { resolveHomePageBanners, type HomePageBannerRow } from "@/lib/home-page-banner";
 
 type HomeProductRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
 
@@ -20,6 +21,7 @@ type Props = {
   wishlistIds: Set<string>;
   /** Products referenced by homepage section IDs (includes variants for stock). */
   productById: Map<string, HomeProductRow>;
+  homePageBanners: HomePageBannerRow[];
 };
 
 const HomeProductCarouselSection = dynamic(
@@ -44,14 +46,16 @@ function resolveSectionProducts(section: DynamicProductSection, productById: Map
   return out;
 }
 
-export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds, productById }: Props) {
+export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds, productById, homePageBanners }: Props) {
   const hasHero = payload.hero.enabled;
 
   const sortedSections = [...payload.sections]
     .filter((s) => s.enabled)
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  const promoSections = sortedSections.filter((s) => s.type === "promoBanner");
-  const firstPromoIndex = sortedSections.findIndex((s) => s.type === "promoBanner");
+  const bannerDisplays = resolveHomePageBanners(homePageBanners, payload);
+  const firstBannerSlotIndex = sortedSections.findIndex(
+    (s) => s.type === "bannerCarousel" || s.type === "promoBanner"
+  );
 
   return (
     <main className="bg-transparent">
@@ -69,21 +73,12 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
       ) : null}
 
       {sortedSections.map((section: DynamicHomeSection, index) => {
-        if (section.type === "promoBanner") {
-          if (index !== firstPromoIndex) return null;
+        if (section.type === "bannerCarousel" || section.type === "promoBanner") {
+          if (index !== firstBannerSlotIndex) return null;
+          if (bannerDisplays.length === 0) return null;
           return (
-            <SectionReveal key={section.id} transition={section.transition}>
-              <HomePromoBannerCarouselSection
-                banners={promoSections.map((promo) => ({
-                  id: promo.id,
-                  title: promo.title,
-                  subtitle: promo.subtitle,
-                  imageUrl: promo.imageUrl,
-                  imageUrlMobile: promo.imageUrlMobile,
-                  imageUrlDesktop: promo.imageUrlDesktop,
-                  targetHref: promo.targetHref
-                }))}
-              />
+            <SectionReveal key={`home-banners-${section.id}`} transition={section.transition}>
+              <HomePromoBannerCarouselSection banners={bannerDisplays} />
             </SectionReveal>
           );
         }
@@ -131,6 +126,7 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
                 wishlistIds={wishlistIds}
                 viewAllHref={viewAll}
                 emptyMessage="No products in this section."
+                cardDensity="compact"
               />
             </SectionReveal>
           );
@@ -144,6 +140,7 @@ export function HomePageView({ payload, heroSlides, heroTransition, wishlistIds,
               wishlistIds={wishlistIds}
               viewAllHref={viewAll}
               emptyMessage="No products in this section."
+              cardDensity="compact"
             />
           </SectionReveal>
         );

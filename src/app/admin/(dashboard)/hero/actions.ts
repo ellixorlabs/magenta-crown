@@ -1,22 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { parseHeroTransition } from "@/lib/hero-transition";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
-async function requireHeroAdmin() {
-  const session = await requireStaff("/admin/hero");
-  if (!isAdminRole(session.user.role)) {
-    redirect("/admin");
-  }
-  return session;
+async function requireHeroEditor() {
+  return requireMerchAdmin("/admin/hero");
 }
 
 export async function saveHeroSlide(formData: FormData) {
-  await requireHeroAdmin();
+  await requireHeroEditor();
   const id = formData.get("id") as string | null;
   const imageUrl = String(formData.get("imageUrl") ?? "").trim();
   const imageUrlMobile = String(formData.get("imageUrlMobile") ?? "").trim();
@@ -74,7 +69,7 @@ export async function saveHeroSlide(formData: FormData) {
 }
 
 export async function deleteHeroSlide(formData: FormData) {
-  await requireHeroAdmin();
+  await requireHeroEditor();
   const id = formData.get("id") as string | null;
   if (!id) return;
   const supabase = getSupabaseServiceRoleClient();
@@ -85,7 +80,7 @@ export async function deleteHeroSlide(formData: FormData) {
 }
 
 export async function updateHeroCarouselTransition(formData: FormData) {
-  await requireHeroAdmin();
+  await requireHeroEditor();
   const raw = String(formData.get("transition") ?? "").trim();
   const transition = parseHeroTransition(raw);
   const supabase = getSupabaseServiceRoleClient();
@@ -100,7 +95,7 @@ export async function updateHeroCarouselTransition(formData: FormData) {
 }
 
 export async function seedDefaultHeroSlides() {
-  await requireHeroAdmin();
+  await requireHeroEditor();
   const supabase = getSupabaseServiceRoleClient();
   const countRes = await (supabase.from("HeroSlide") as any).select("id", { count: "exact", head: true });
   if ((countRes.count ?? 0) > 0) return;

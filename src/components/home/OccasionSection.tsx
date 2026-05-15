@@ -90,14 +90,16 @@ export function OccasionSection({ sectionId, eyebrow, title, items }: Props) {
               href={occasionCardHref(category)}
               className="group relative block h-[380px] w-[min(320px,calc(100vw-7.5rem))] shrink-0 snap-start overflow-hidden rounded-3xl border border-zinc-200 sm:w-[min(340px,calc(50vw-4rem))] lg:w-[min(360px,32vw)]"
             >
-              <Image
-                src={category.imageUrl}
-                alt={category.title}
-                fill
-                className="object-cover transition duration-700 group-hover:scale-110"
-                sizes="(max-width: 640px) 85vw, (max-width: 1024px) 45vw, 360px"
-                unoptimized
-              />
+              <div className="relative h-full w-full min-h-0">
+                <Image
+                  src={category.imageUrl}
+                  alt={category.title}
+                  fill
+                  className="object-cover transition duration-700 group-hover:scale-110"
+                  sizes="(max-width: 640px) 85vw, (max-width: 1024px) 45vw, 360px"
+                  unoptimized
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
               <div className="absolute bottom-0 p-6 text-white">
                 <p className="text-sm uppercase tracking-[0.2em] text-white/70">Explore</p>

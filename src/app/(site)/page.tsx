@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
+import { isStorefrontStaff } from "@/lib/admin-permissions";
 import { HomePageView } from "@/components/home/HomePageView";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
@@ -14,12 +15,7 @@ export default async function HomePage() {
   const [session, bundle] = await Promise.all([auth(), getHomePageDbBundle()]);
 
   let wishlistIds = new Set<string>();
-  if (
-    session?.user?.id &&
-    session.user.role !== "ADMIN" &&
-    session.user.role !== "SUB_ADMIN" &&
-    session.user.role !== "TECH_SUPPORT"
-  ) {
+  if (session?.user?.id && !isStorefrontStaff(session.user.role)) {
     try {
       const supabase = getSupabaseServiceRoleClient();
       const { data: links, error } = await (supabase.from("_UserWishlist") as any)
@@ -32,7 +28,7 @@ export default async function HomePage() {
     }
   }
 
-  const { payload, heroSlides, heroCarousel, productById } = bundle;
+  const { payload, heroSlides, heroCarousel, productById, homePageBanners } = bundle;
 
   return (
     <>
@@ -42,6 +38,7 @@ export default async function HomePage() {
         heroTransition={heroCarousel.transition}
         wishlistIds={wishlistIds}
         productById={productById}
+        homePageBanners={homePageBanners}
       />
     </>
   );

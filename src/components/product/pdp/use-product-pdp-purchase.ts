@@ -7,6 +7,7 @@ import type { CouponRow, ProductRow, ProductVariantRow } from "@/lib/db/app-type
 import { getProductDisplayImage } from "@/lib/product-image-display";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { isStaffRole } from "@/lib/admin-permissions";
 import { getVariantAvailable, isSingleDefaultSku, lineInBagQuantity } from "@/lib/variant-stock";
 import {
   cartColorFromVariant,
@@ -51,7 +52,7 @@ export function useProductPdpPurchase(
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
 
-  const isStaff = role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
+  const isStaff = isStaffRole(role);
 
   const price = product.discountedPrice ?? product.mrp;
   const singleDefault = useMemo(() => isSingleDefaultSku(product.variants), [product.variants]);

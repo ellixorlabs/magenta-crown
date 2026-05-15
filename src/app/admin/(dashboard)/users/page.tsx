@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requireFullAdmin } from "@/lib/admin-auth";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 import type { NextAppPageSearch } from "@/types/next-app";
 
@@ -11,7 +11,7 @@ type PageProps = NextAppPageSearch<{ q?: string; invited?: string; inviteError?:
 
 async function inviteUserAction(formData: FormData) {
   "use server";
-  await requireStaff("/admin/users");
+  await requireFullAdmin("/admin/users");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) {
     redirect("/admin/users?inviteError=Email%20is%20required");
@@ -26,7 +26,7 @@ async function inviteUserAction(formData: FormData) {
 }
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
-  await requireStaff("/admin/users");
+  await requireFullAdmin("/admin/users");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const invited = sp.invited === "1";

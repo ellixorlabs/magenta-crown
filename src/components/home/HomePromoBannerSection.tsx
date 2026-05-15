@@ -28,17 +28,19 @@ export function HomePromoBannerSection({ title, subtitle, imageUrl, targetHref }
                 See more
               </span>
             </div>
-            <div className="relative h-[180px] sm:h-[280px]">
+            <div className="relative h-[180px] w-full overflow-hidden sm:h-[280px]">
               {imageUrl ? (
-                <Image
-                  src={imageUrl}
-                  alt={title}
-                  fill
-                  sizes="(max-width: 640px) 70vw, 420px"
-                  quality={75}
-                  className="object-contain object-center"
-                  loading="lazy"
-                />
+                <div className="relative h-full w-full min-h-0">
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    fill
+                    sizes="(max-width: 640px) 70vw, 420px"
+                    quality={75}
+                    className="object-contain object-center"
+                    loading="lazy"
+                  />
+                </div>
               ) : null}
             </div>
           </div>

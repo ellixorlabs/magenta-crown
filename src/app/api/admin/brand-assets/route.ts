@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { canManageBrandAssets } from "@/lib/admin-auth";
 import { randomId } from "@/lib/random-id";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -20,7 +20,7 @@ async function toWebp(input: Buffer): Promise<Buffer> {
 export async function POST(req: Request) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || (!isAdminRole(role) && role !== "SUB_ADMIN")) {
+  if (!session?.user?.id || !canManageBrandAssets(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   const ct = req.headers.get("content-type") || "";

@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { isStorefrontStaff } from "@/lib/admin-permissions";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { EmptyState } from "@/components/empty/EmptyState";
 import type { ShopFilterOptions } from "@/lib/shop-filter-shared";
@@ -40,12 +41,7 @@ export async function ShopCatalogMain({
 }: Props) {
   const session = await auth();
   const wishlistPromise = (async () => {
-    if (
-      session?.user?.id &&
-      session.user.role !== "ADMIN" &&
-      session.user.role !== "SUB_ADMIN" &&
-      session.user.role !== "TECH_SUPPORT"
-    ) {
+    if (session?.user?.id && !isStorefrontStaff(session.user.role)) {
       const supabase = getSupabaseServiceRoleClient();
       const { data: links, error } = await (supabase.from("_UserWishlist") as any)
         .select("A")

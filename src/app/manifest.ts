@@ -9,7 +9,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
 
   return {
     name: "Magenta Crown",
-    short_name: "Magenta",
+    short_name: "Magenta Crown",
     description: "Luxury women's occasionwear - shop sarees, lehengas, and curated collections.",
     start_url: "/",
     scope: "/",

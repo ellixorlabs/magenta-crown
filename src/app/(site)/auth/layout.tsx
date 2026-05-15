@@ -1,5 +1,16 @@
 import type { ReactNode } from "react";
+import { AuthVisualUrlProvider } from "@/components/auth/AuthVisualUrlContext";
+import { getCachedAuthVisualImageUrl } from "@/lib/auth-visual-url";
 
-export default function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
-  return <div className="relative min-w-0">{children}</div>;
+export default async function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const rawUrl = await getCachedAuthVisualImageUrl();
+
+  return (
+    <AuthVisualUrlProvider value={rawUrl}>
+      <div className="relative min-w-0">
+        {rawUrl ? <link rel="preload" as="image" href={rawUrl} fetchPriority="high" /> : null}
+        {children}
+      </div>
+    </AuthVisualUrlProvider>
+  );
 }

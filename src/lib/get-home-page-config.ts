@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
-import type { HomePagePayloadV1, HomePagePayloadV2 } from "@/lib/home-page-types";
+import type { DynamicProductSection, HomePagePayloadV1, HomePagePayloadV2 } from "@/lib/home-page-types";
 import { migrateHomePageV1ToV2 } from "@/lib/migrate-home-page-v1-to-v2";
 import { randomId } from "@/lib/random-id";
 
@@ -45,9 +45,14 @@ function isPayloadV2(x: unknown): x is HomePagePayloadV2 {
     if (typeof s !== "object" || s === null) return false;
     const sec = s as Record<string, unknown>;
     if (typeof sec.id !== "string") return false;
-    if (sec.type !== "carousel" && sec.type !== "grid" && sec.type !== "promoBanner") return false;
+    if (sec.type !== "carousel" && sec.type !== "grid" && sec.type !== "promoBanner" && sec.type !== "bannerCarousel")
+      return false;
     if (typeof sec.enabled !== "boolean") return false;
     if (typeof sec.order !== "number") return false;
+    if (sec.type === "bannerCarousel") {
+      if (typeof sec.order !== "number" || !Number.isFinite(sec.order)) return false;
+      continue;
+    }
     if (sec.type === "promoBanner") {
       if (typeof sec.title !== "string") return false;
       if (sec.subtitle != null && typeof sec.subtitle !== "string") return false;
@@ -67,6 +72,9 @@ function isPayloadV2(x: unknown): x is HomePagePayloadV2 {
 function normalizePayloadV2(p: HomePagePayloadV2): HomePagePayloadV2 {
   const sorted = [...p.sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
   const sections = sorted.map((s, i) => {
+    if (s.type === "bannerCarousel") {
+      return { ...s, order: i };
+    }
     if (s.type === "promoBanner") {
       return {
         ...s,
@@ -79,12 +87,13 @@ function normalizePayloadV2(p: HomePagePayloadV2): HomePagePayloadV2 {
         gradientTo: s.gradientTo.trim() || "#c02b56"
       };
     }
+    const ps = s as DynamicProductSection;
     return {
-      ...s,
+      ...ps,
       order: i,
-      title: s.title.trim() || "Untitled",
-      eyebrow: s.eyebrow.trim(),
-      productIds: [...new Set(s.productIds.filter(Boolean))]
+      title: ps.title.trim() || "Untitled",
+      eyebrow: ps.eyebrow.trim(),
+      productIds: [...new Set(ps.productIds.filter(Boolean))]
     };
   });
   return {

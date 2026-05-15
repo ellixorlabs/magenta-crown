@@ -16,6 +16,7 @@ type Props = {
   wishlistIds: Set<string>;
   viewAllHref: string;
   emptyMessage?: string;
+  cardDensity?: "default" | "compact";
 };
 
 export function HomeProductCarouselSection({
@@ -23,7 +24,8 @@ export function HomeProductCarouselSection({
   products,
   wishlistIds,
   viewAllHref,
-  emptyMessage = "Add sarees to see them here."
+  emptyMessage = "Add sarees to see them here.",
+  cardDensity = "default"
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
@@ -124,6 +126,7 @@ export function HomeProductCarouselSection({
                       initialWishlisted={wishlistIds.has(product.id)}
                       outOfStock={getProductTotalStock(product.variants ?? []) === 0}
                       layout="carousel"
+                      cardDensity={cardDensity}
                     />
                   </div>
                 ))}

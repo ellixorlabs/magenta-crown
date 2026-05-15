@@ -59,7 +59,7 @@ function VerifyEmailInner() {
 
   return (
     <AuthImmersiveShell>
-      <div className="w-full max-w-[560px] rounded-3xl border border-zinc-200 bg-white p-8 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.22)]">
+      <div className="mx-auto w-full min-w-0 max-w-[min(560px,100%)] rounded-3xl border border-zinc-200 bg-white p-8 shadow-[0_24px_64px_-18px_rgba(0,0,0,0.22)]">
         <h1 className="text-center font-[family-name:var(--font-heading)] text-4xl font-semibold text-zinc-950">
           Verify your email
         </h1>

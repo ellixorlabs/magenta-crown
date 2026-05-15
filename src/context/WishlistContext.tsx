@@ -9,6 +9,7 @@ import {
 } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/context/AuthContext";
+import { isStaffRole } from "@/lib/admin-permissions";
 import { wishlistGetHeaders } from "@/lib/wishlist-client";
 
 type WishlistDispatchValue = {
@@ -26,10 +27,6 @@ const WishlistDispatchContext = createContext<WishlistDispatchValue | null>(null
 const WishlistCountContext = createContext<WishlistCountValue | null>(null);
 const WISHLIST_COUNT_CACHE_TTL_MS = 45_000;
 let wishlistCountCache: { value: number; expiresAt: number } | null = null;
-
-function isStaffRole(role: string) {
-  return role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
-}
 
 async function fetchWishlistCount(signal?: AbortSignal): Promise<number> {
   const res = await fetch("/api/user/wishlist", {

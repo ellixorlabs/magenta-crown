@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { requireFullAdmin } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { NextAppPageSearch } from "@/types/next-app";
 
 type PageProps = NextAppPageSearch<{ status?: string }>;
 
 export default async function AdminOrdersPage({ searchParams }: PageProps) {
+  await requireFullAdmin("/admin/orders");
   const sp = await searchParams;
   const status = sp.status?.trim().toUpperCase();
   const activeStatus = status && status.length > 0 ? status : "ALL";

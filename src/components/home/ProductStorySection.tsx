@@ -16,15 +16,17 @@ export function ProductStorySection({ imageUrl, imageAlt, eyebrow, title, body, 
   return (
     <section className="section-shell py-16 lg:py-14">
       <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-zinc-200">
-          <Image
-            src={imageUrl}
-            alt={imageAlt}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 50vw"
-            unoptimized
-          />
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-zinc-200">
+          <div className="relative h-full w-full min-h-0">
+            <Image
+              src={imageUrl}
+              alt={imageAlt}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              unoptimized
+            />
+          </div>
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{eyebrow}</p>

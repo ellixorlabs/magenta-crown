@@ -29,8 +29,8 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   width: 100%;
-  max-width: 100%;
-  overflow-x: clip;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /*
@@ -66,6 +66,9 @@ html.mc-hide-site-chrome [data-mc-glass-back] {
 
 body {
   @apply min-h-dvh font-[family-name:var(--font-body)] text-mc-ink antialiased;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   padding-left: env(safe-area-inset-left, 0);
   padding-right: env(safe-area-inset-right, 0);
   padding-bottom: env(safe-area-inset-bottom, 0);

@@ -54,3 +54,6 @@ async function readAuthSession(): Promise<AppSession | null> {
 
 /** Per-request dedupe: layout + page + route handlers calling `auth()` share one execution. */
 export const auth = cache(readAuthSession);
+
+/** Alias for `auth()` — single cached server session source per request. */
+export const getCachedSession = auth;

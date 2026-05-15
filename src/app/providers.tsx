@@ -28,8 +28,8 @@ export function Providers({ children, loaderLogoSrc }: { children: ReactNode; lo
               <CookieConsentProvider>
                 <HeroReadyProvider loaderLogoSrc={loaderLogoSrc}>
                   {children}
+                  <PwaInstallPrompt />
                 </HeroReadyProvider>
-                <PwaInstallPrompt />
               </CookieConsentProvider>
             </ShopProvider>
           </CartProvider>

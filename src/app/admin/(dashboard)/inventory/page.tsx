@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { canCreateOrDeleteProducts, canManageInventory } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getShopFilterOptions } from "@/lib/shop-filter-options";
 import { buildProductOrderBy, buildProductWhere, firstString, parseShopSearchParams } from "@/lib/shop-query";
@@ -15,7 +15,10 @@ type PageProps = NextAppPageSearch<Record<string, string | string[] | undefined>
 
 export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const session = await auth();
-  const admin = isAdminRole(session?.user?.role);
+  const role = session?.user?.role;
+  const showAddNew = canCreateOrDeleteProducts(role);
+  const showInventoryActions = canManageInventory(role);
+  const allowProductDelete = canCreateOrDeleteProducts(role);
 
   const sp = await searchParams;
   const activeStatus = firstString(sp.status)?.toUpperCase() ?? "ALL";
@@ -70,7 +73,7 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
             Lowest total variant stock appears first. Use filters to narrow products, then edit to manage SKUs.
           </p>
         </div>
-        {admin && (
+        {showAddNew && (
           <Link
             href="/admin/inventory/new"
             className="inline-flex shrink-0 items-center justify-center self-end rounded-full bg-crown-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-crown-900 active:scale-[0.98] sm:self-start"
@@ -175,12 +178,13 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {admin ? (
+                    {showInventoryActions ? (
                       <AdminInventoryActions
                         productId={p.id}
                         productName={p.name}
                         hasOrders={productsWithOrders.has(p.id)}
                         status={normalizeProductStatus(p.status)}
+                        allowProductDelete={allowProductDelete}
                       />
                     ) : null}
                   </td>

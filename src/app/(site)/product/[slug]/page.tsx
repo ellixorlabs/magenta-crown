@@ -5,6 +5,7 @@ import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, product
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { getProductTotalStock } from "@/lib/variant-stock";
 import { auth, type AppSession } from "@/auth";
+import { isMerchAdmin, isStorefrontStaff } from "@/lib/admin-permissions";
 import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
 import { ProductCard } from "@/components/features/ProductCard";
 import { ProductPdpHeroExperience } from "@/components/product/pdp/ProductPdpHeroExperience";
@@ -20,12 +21,7 @@ async function loadWishlistState(
   productId: string
 ): Promise<{ initialWishlisted: boolean; wishlistIds: Set<string> }> {
   const role = session?.user?.role;
-  if (
-    !session?.user?.id ||
-    role === "ADMIN" ||
-    role === "SUB_ADMIN" ||
-    role === "TECH_SUPPORT"
-  ) {
+  if (!session?.user?.id || isStorefrontStaff(role)) {
     return { initialWishlisted: false, wishlistIds: new Set() };
   }
   const uid = session.user.id;
@@ -134,7 +130,7 @@ export default async function ProductPage({ params }: PageProps) {
   const reviewAvgNum = reviewCount ? ratings.reduce((s, r) => s + r, 0) / reviewCount : null;
   const reviewAvg = reviewAvgNum != null ? Number(reviewAvgNum) : null;
   const { initialWishlisted, wishlistIds } = wishlistState;
-  const canQuickEdit = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
+  const canQuickEdit = isMerchAdmin(session?.user?.role);
   const firstActiveCouponCode =
     (((productData.featuredCoupons ?? []) as Array<{ coupon?: { code?: string; isActive?: boolean } }>).find(
       (x) => x.coupon?.isActive && x.coupon?.code

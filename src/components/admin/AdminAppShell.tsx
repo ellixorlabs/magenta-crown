@@ -5,9 +5,35 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AdminNavItem } from "@/lib/admin-nav";
+import type { AdminNavChild, AdminNavItem, AdminNavSection } from "@/lib/admin-nav";
 import { ADMIN_NAV, LogOut } from "@/lib/admin-nav";
+import { canAccessAdminUsers, isFullAdmin, isMerchAdmin, isStaffRole } from "@/lib/admin-permissions";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
+
+function sectionAllows(role: string | undefined, section: AdminNavSection): boolean {
+  if (section === "staff") return isStaffRole(role);
+  if (section === "merch") return isMerchAdmin(role);
+  return isFullAdmin(role);
+}
+
+function childSection(parent: AdminNavItem, child: AdminNavChild): AdminNavSection {
+  return child.section ?? parent.section ?? "staff";
+}
+
+function topLevelNavVisible(item: AdminNavItem, role: string | undefined): boolean {
+  if (item.children?.length) {
+    return item.children.some((c) => sectionAllows(role, childSection(item, c)));
+  }
+  return sectionAllows(role, item.section ?? "staff");
+}
+
+function navForRole(role: string | undefined): AdminNavItem[] {
+  return ADMIN_NAV.filter((item) => topLevelNavVisible(item, role)).map((item) => {
+    if (!item.children?.length) return item;
+    const children = item.children.filter((c) => sectionAllows(role, childSection(item, c)));
+    return { ...item, children };
+  });
+}
 
 function sectionIsActive(item: AdminNavItem, pathname: string | null) {
   if (!item.activePathPrefixes?.length || !pathname) return false;
@@ -54,17 +80,18 @@ export function AdminAppShell({
   userEmail,
   userName,
   userImage,
-  isAdmin
+  userRole
 }: {
   children: React.ReactNode;
   userEmail: string;
   userName?: string | null;
   userImage?: string | null;
-  isAdmin: boolean;
+  userRole: string;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const links = useMemo(() => ADMIN_NAV.filter((l) => !l.adminOnly || isAdmin), [isAdmin]);
+  const links = useMemo(() => navForRole(userRole), [userRole]);
+  const showCustomerSearch = canAccessAdminUsers(userRole);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileWrapRef = useRef<HTMLDivElement>(null);
@@ -238,7 +265,15 @@ export function AdminAppShell({
           </div>
 
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <form action="/admin/users" method="get" className="relative hidden min-w-[200px] flex-1 sm:max-w-xs md:block">
+            <form
+              action="/admin/users"
+              method="get"
+              className={
+                showCustomerSearch
+                  ? "relative hidden min-w-[200px] flex-1 sm:max-w-xs md:block"
+                  : "hidden"
+              }
+            >
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
                 name="q"

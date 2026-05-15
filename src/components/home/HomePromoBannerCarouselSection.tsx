@@ -4,19 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
-
-type BannerItem = {
-  id: string;
-  title: string;
-  subtitle?: string;
-  imageUrl: string;
-  imageUrlMobile?: string;
-  imageUrlDesktop?: string;
-  targetHref: string;
-};
+import type { HomePageBannerDisplay } from "@/lib/home-page-banner";
 
 type Props = {
-  banners: BannerItem[];
+  banners: HomePageBannerDisplay[];
 };
 
 export function HomePromoBannerCarouselSection({ banners }: Props) {
@@ -32,43 +23,50 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
 
   if (banners.length === 0) return null;
   const current = banners[Math.min(active, banners.length - 1)]!;
-  const mobileImage = current.imageUrlMobile || current.imageUrl || "";
-  const desktopImage = current.imageUrlDesktop || current.imageUrl || mobileImage;
+  const mobileImage = current.mobileImage || current.desktopImage;
+  const desktopImage = current.desktopImage || current.mobileImage;
+  const first = active === 0;
 
   return (
     <section className="bg-mc-cream py-10 sm:py-14 lg:py-12">
       <div className="section-shell">
         <div className="relative">
           <Link
-            href={current.targetHref}
+            href={current.redirectUrl}
             className="group mc-tap block overflow-hidden rounded-3xl border border-mc-ink/10 shadow-[0_20px_50px_-24px_rgba(80,10,30,0.45)] transition hover:shadow-[0_24px_56px_-24px_rgba(80,10,30,0.55)]"
           >
-            <div className="relative min-h-[68svh] sm:min-h-[460px]">
-              <div className="relative h-[68svh] sm:hidden">
-                {mobileImage ? (
-                  <Image
-                    src={mobileImage}
-                    alt={current.title}
-                    fill
-                    sizes="100vw"
-                    className="object-cover object-center"
-                    loading="lazy"
-                    unoptimized
-                  />
-                ) : null}
-              </div>
-              <div className="relative hidden h-[460px] sm:block">
-                {desktopImage ? (
-                  <Image
-                    src={desktopImage}
-                    alt={current.title}
-                    fill
-                    sizes="(max-width: 1280px) 100vw, 1280px"
-                    className="object-cover object-center"
-                    loading="lazy"
-                    unoptimized
-                  />
-                ) : null}
+            <div className="relative min-h-[68svh] w-full min-w-0 sm:min-h-[460px]">
+              <div className="relative h-[68svh] w-full min-w-0 sm:h-[460px]">
+                <div className="absolute inset-0 min-h-0 lg:hidden">
+                  {mobileImage ? (
+                    <div className="relative h-full w-full min-h-0">
+                      <Image
+                        src={mobileImage}
+                        alt={current.title}
+                        fill
+                        priority={first}
+                        sizes="(max-width: 1023px) 100vw, 768px"
+                        className="object-cover object-center transition duration-500 group-hover:scale-[1.02]"
+                        loading={first ? "eager" : "lazy"}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="absolute inset-0 hidden min-h-0 lg:block">
+                  {desktopImage ? (
+                    <div className="relative h-full w-full min-h-0">
+                      <Image
+                        src={desktopImage}
+                        alt={current.title}
+                        fill
+                        priority={first}
+                        sizes="(min-width: 1024px) min(96vw, 1920px), 0px"
+                        className="object-cover object-center transition duration-500 group-hover:scale-[1.02]"
+                        loading={first ? "eager" : "lazy"}
+                      />
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 to-transparent sm:h-36" />
               <div className="absolute inset-x-0 bottom-0 z-[1] p-4 text-white sm:p-6">
@@ -114,4 +112,3 @@ export function HomePromoBannerCarouselSection({ banners }: Props) {
     </section>
   );
 }
-

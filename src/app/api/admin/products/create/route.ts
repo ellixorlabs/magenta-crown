@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { canCreateOrDeleteProducts } from "@/lib/admin-auth";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 import { clearCacheByPrefix } from "@/lib/cache";
 import { normColorKey, normPart } from "@/lib/product-variants";
@@ -72,7 +72,7 @@ function parseVariantRows(raw: string): ParsedRow[] {
 export async function POST(req: Request) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || (!isAdminRole(role) && role !== "SUB_ADMIN")) {
+  if (!session?.user?.id || !canCreateOrDeleteProducts(role)) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
@@ -110,6 +110,8 @@ export async function POST(req: Request) {
     const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
     const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
     const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
+    const searchKeywordsRaw = String(formData.get("searchKeywords") ?? "").trim();
+    const searchSynonymsRaw = String(formData.get("searchSynonyms") ?? "").trim();
 
     let listImageIndex = Math.max(0, Math.floor(Number(formData.get("listImageIndex") ?? 0)));
     listImageIndex = imageUrls.length > 0 ? Math.min(listImageIndex, imageUrls.length - 1) : 0;
@@ -136,6 +138,8 @@ export async function POST(req: Request) {
         videoUrls,
         sizeChartImageUrl,
         showSizeChart,
+        searchKeywords: searchKeywordsRaw || null,
+        searchSynonyms: searchSynonymsRaw || null,
         status: normalizeProductStatus(formData.get("status")),
         prepaidOfferText: String(formData.get("prepaidOfferText") ?? "").trim() || null,
         pricingFootnote: String(formData.get("pricingFootnote") ?? "").trim() || null,

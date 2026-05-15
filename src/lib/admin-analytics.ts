@@ -298,7 +298,7 @@ async function loadAdminDashboardAnalytics(): Promise<AdminDashboardAnalytics> {
   };
 
   const staffNote =
-    "How to grant admin access: set User.role to ADMIN in the database, then sign out and back in. SUB_ADMIN can manage inventory and orders; homepage, hero, coupons, and navigation are ADMIN-only.";
+    "How to grant admin access: set User.role to ADMIN in the database, then sign out and back in. SUB_ADMIN manages products, inventory, homepage, and coupons. TECH_SUPPORT uses inventory and operational tools only. Orders, customers, navigation, and site settings are ADMIN-only.";
 
   return {
     kpis,

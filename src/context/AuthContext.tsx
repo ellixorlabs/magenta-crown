@@ -11,19 +11,18 @@ import {
   type ReactNode
 } from "react";
 import { clearAccountRecoverStorageKeys } from "@/lib/account-recover-storage";
-import { fetchAuthSessionDeduped } from "@/lib/auth-session-fetch";
+import type { AppRole } from "@/lib/db/app-types";
+import { fetchAuthSessionDeduped, invalidateAuthSessionFetchCache } from "@/lib/auth-session-fetch";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
-
-type Role = "ADMIN" | "SUB_ADMIN" | "CUSTOMER" | "TECH_SUPPORT";
 
 type AuthContextValue = {
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
-  role: Role;
+  role: AppRole;
   isAuthenticated: boolean;
   isLoading: boolean;
-  hasRole: (allowedRoles: Role[]) => boolean;
+  hasRole: (allowedRoles: AppRole[]) => boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -35,10 +34,11 @@ function AuthContextInner({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [role, setRole] = useState<Role>("CUSTOMER");
+  const [role, setRole] = useState<AppRole>("CUSTOMER");
   const isAuthenticated = Boolean(userId);
 
   const clearAuthState = useCallback(() => {
+    invalidateAuthSessionFetchCache();
     setUserId(null);
     setUserEmail(null);
     setUserName(null);
@@ -51,7 +51,7 @@ function AuthContextInner({ children }: { children: ReactNode }) {
     try {
       const res = await fetchAuthSessionDeduped();
       const data = (await res.json()) as {
-        session?: { user?: { id?: string; email?: string; name?: string | null; role?: Role } } | null;
+        session?: { user?: { id?: string; email?: string; name?: string | null; role?: AppRole } } | null;
       };
       const user = data.session?.user;
       if (!user?.id) return;
@@ -65,9 +65,19 @@ function AuthContextInner({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshDebounceRef = useRef<number | null>(null);
+  const scheduleRefreshServerSession = useCallback(() => {
+    if (refreshDebounceRef.current) window.clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = window.setTimeout(() => {
+      refreshDebounceRef.current = null;
+      void refreshServerSession();
+    }, 400);
+  }, [refreshServerSession]);
+
   const syncServerCookie = useCallback(async (accessToken: string | null) => {
     try {
       if (!accessToken) {
+        invalidateAuthSessionFetchCache();
         await fetch("/api/auth/session", { method: "DELETE", keepalive: true });
         return;
       }
@@ -122,8 +132,8 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         return;
       }
     }
-    await refreshServerSession();
-  }, [recoverFromInvalidRefreshToken, refreshServerSession, syncServerCookie]);
+    scheduleRefreshServerSession();
+  }, [recoverFromInvalidRefreshToken, refreshServerSession, scheduleRefreshServerSession, syncServerCookie]);
 
   const resyncTimer = useRef<number | null>(null);
   const resyncInFlight = useRef(false);
@@ -215,7 +225,7 @@ function AuthContextInner({ children }: { children: ReactNode }) {
             setUserName((session.user.user_metadata?.name as string | undefined) ?? null);
             setRole("CUSTOMER");
           }
-          await refreshServerSession();
+          scheduleRefreshServerSession();
         });
         unsub = () => sub.subscription.unsubscribe();
       } catch {
@@ -228,9 +238,16 @@ function AuthContextInner({ children }: { children: ReactNode }) {
       mounted = false;
       unsub?.();
     };
-  }, [clearAuthState, recoverFromInvalidRefreshToken, refreshServerSession, syncServerCookie]);
+  }, [clearAuthState, recoverFromInvalidRefreshToken, refreshServerSession, scheduleRefreshServerSession, syncServerCookie]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshDebounceRef.current) window.clearTimeout(refreshDebounceRef.current);
+    };
+  }, []);
+
   const hasRole = useCallback(
-    (allowedRoles: Role[]) => allowedRoles.includes(role),
+    (allowedRoles: AppRole[]) => allowedRoles.includes(role),
     [role]
   );
 

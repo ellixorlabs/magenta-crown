@@ -1,17 +1,20 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { isFullAdmin } from "@/lib/admin-auth";
+import { parseHomePageConfigPayload } from "@/lib/home-page-config-payload";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export async function POST(req: Request) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || !isAdminRole(role)) {
+  if (!session?.user?.id || !isFullAdmin(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => ({}))) as {
     imageUrl?: string;
+    authVisualImageUrl?: string;
     globalSizeChartImageUrl?: string;
     faviconUrl?: string;
     breathingLogoUrl?: string;
@@ -25,6 +28,10 @@ export async function POST(req: Request) {
     shareMessageTemplate?: string;
   };
   const imageUrl = String(body.imageUrl ?? "").trim();
+  const authVisualImageUrlBody =
+    "authVisualImageUrl" in body && typeof body.authVisualImageUrl === "string"
+      ? body.authVisualImageUrl.trim()
+      : undefined;
   const globalSizeChartImageUrl = String(body.globalSizeChartImageUrl ?? "").trim();
   const faviconUrl = String(body.faviconUrl ?? "").trim();
   const breathingLogoUrl = String(body.breathingLogoUrl ?? "").trim();
@@ -42,8 +49,12 @@ export async function POST(req: Request) {
     .select("payload")
     .eq("id", "default")
     .maybeSingle();
-  const payload = ((row?.payload ?? {}) as Record<string, unknown>) || {};
-  if ("imageUrl" in body) payload.authVisualImageUrl = imageUrl;
+  const payload = parseHomePageConfigPayload(row?.payload);
+  if (authVisualImageUrlBody !== undefined) {
+    payload.authVisualImageUrl = authVisualImageUrlBody;
+  } else if ("imageUrl" in body) {
+    payload.authVisualImageUrl = imageUrl;
+  }
   if ("globalSizeChartImageUrl" in body) payload.globalSizeChartImageUrl = globalSizeChartImageUrl;
   if (faviconUrl || "faviconUrl" in body) payload.faviconUrl = faviconUrl;
   if (breathingLogoUrl || "breathingLogoUrl" in body) payload.breathingLogoUrl = breathingLogoUrl;
@@ -62,6 +73,7 @@ export async function POST(req: Request) {
     updatedAt: new Date().toISOString()
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidateTag("auth-visual-url", "max");
   return NextResponse.json({ ok: true });
 }
 

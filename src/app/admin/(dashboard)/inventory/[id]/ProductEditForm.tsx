@@ -9,6 +9,7 @@ import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/adm
 import { ProductVariantRows } from "@/components/admin/ProductVariantRows";
 import type { ProductRow, ProductVariantRow } from "@/lib/db/app-types";
 import { getProductTotalStock } from "@/lib/product-variants";
+import { suggestSearchKeywords } from "@/lib/search-query";
 import { updateProduct } from "../actions";
 
 type ProductWithRelations = ProductRow & {
@@ -58,6 +59,8 @@ type EditSnapshot = {
   featuredCouponIds: string;
   sizeChartImageUrl: string;
   showSizeChart: string;
+  searchKeywords: string;
+  searchSynonyms: string;
 };
 
 function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
@@ -100,7 +103,9 @@ function snapshotFromProduct(product: ProductWithRelations): EditSnapshot {
     ),
     featuredCouponIds: JSON.stringify(product.featuredCoupons.map((f) => f.couponId)),
     sizeChartImageUrl: (product.sizeChartImageUrl ?? "").trim(),
-    showSizeChart: product.showSizeChart === false ? "false" : "true"
+    showSizeChart: product.showSizeChart === false ? "false" : "true",
+    searchKeywords: (product.searchKeywords ?? "").trim(),
+    searchSynonyms: (product.searchSynonyms ?? "").trim()
   };
 }
 
@@ -158,7 +163,9 @@ function snapshotFromFormData(formData: FormData, base: EditSnapshot): EditSnaps
     variantsJson: get("variantsJson"),
     featuredCouponIds: get("featuredCouponIds"),
     sizeChartImageUrl: get("sizeChartImageUrl"),
-    showSizeChart: get("showSizeChart")
+    showSizeChart: get("showSizeChart"),
+    searchKeywords: get("searchKeywords"),
+    searchSynonyms: get("searchSynonyms")
   };
 }
 
@@ -286,6 +293,52 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
         defaultUrl={present.sizeChartImageUrl}
         defaultShow={present.showSizeChart !== "false"}
       />
+
+      <div
+        key={`${formVersion}-search-${present.searchKeywords}-${present.searchSynonyms}`}
+        className="sm:col-span-2 space-y-2 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-zinc-700">Search keywords</label>
+          <button
+            type="button"
+            className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+            onClick={() => {
+              const form = formRef.current;
+              if (!form) return;
+              const fd = new FormData(form);
+              const text = suggestSearchKeywords({
+                name: String(fd.get("name") ?? ""),
+                category: String(fd.get("category") ?? ""),
+                occasion: String(fd.get("occasion") ?? ""),
+                tags: String(fd.get("tags") ?? "")
+              });
+              const el = form.elements.namedItem("searchKeywords") as HTMLTextAreaElement | null;
+              if (el) {
+                el.value = text;
+                el.dispatchEvent(new Event("input", { bubbles: true }));
+              }
+            }}
+          >
+            Suggest keywords
+          </button>
+        </div>
+        <textarea
+          name="searchKeywords"
+          rows={2}
+          defaultValue={present.searchKeywords}
+          placeholder="Comma-separated: extra tokens for search indexing"
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs"
+        />
+        <label className="text-xs font-semibold text-zinc-600">Search synonyms</label>
+        <textarea
+          name="searchSynonyms"
+          rows={2}
+          defaultValue={present.searchSynonyms}
+          placeholder="Comma-separated alternate spellings customers may type"
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs"
+        />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" name="name" defaultValue={present.name} required />

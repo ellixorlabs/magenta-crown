@@ -23,6 +23,17 @@ const supabasePublicImage = new StaleWhileRevalidate({
   ]
 });
 
+const homepageBannerImages = new StaleWhileRevalidate({
+  cacheName: "homepage-banner-images",
+  plugins: [
+    new ExpirationPlugin({
+      maxEntries: 48,
+      maxAgeSeconds: 365 * 24 * 60 * 60,
+      maxAgeFrom: "last-used"
+    })
+  ]
+});
+
 const publicGetApi = new StaleWhileRevalidate({
   cacheName: "public-get-apis",
   plugins: [
@@ -43,6 +54,14 @@ const runtimeCaching = [
         pathname.startsWith("/api/checkout") ||
         pathname.startsWith("/api/payments/")),
     handler: sensitiveApi
+  },
+  {
+    matcher: ({ url, request }: { url: URL; request: Request }) =>
+      request.method === "GET" &&
+      (url.hostname.endsWith(".supabase.co") || url.hostname.endsWith(".supabase.in")) &&
+      url.pathname.includes("/storage/v1/object/public") &&
+      url.pathname.includes("/homepage/banners/"),
+    handler: homepageBannerImages
   },
   {
     matcher: ({ url, request }: { url: URL; request: Request }) =>

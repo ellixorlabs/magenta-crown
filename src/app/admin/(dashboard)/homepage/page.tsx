@@ -1,32 +1,49 @@
-import { redirect } from "next/navigation";
-import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
+import { clearCache } from "@/lib/cache";
+import { migrateLegacyPromoBannersIfNeeded } from "@/lib/home-page-banner";
+import type { HomePageBannerRow } from "@/lib/home-page-banner";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePagePayload } from "@/lib/get-home-page-config";
+import { HOMEPAGE_BUNDLE_CACHE_KEY } from "@/services/home/home.service";
 import { HomePageEditorClient } from "./HomePageEditorClient";
 
 export const metadata = { title: "Homepage layout | Admin" };
 
 export default async function AdminHomepageLayoutPage() {
-  const session = await requireStaff("/admin/homepage");
-  if (!isAdminRole(session.user.role)) {
-    redirect("/admin");
+  await requireMerchAdmin("/admin/homepage");
+  const supabase = getSupabaseServiceRoleClient();
+  let layoutPayload = await getHomePagePayload();
+  try {
+    const migrated = await migrateLegacyPromoBannersIfNeeded(supabase, layoutPayload);
+    if (migrated !== layoutPayload) {
+      clearCache(HOMEPAGE_BUNDLE_CACHE_KEY);
+    }
+    layoutPayload = migrated;
+  } catch (e) {
+    console.error("[admin homepage migrate]", e);
   }
 
-  const supabase = getSupabaseServiceRoleClient();
-  const [payload, catalogProducts, configMeta] = await Promise.all([
-    getHomePagePayload(),
+  const [catalogProducts, configMeta, bannerQuery] = await Promise.all([
     (supabase.from("Product") as any)
       .select("id,name,slug,category")
       .order("name", { ascending: true }),
     (supabase.from("HomePageConfig") as any)
       .select("updatedAt")
       .eq("id", "default")
-      .maybeSingle()
+      .maybeSingle(),
+    (supabase.from("HomePageBanner") as any)
+      .select("*")
+      .order("sortOrder", { ascending: true })
+      .order("id", { ascending: true })
   ]);
   if (catalogProducts.error) throw new Error(catalogProducts.error.message);
   if (configMeta.error) throw new Error(configMeta.error.message);
+  if (bannerQuery.error) throw new Error(bannerQuery.error.message);
 
-  const editorKey = configMeta.data?.updatedAt ? new Date(configMeta.data.updatedAt).toISOString() : "default";
+  const bannerRows = (bannerQuery.data ?? []) as HomePageBannerRow[];
+  const bannerFingerprint =
+    bannerRows.map((r) => `${r.id}:${r.updatedAt ?? ""}`).join("|") || "none";
+  const editorKey = `${configMeta.data?.updatedAt ? new Date(configMeta.data.updatedAt).toISOString() : "default"}|${bannerFingerprint}`;
 
   return (
     <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
@@ -38,7 +55,12 @@ export default async function AdminHomepageLayoutPage() {
           below to show or hide it on the home page.
         </p>
       </div>
-      <HomePageEditorClient key={editorKey} initial={payload} catalogProducts={catalogProducts.data ?? []} />
+      <HomePageEditorClient
+        key={editorKey}
+        initial={layoutPayload}
+        catalogProducts={catalogProducts.data ?? []}
+        initialBanners={bannerRows}
+      />
     </div>
   );
 }

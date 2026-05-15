@@ -1,23 +1,21 @@
-import { redirect } from "next/navigation";
 import { AuthVisualSettingsForm } from "@/components/admin/AuthVisualSettingsForm";
 import { AuthMaintenanceTools } from "@/components/admin/AuthMaintenanceTools";
 import { BrandAssetsSettingsForm } from "@/components/admin/BrandAssetsSettingsForm";
-import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { requireFullAdmin } from "@/lib/admin-auth";
 import { getBrandSettings } from "@/lib/brand-settings";
+import { parseHomePageConfigPayload } from "@/lib/home-page-config-payload";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export const metadata = { title: "Others | Admin" };
 
 export default async function AdminOthersPage() {
-  const session = await requireStaff("/admin/others");
-  if (!isAdminRole(session.user.role)) redirect("/admin");
-
+  await requireFullAdmin("/admin/others");
   const supabase = getSupabaseServiceRoleClient();
   const { data: row } = await (supabase.from("HomePageConfig") as any)
     .select("payload")
     .eq("id", "default")
     .maybeSingle();
-  const payload = (row?.payload ?? {}) as Record<string, unknown>;
+  const payload = parseHomePageConfigPayload(row?.payload);
   const authVisualImageUrl =
     typeof payload.authVisualImageUrl === "string" ? payload.authVisualImageUrl : "";
   const globalSizeChartImageUrl =
@@ -38,7 +36,11 @@ export default async function AdminOthersPage() {
       </div>
 
       <AuthVisualSettingsForm initialUrl={authVisualImageUrl} initialSizeChartUrl={globalSizeChartImageUrl} />
-      <BrandAssetsSettingsForm initial={brandSettings} initialShareTemplate={shareMessageTemplate} />
+      <BrandAssetsSettingsForm
+        initial={brandSettings}
+        initialShareTemplate={shareMessageTemplate}
+        authVisualImageUrl={authVisualImageUrl}
+      />
       <AuthMaintenanceTools />
     </div>
   );

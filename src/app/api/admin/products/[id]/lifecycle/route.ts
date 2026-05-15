@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { canCreateOrDeleteProducts, canManageInventory } from "@/lib/admin-auth";
 import { clearCacheByPrefix } from "@/lib/cache";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function POST(req: Request, ctx: Ctx) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || (!isAdminRole(role) && role !== "SUB_ADMIN")) {
+  if (!session?.user?.id || !canManageInventory(role)) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
@@ -18,6 +18,10 @@ export async function POST(req: Request, ctx: Ctx) {
   const action = body.action;
   if (!id || (action !== "archive" && action !== "delete")) {
     return NextResponse.json({ success: false, message: "Invalid request." }, { status: 400 });
+  }
+
+  if (action === "delete" && !canCreateOrDeleteProducts(role)) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
   const supabase = getSupabaseServiceRoleClient();

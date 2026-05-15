@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { isFullAdmin } from "@/lib/admin-auth";
 import { cleanupUnverifiedUsersOlderThan24h } from "@/lib/auth-cleanup";
 
 export async function POST() {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || !isAdminRole(role)) {
+  if (!session?.user?.id || !isFullAdmin(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

@@ -50,21 +50,23 @@ const HeroBgImage = memo(function HeroBgImage({
   onError
 }: HeroBgImageProps) {
   return (
-    <Image
-      src={imageSrc}
-      alt=""
-      fill
-      unoptimized={HERO_BG_UNOPTIMIZED}
-      className="object-cover"
-      style={{ objectPosition: slide.imagePosition }}
-      sizes="100vw"
-      quality={STORE_IMAGE_QUALITY}
-      priority={priority}
-      loading={loading}
-      fetchPriority={fetchPriority}
-      onLoad={onLoad}
-      onError={onError}
-    />
+    <div className="relative z-0 h-full w-full min-h-0">
+      <Image
+        src={imageSrc}
+        alt=""
+        fill
+        unoptimized={HERO_BG_UNOPTIMIZED}
+        className="object-cover"
+        style={{ objectPosition: slide.imagePosition }}
+        sizes="100vw"
+        quality={STORE_IMAGE_QUALITY}
+        priority={priority}
+        loading={loading}
+        fetchPriority={fetchPriority}
+        onLoad={onLoad}
+        onError={onError}
+      />
+    </div>
   );
 });
 
@@ -381,7 +383,7 @@ export function LandingHero({ slides, transition }: Props) {
       <div className="pointer-events-none absolute inset-0 min-h-0 overflow-hidden">
         {fadeOutActive ? (
           <>
-            <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 z-0 min-h-0">
               <HeroBgImage
                 slide={list[incomingIndex! % len]}
                 imageSrc={slideBg(list[incomingIndex! % len])}
@@ -392,7 +394,7 @@ export function LandingHero({ slides, transition }: Props) {
               />
             </div>
             <div
-              className="absolute inset-0 z-[1]"
+              className="absolute inset-0 z-[1] min-h-0"
               style={{
                 opacity: wipeOpen ? 0 : 1,
                 transition: wipeOpen ? `opacity ${TRANS_MS}ms ${TRANS_EASE}` : "none",
@@ -412,7 +414,7 @@ export function LandingHero({ slides, transition }: Props) {
           </>
         ) : (
           <>
-            <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 z-0 min-h-0">
               <HeroBgImage
                 slide={list[displayIndex % len]}
                 imageSrc={slideBg(list[displayIndex % len])}

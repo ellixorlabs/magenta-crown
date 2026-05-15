@@ -1,9 +1,13 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
+import { isStorefrontStaff } from "@/lib/admin-permissions";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { EmptyState } from "@/components/empty/EmptyState";
 import { getShopFilterOptionsCached } from "@/lib/site/shop-filter-options-cache";
 import { firstString, parseShopSearchParams } from "@/lib/shop-query";
+import { relatedCategoriesForSearchQuery } from "@/lib/search-query";
+import { shopCategoryHref } from "@/lib/shop-category-url";
 import { ShopFilterSheetProvider } from "@/components/shop/ShopFilterSheetProvider";
 import { ShopFilterDesktopSidebar } from "@/components/shop/ShopFilterDesktopSidebar";
 import { ShopToolbar } from "@/components/shop/ShopToolbar";
@@ -42,12 +46,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   const session = await auth();
   const wishlistPromise = (async () => {
-    if (
-      session?.user?.id &&
-      session.user.role !== "ADMIN" &&
-      session.user.role !== "SUB_ADMIN" &&
-      session.user.role !== "TECH_SUPPORT"
-    ) {
+    if (session?.user?.id && !isStorefrontStaff(session.user.role)) {
       const supabase = getSupabaseServiceRoleClient();
       const { data: links, error } = await (supabase.from("_UserWishlist") as any)
         .select("A")
@@ -75,6 +74,10 @@ export default async function SearchPage({ searchParams }: PageProps) {
         : `${total.toLocaleString("en-IN")} Results found for “${q}”`;
 
   const shopBg = "bg-mc-cream";
+  const relatedCats =
+    q.length > 0 && products.length === 0
+      ? relatedCategoriesForSearchQuery(q, filterOptions.categories ?? [])
+      : [];
 
   return (
     <ShopFilterSheetProvider
@@ -113,18 +116,42 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
           <div className="order-1 min-w-0 flex-1 lg:order-2">
             {products.length === 0 ? (
-              <EmptyState
-                title={q ? `No matches for “${q}”` : "Start typing in search"}
-                description={
-                  q
-                    ? "Try a shorter keyword, browse categories, or clear filters."
-                    : "Use the search icon in the header to find products, or browse the full collection."
-                }
-                actionHref="/shop"
-                actionLabel="View all products"
-                secondaryHref="/"
-                secondaryLabel="Back to home"
-              />
+              <div className="space-y-6">
+                {q ? (
+                  <p className="text-center text-sm text-mc-ink/80">
+                    Results for <span className="font-semibold text-mc-ink">“{q}”</span>
+                  </p>
+                ) : null}
+                <EmptyState
+                  title={q ? `No matches for “${q}”` : "Start typing in search"}
+                  description={
+                    q
+                      ? "No exact products found for that phrase. Try another spelling, browse suggested collections below, or clear filters."
+                      : "Use the search icon in the header to find products, or browse the full collection."
+                  }
+                  actionHref="/shop"
+                  actionLabel="View all products"
+                  secondaryHref="/"
+                  secondaryLabel="Back to home"
+                />
+                {relatedCats.length > 0 ? (
+                  <div className="rounded-2xl border border-mc-ink/10 bg-white/80 px-4 py-5 text-left shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mc-ink/60">Suggested collections</p>
+                    <ul className="mt-3 flex flex-wrap gap-2">
+                      {relatedCats.map((c) => (
+                        <li key={c}>
+                          <Link
+                            href={`${shopCategoryHref(c)}?page=1`}
+                            className="inline-flex rounded-full border border-mc-ink/15 bg-mc-cream/90 px-3 py-1.5 text-sm font-medium text-mc-ink transition hover:border-mc-ink/30"
+                          >
+                            {c}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <ShopCatalogProducts
                 basePath="/search"

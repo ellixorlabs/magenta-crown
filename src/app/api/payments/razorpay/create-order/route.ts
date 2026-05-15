@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizePublicOrderRef } from "@/lib/order-public-ref";
-import { getRazorpayConfig } from "@/lib/razorpay";
+import { createRazorpayOrderRest, getRazorpayConfig } from "@/lib/razorpay";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-
-type RazorpayOrderResponse = {
-  id: string;
-  amount: number;
-  currency: string;
-};
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sign in required." }, { status: 401 });
     }
 
-    const { keyId, keySecret, enabled } = getRazorpayConfig();
+    const { keyId, enabled } = getRazorpayConfig();
     if (!enabled) {
       return NextResponse.json({ error: "Razorpay is not configured on server." }, { status: 500 });
     }
@@ -42,31 +36,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order already paid." }, { status: 409 });
     }
 
-    const amount = Math.max(1, Math.round(order.totalAmount * 100));
-    const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
-    const rpRes = await fetch("https://api.razorpay.com/v1/orders", {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        amount,
-        currency: "INR",
-        receipt: ref.replace(/^#/, "").slice(0, 40),
-        notes: { publicOrderRef: ref }
-      })
+    const amountPaise = Math.round(order.totalAmount * 100);
+    if (!Number.isFinite(amountPaise) || amountPaise < 100) {
+      return NextResponse.json(
+        { error: "Order total is below the minimum for online payment (₹1.00)." },
+        { status: 400 }
+      );
+    }
+
+    const result = await createRazorpayOrderRest({
+      amountPaise,
+      currency: "INR",
+      receipt: ref.replace(/^#/, "").slice(0, 40),
+      notes: { publicOrderRef: ref }
     });
-    const rpData = (await rpRes.json()) as RazorpayOrderResponse & { error?: { description?: string } };
-    if (!rpRes.ok || !rpData.id) {
-      return NextResponse.json({ error: "Could not create Razorpay order." }, { status: 502 });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     return NextResponse.json({
       keyId,
-      razorpayOrderId: rpData.id,
-      amount: rpData.amount,
-      currency: rpData.currency
+      razorpayOrderId: result.id,
+      amount: result.amount,
+      currency: result.currency
     });
   } catch {
     console.error("[payments] razorpay order init failed");

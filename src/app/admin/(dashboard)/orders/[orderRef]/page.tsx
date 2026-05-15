@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireFullAdmin } from "@/lib/admin-auth";
 import { normalizePublicOrderRef } from "@/lib/order-public-ref";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { NextAppPageParams } from "@/types/next-app";
@@ -34,6 +35,7 @@ type PageProps = NextAppPageParams<{ orderRef: string }>;
 
 export default async function AdminOrderDetailPage({ params }: PageProps) {
   const { orderRef: orderRefParam } = await params;
+  await requireFullAdmin(`/admin/orders/${orderRefParam}`);
   const ref = normalizePublicOrderRef(orderRefParam);
   if (!ref) {
     notFound();

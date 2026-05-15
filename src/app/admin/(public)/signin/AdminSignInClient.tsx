@@ -11,6 +11,7 @@ import {
   rememberOAuthReturnForCallback
 } from "@/lib/auth-callback";
 import { isStandaloneDisplayMode } from "@/lib/pwa-standalone";
+import { isStaffRole } from "@/lib/admin-permissions";
 import { getSupabaseClientOrNull } from "@/lib/supabase-client";
 
 function Inner() {
@@ -58,8 +59,7 @@ function Inner() {
       const me = (await (await fetch("/api/auth/session", { cache: "no-store" })).json()) as {
         session?: { user?: { role?: string } } | null;
       };
-      const staff =
-        me.session?.user?.role === "ADMIN" || me.session?.user?.role === "SUB_ADMIN";
+      const staff = isStaffRole(me.session?.user?.role);
       if (!staff) {
         await supabase.auth.signOut();
         await fetch("/api/auth/session", { method: "DELETE" });

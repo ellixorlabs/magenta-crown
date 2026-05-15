@@ -133,6 +133,16 @@ export type DynamicProductSection = {
   viewAllHref?: string;
 };
 
+/**
+ * Placement-only section: banner creatives live in `HomePageBanner` (DB), not in this JSON.
+ * Payload `version` remains 2; shape revision: v2 includes `bannerCarousel` (2026-05).
+ */
+export type BannerCarouselSectionConfig = BaseSection & {
+  type: "bannerCarousel";
+  order: number;
+};
+
+/** @deprecated Stored only in legacy JSON until `migrateLegacyPromoBannersIfNeeded` runs. */
 export type DynamicPromoBannerSection = {
   id: string;
   type: "promoBanner";
@@ -149,7 +159,7 @@ export type DynamicPromoBannerSection = {
   gradientTo: string;
 };
 
-export type DynamicHomeSection = DynamicProductSection | DynamicPromoBannerSection;
+export type DynamicHomeSection = DynamicProductSection | BannerCarouselSectionConfig | DynamicPromoBannerSection;
 
 export type HomeCategoryCircleItem = {
   id: string;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { NextAppPageParams } from "@/types/next-app";
-import { requireStaff } from "@/lib/admin-auth";
+import { requireFullAdmin } from "@/lib/admin-auth";
 
 export const metadata = { title: "Customer | Admin" };
 
@@ -13,8 +13,8 @@ function money(n: number) {
 }
 
 export default async function AdminUserDetailPage({ params }: PageProps) {
-  await requireStaff("/admin/users");
   const { id } = await params;
+  await requireFullAdmin(`/admin/users/${id}`);
 
   const supabase = getSupabaseServiceRoleClient();
   const { data: user, error } = await (supabase.from("User") as any)

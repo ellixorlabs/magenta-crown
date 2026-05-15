@@ -22,15 +22,17 @@ export function SocialGallerySection({ eyebrow, title, subtitle, images }: Props
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {images.map((src, i) => (
-            <div key={`${src}-${i}`} className="relative aspect-square overflow-hidden rounded-2xl">
-              <Image
-                src={src}
-                alt={`Gallery ${i + 1}`}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 50vw, 25vw"
-                unoptimized
-              />
+            <div key={`${src}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-2xl">
+              <div className="relative h-full w-full min-h-0">
+                <Image
+                  src={src}
+                  alt={`Gallery ${i + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  unoptimized
+                />
+              </div>
             </div>
           ))}
         </div>

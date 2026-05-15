@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { normalizeAdminImageUrl } from "@/lib/admin-image-url";
 import { normColorKey, normPart } from "@/lib/product-variants";
 import { randomId } from "@/lib/random-id";
-import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { canCreateOrDeleteProducts, canManageInventory, requireStaff } from "@/lib/admin-auth";
 import { clearCacheByPrefix } from "@/lib/cache";
 import { normalizeProductStatus } from "@/lib/product-status";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -150,6 +150,8 @@ type ProductInsertPayload = {
   videoUrls: string[];
   sizeChartImageUrl: string | null;
   showSizeChart: boolean;
+  searchKeywords: string | null;
+  searchSynonyms: string | null;
   prepaidOfferText: string | null;
   pricingFootnote: string | null;
   codEnabled: boolean;
@@ -211,8 +213,8 @@ async function createProductRecord(payload: ProductInsertPayload): Promise<Creat
 
 export async function createProduct(formData: FormData): Promise<CreateProductResult> {
   const session = await requireStaff("/admin/inventory");
-  if (!isAdminRole(session.user.role)) {
-    return { success: false, message: "Only admins can create products." };
+  if (!canCreateOrDeleteProducts(session.user.role)) {
+    return { success: false, message: "Only merchandising admins can create products." };
   }
   try {
     const name = String(formData.get("name") ?? "").trim();
@@ -245,6 +247,10 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
     const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
     const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
+    const searchKeywordsRaw = String(formData.get("searchKeywords") ?? "").trim();
+    const searchSynonymsRaw = String(formData.get("searchSynonyms") ?? "").trim();
+    const searchKeywords = searchKeywordsRaw || null;
+    const searchSynonyms = searchSynonymsRaw || null;
 
     const supabase = getSupabaseServiceRoleClient();
     const slug = await buildUniqueProductSlug(supabase, slugRaw || name);
@@ -270,6 +276,8 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
       sizeChartImageUrl,
       showSizeChart,
+      searchKeywords,
+      searchSynonyms,
       status: normalizeProductStatus(formData.get("status")),
       ...commerce
     });
@@ -333,7 +341,7 @@ export async function createProductAction(
 
 export async function updateProduct(formData: FormData) {
   const session = await requireStaff("/admin/inventory");
-  if (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN") {
+  if (!canManageInventory(session.user.role)) {
     throw new Error("Only staff can edit product details");
   }
 
@@ -380,6 +388,10 @@ export async function updateProduct(formData: FormData) {
   const sizeChartRaw = String(formData.get("sizeChartImageUrl") ?? "").trim();
   const sizeChartImageUrl = sizeChartRaw ? normalizeAdminImageUrl(sizeChartRaw) : null;
   const showSizeChart = String(formData.get("showSizeChart") ?? "true") !== "false";
+  const searchKeywordsRaw = String(formData.get("searchKeywords") ?? "").trim();
+  const searchSynonymsRaw = String(formData.get("searchSynonyms") ?? "").trim();
+  const searchKeywords = searchKeywordsRaw || null;
+  const searchSynonyms = searchSynonymsRaw || null;
 
   // Temporary non-atomic multi-step update while Prisma transactions are being removed.
   const productUpdate = await (supabase
@@ -406,6 +418,8 @@ export async function updateProduct(formData: FormData) {
       videoUrls: parseList(String(formData.get("videoUrls") ?? "")),
       sizeChartImageUrl,
       showSizeChart,
+      searchKeywords,
+      searchSynonyms,
       status: normalizeProductStatus(formData.get("status")),
       ...commerce
     })
@@ -466,8 +480,8 @@ export async function deleteProduct(
   productId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireStaff("/admin/inventory");
-  if (!isAdminRole(session.user.role)) {
-    return { ok: false, message: "Only admins can delete products." };
+  if (!canCreateOrDeleteProducts(session.user.role)) {
+    return { ok: false, message: "Only merchandising admins can delete products." };
   }
   const supabase = getSupabaseServiceRoleClient();
   const orderLines = await supabase

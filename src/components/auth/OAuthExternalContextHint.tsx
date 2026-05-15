@@ -26,7 +26,7 @@ function clearPending() {
 }
 
 type Props = {
-  variant?: "immersive" | "admin";
+  variant?: "immersive" | "admin" | "authLight";
 };
 
 export function OAuthExternalContextHint({ variant = "immersive" }: Props) {
@@ -74,12 +74,16 @@ export function OAuthExternalContextHint({ variant = "immersive" }: Props) {
   const box =
     variant === "admin"
       ? "rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-left text-sm leading-relaxed text-white/90"
-      : "rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-left text-sm leading-relaxed text-white/90 md:border-zinc-200 md:bg-amber-50 md:text-zinc-800";
+      : variant === "authLight"
+        ? "rounded-2xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-left text-sm leading-relaxed text-zinc-800"
+        : "rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-left text-sm leading-relaxed text-white/90 md:border-zinc-200 md:bg-amber-50 md:text-zinc-800";
 
   const dismissClass =
     variant === "admin"
       ? "mt-3 text-xs font-semibold uppercase tracking-wide text-[#C5A059] underline underline-offset-2"
-      : "mt-3 text-xs font-semibold uppercase tracking-wide text-mc-gold underline underline-offset-2 md:text-crown-900";
+      : variant === "authLight"
+        ? "mt-3 text-xs font-semibold uppercase tracking-wide text-crown-900 underline underline-offset-2"
+        : "mt-3 text-xs font-semibold uppercase tracking-wide text-mc-gold underline underline-offset-2 md:text-crown-900";
 
   return (
     <div className={box} role="status">

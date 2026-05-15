@@ -1,28 +1,29 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import type { ProductRow } from "@/lib/db/app-types";
 import { createDefaultHomePagePayloadV2 } from "@/lib/home-page-defaults";
 import type {
+  BannerCarouselSectionConfig,
   DynamicHomeSection,
-  DynamicPromoBannerSection,
   DynamicProductSection,
   HomeCategoryCircleItem,
   HomePagePayloadV2,
   SectionTransition
 } from "@/lib/home-page-types";
+import type { HomePageBannerRow } from "@/lib/home-page-banner";
 import { randomId } from "@/lib/random-id";
-import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 import { saveHomePageConfig } from "./actions";
+import { HomePageBannerBlocksEditor } from "./HomePageBannerBlocksEditor";
 
 export type CatalogProduct = Pick<ProductRow, "id" | "name" | "slug" | "category">;
 
 type Props = {
   initial: HomePagePayloadV2;
   catalogProducts: CatalogProduct[];
+  initialBanners: HomePageBannerRow[];
 };
 
 function normalizeOrders(sections: DynamicHomeSection[]): DynamicHomeSection[] {
@@ -30,27 +31,7 @@ function normalizeOrders(sections: DynamicHomeSection[]): DynamicHomeSection[] {
   return sorted.map((s, i) => ({ ...s, order: i }));
 }
 
-const HomePromoVariantSlot = memo(function HomePromoVariantSlot({ url, alt }: { url: string; alt: string }) {
-  const trimmed = url.trim();
-  return (
-    <div className="relative h-40 w-full overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50/40">
-      {trimmed ? (
-        <Image
-          src={trimmed}
-          alt={alt}
-          fill
-          sizes="(max-width: 640px) 100vw, 360px"
-          quality={68}
-          loading="lazy"
-          className="object-cover object-center"
-          unoptimized={adminRemoteImageSrcUnoptimized(trimmed)}
-        />
-      ) : null}
-    </div>
-  );
-});
-
-export function HomePageV2Editor({ initial, catalogProducts }: Props) {
+export function HomePageV2Editor({ initial, catalogProducts, initialBanners }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -64,7 +45,11 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [draggingCircleId, setDraggingCircleId] = useState<string | null>(null);
   const [uploadingCircleId, setUploadingCircleId] = useState<string | null>(null);
-  const [uploadingPromoSectionId, setUploadingPromoSectionId] = useState<string | null>(null);
+
+  const hasBannerCarousel = useMemo(
+    () => payload.sections.some((s) => s.type === "bannerCarousel"),
+    [payload.sections]
+  );
 
   const filteredCatalog = useMemo(() => {
     const q = productFilter.trim().toLowerCase();
@@ -126,22 +111,15 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
-  const addPromoBannerSection = useCallback(() => {
+  const addBannerCarouselSection = useCallback(() => {
     setPayload((p) => {
-      const next: DynamicPromoBannerSection = {
+      if (p.sections.some((s) => s.type === "bannerCarousel")) return p;
+      const next: BannerCarouselSectionConfig = {
         id: `section-${randomId()}`,
-        type: "promoBanner",
+        type: "bannerCarousel",
         enabled: true,
         order: p.sections.length,
-        transition: "fade",
-        title: "Shop by the Occasion",
-        subtitle: "Elegance crafted for your special moments.",
-        imageUrl: "",
-        imageUrlMobile: "",
-        imageUrlDesktop: "",
-        targetHref: "/shop",
-        gradientFrom: "#7f1530",
-        gradientTo: "#a0173c"
+        transition: "fade"
       };
       const sections = normalizeOrders([...p.sections, next]);
       setOpenSectionId(next.id);
@@ -199,7 +177,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
       ...p,
       sections: p.sections.map((s) => {
         if (s.id !== sectionId) return s;
-        if (s.type === "promoBanner") return s;
+        if (s.type === "promoBanner" || s.type === "bannerCarousel") return s;
         if (checked) {
           if (s.productIds.includes(productId)) return s;
           return { ...s, productIds: [...s.productIds, productId] };
@@ -267,37 +245,6 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
     });
   }, []);
 
-  const uploadPromoImage = useCallback(async (sectionId: string, variant: "mobile" | "desktop", file: File | null) => {
-    if (!file) return;
-    setError(null);
-    setUploadingPromoSectionId(sectionId);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("sectionId", sectionId);
-      const res = await fetch("/api/admin/homepage-image", { method: "POST", body: form });
-      const json = (await res.json()) as { url?: string; error?: string };
-      const url = typeof json.url === "string" ? json.url.trim() : "";
-      if (!res.ok || !url) {
-        throw new Error(json.error || "Upload failed.");
-      }
-      const nextPayload: HomePagePayloadV2 = {
-        ...payload,
-        sections: payload.sections.map((s): DynamicHomeSection => {
-          if (s.id !== sectionId || s.type !== "promoBanner") return s;
-          return variant === "mobile" ? { ...s, imageUrlMobile: url } : { ...s, imageUrlDesktop: url };
-        })
-      };
-      setPayload(nextPayload);
-      await saveHomePageConfig(nextPayload);
-      router.replace(pathname || "/admin/homepage");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploadingPromoSectionId(null);
-    }
-  }, [payload, router]);
-
   const uploadCircleImage = useCallback(async (circleId: string, file: File | null) => {
     if (!file) return;
     setError(null);
@@ -338,6 +285,8 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
           Show hero on homepage
         </label>
       </div>
+
+      <HomePageBannerBlocksEditor initialBanners={initialBanners} />
 
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -522,10 +471,11 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
         </button>
         <button
           type="button"
-          onClick={addPromoBannerSection}
-          className="rounded-full border border-crown-300 bg-white px-5 py-2.5 text-sm font-semibold text-crown-900 hover:bg-crown-50"
+          onClick={addBannerCarouselSection}
+          disabled={hasBannerCarousel}
+          className="rounded-full border border-crown-300 bg-white px-5 py-2.5 text-sm font-semibold text-crown-900 hover:bg-crown-50 disabled:cursor-not-allowed disabled:opacity-45"
         >
-          + Add promo banner
+          + Add banner carousel
         </button>
         <button
           type="button"
@@ -585,11 +535,28 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                 onClick={() => setOpenSectionId((o) => (o === section.id ? null : section.id))}
               >
                 <p className="break-words text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  {section.type === "carousel" ? "Carousel" : section.type === "grid" ? "Grid" : "Promo banner"} · order {section.order}
+                  {section.type === "carousel"
+                    ? "Carousel"
+                    : section.type === "grid"
+                      ? "Grid"
+                      : section.type === "bannerCarousel"
+                        ? "Banner carousel"
+                        : "Promo (legacy)"}{" "}
+                  · order {section.order}
                 </p>
-                <p className="break-words font-medium text-zinc-900">{section.title}</p>
+                <p className="break-words font-medium text-zinc-900">
+                  {section.type === "bannerCarousel"
+                    ? "Placement slot"
+                    : section.type === "promoBanner"
+                      ? section.title
+                      : section.title}
+                </p>
                 <p className="text-xs text-zinc-500">
-                  {section.type === "promoBanner" ? "Image banner" : `${section.productIds.length} product(s)`}
+                  {section.type === "promoBanner"
+                    ? "Legacy JSON — open Homepage after deploy to auto-migrate to DB banners"
+                    : section.type === "bannerCarousel"
+                      ? "Banners managed in Homepage banners above"
+                      : `${section.productIds.length} product(s)`}
                 </p>
               </button>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-l border-zinc-200 px-3 py-2">
@@ -614,27 +581,34 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
 
             {openSectionId === section.id && (
               <div className="min-w-0 space-y-5 overflow-x-hidden p-5">
-                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                  <label className="block min-w-0 text-xs font-semibold text-zinc-600">
-                    Title
-                    <input
-                      type="text"
-                      className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                      value={section.title}
-                      onChange={(e) => patchSection(section.id, { title: e.target.value })}
-                    />
-                  </label>
-                  <label className="block min-w-0 text-xs font-semibold text-zinc-600">
-                    Eyebrow
-                    <input
-                      type="text"
-                      className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                      value={section.type === "promoBanner" ? "" : section.eyebrow}
-                      onChange={(e) => patchSection(section.id, { eyebrow: e.target.value } as Partial<DynamicHomeSection>)}
-                      disabled={section.type === "promoBanner"}
-                    />
-                  </label>
-                </div>
+                {section.type === "carousel" || section.type === "grid" ? (
+                  <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                    <label className="block min-w-0 text-xs font-semibold text-zinc-600">
+                      Title
+                      <input
+                        type="text"
+                        className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                        value={section.title}
+                        onChange={(e) => patchSection(section.id, { title: e.target.value })}
+                      />
+                    </label>
+                    <label className="block min-w-0 text-xs font-semibold text-zinc-600">
+                      Eyebrow
+                      <input
+                        type="text"
+                        className="mt-1 box-border min-h-10 w-full min-w-0 max-w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                        value={section.eyebrow}
+                        onChange={(e) => patchSection(section.id, { eyebrow: e.target.value } as Partial<DynamicHomeSection>)}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed text-zinc-600">
+                    {section.type === "bannerCarousel"
+                      ? "This section only controls where the banner carousel appears. Add slides, copy, and links in Homepage banners above."
+                      : "Legacy promo section: reload this admin page to migrate creatives into Homepage banners, or delete this section after adding a Banner carousel block."}
+                  </p>
+                )}
                 <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                   <label className="block min-w-0 text-xs font-semibold text-zinc-600">
                     Layout
@@ -647,28 +621,22 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                           ...p,
                           sections: p.sections.map((s) => {
                             if (s.id !== section.id || s.type === nextType) return s;
-                            if (nextType === "promoBanner") {
+                            if (nextType === "bannerCarousel") {
+                              if (p.sections.some((x) => x.id !== s.id && x.type === "bannerCarousel")) return s;
                               return {
                                 id: s.id,
-                                type: "promoBanner",
+                                type: "bannerCarousel",
                                 enabled: s.enabled,
                                 order: s.order,
-                                transition: s.transition,
-                                title: s.title,
-                                subtitle: "",
-                                imageUrl: "",
-                                imageUrlMobile: "",
-                                imageUrlDesktop: "",
-                                targetHref: s.type === "promoBanner" ? s.targetHref : s.viewAllHref || "/shop",
-                                gradientFrom: "#7f1530",
-                                gradientTo: "#a0173c"
-                              } as DynamicPromoBannerSection;
+                                transition: s.transition
+                              } satisfies BannerCarouselSectionConfig;
                             }
-                            const prevViewAll = s.type === "promoBanner" ? s.targetHref : s.viewAllHref;
+                            const prevViewAll =
+                              s.type === "promoBanner" ? s.targetHref : s.type === "bannerCarousel" ? "/shop" : s.viewAllHref;
                             return {
                               id: s.id,
-                              title: s.title,
-                              eyebrow: s.type === "promoBanner" ? "Shop" : s.eyebrow,
+                              title: s.type === "bannerCarousel" ? "Curated section" : s.title,
+                              eyebrow: s.type === "bannerCarousel" || s.type === "promoBanner" ? "Shop" : s.eyebrow,
                               type: nextType,
                               enabled: s.enabled,
                               order: s.order,
@@ -682,7 +650,13 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     >
                       <option value="carousel">Carousel</option>
                       <option value="grid">Grid</option>
-                      <option value="promoBanner">Promo banner</option>
+                      <option
+                        value="bannerCarousel"
+                        disabled={hasBannerCarousel && section.type !== "bannerCarousel"}
+                      >
+                        Banner carousel
+                      </option>
+                      {section.type === "promoBanner" ? <option value="promoBanner">Promo (legacy)</option> : null}
                     </select>
                   </label>
                   <label className="block min-w-0 text-xs font-semibold text-zinc-600">
@@ -701,58 +675,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                     </select>
                   </label>
                 </div>
-                {section.type === "promoBanner" ? (
-                  <div className="space-y-4">
-                    <label className="block text-xs font-semibold text-zinc-600">
-                      Subtitle
-                      <input
-                        type="text"
-                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                        value={section.subtitle ?? ""}
-                        onChange={(e) => patchSection(section.id, { subtitle: e.target.value })}
-                      />
-                    </label>
-                    <label className="block text-xs font-semibold text-zinc-600">
-                      Redirect URL
-                      <input
-                        type="text"
-                        className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono text-xs"
-                        placeholder="/shop?occasion=Wedding"
-                        value={section.targetHref}
-                        onChange={(e) => patchSection(section.id, { targetHref: e.target.value })}
-                      />
-                    </label>
-                    <label className="block text-xs font-semibold text-zinc-600">
-                      Upload mobile portrait image
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png"
-                        className="mt-1 block w-full text-sm"
-                        onChange={(e) => void uploadPromoImage(section.id, "mobile", e.target.files?.[0] ?? null)}
-                      />
-                    </label>
-                    <label className="block text-xs font-semibold text-zinc-600">
-                      Upload desktop landscape image
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png"
-                        className="mt-1 block w-full text-sm"
-                        onChange={(e) => void uploadPromoImage(section.id, "desktop", e.target.files?.[0] ?? null)}
-                      />
-                    </label>
-                    {uploadingPromoSectionId === section.id ? (
-                      <p className="text-xs text-zinc-500">Uploading banner image...</p>
-                    ) : null}
-                    {section.imageUrlMobile || section.imageUrlDesktop ? (
-                      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2">
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <HomePromoVariantSlot url={section.imageUrlMobile ?? ""} alt="Promo mobile preview" />
-                          <HomePromoVariantSlot url={section.imageUrlDesktop ?? ""} alt="Promo desktop preview" />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
+                {section.type === "carousel" || section.type === "grid" ? (
                   <>
                     <label className="block text-xs font-semibold text-zinc-600">
                       View all link (optional)
@@ -801,7 +724,7 @@ export function HomePageV2Editor({ initial, catalogProducts }: Props) {
                       </div>
                     </div>
                   </>
-                )}
+                ) : null}
               </div>
             )}
           </li>

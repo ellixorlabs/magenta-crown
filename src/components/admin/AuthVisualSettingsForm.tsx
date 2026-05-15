@@ -47,7 +47,11 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
       const res = await fetch("/api/admin/others/auth-visual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: url.trim(), globalSizeChartImageUrl: sizeChartUrl.trim() })
+        body: JSON.stringify({
+          imageUrl: url.trim(),
+          authVisualImageUrl: url.trim(),
+          globalSizeChartImageUrl: sizeChartUrl.trim()
+        })
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) {

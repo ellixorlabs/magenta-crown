@@ -1,8 +1,10 @@
 "use client";
 
 import { Download, Share, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { InstallButton } from "@/components/pwa/InstallButton";
+import { useHeroReady } from "@/context/HeroReadyContext";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -55,11 +57,20 @@ function rememberDismiss() {
 /**
  * Mobile-only install UX: Chromium `beforeinstallprompt` + iOS “Add to Home Screen” instructions.
  */
+const NOT_NOW_FILL_MS = 5000;
+
 export function PwaInstallPrompt() {
+  const pathname = usePathname();
+  const { heroReady } = useHeroReady();
+  /** Matches `GlobalPageLoader`: home breathing shell only blocks until hero (or fallback) signals ready. */
+  const breathingLoaderDone = pathname !== "/" || heroReady;
+
   const [mounted, setMounted] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [iosOpen, setIosOpen] = useState(false);
+  const [notNowFillActive, setNotNowFillActive] = useState(false);
+  const [notNowReady, setNotNowReady] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -68,6 +79,22 @@ export function PwaInstallPrompt() {
   useEffect(() => {
     if (wasDismissedRecently()) setDismissed(true);
   }, []);
+
+  const showChromiumInstall = Boolean(deferred);
+  const showIosHint = isIOS() && !showChromiumInstall;
+  const promptVisible = showChromiumInstall || showIosHint;
+
+  useEffect(() => {
+    if (!mounted || dismissed || !promptVisible || !breathingLoaderDone) return;
+    setNotNowFillActive(false);
+    setNotNowReady(false);
+    const fillStart = window.setTimeout(() => setNotNowFillActive(true), 30);
+    const fillDone = window.setTimeout(() => setNotNowReady(true), 30 + NOT_NOW_FILL_MS);
+    return () => {
+      window.clearTimeout(fillStart);
+      window.clearTimeout(fillDone);
+    };
+  }, [mounted, dismissed, promptVisible, breathingLoaderDone]);
 
   useEffect(() => {
     const onBip = (e: Event) => {
@@ -96,10 +123,7 @@ export function PwaInstallPrompt() {
   if (dismissed) return null;
   if (!isMobileLike()) return null;
 
-  const showChromiumInstall = Boolean(deferred);
-  const showIosHint = isIOS() && !showChromiumInstall;
-
-  if (!showChromiumInstall && !showIosHint) return null;
+  if (!promptVisible) return null;
 
   return (
     <>
@@ -147,10 +171,27 @@ export function PwaInstallPrompt() {
             )}
             <button
               type="button"
-              onClick={onDismiss}
-              className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+              onClick={() => {
+                if (notNowReady) onDismiss();
+              }}
+              aria-disabled={!notNowReady}
+              aria-busy={!notNowReady}
+              title={notNowReady ? undefined : "Please read the message — dismiss unlocks in a few seconds."}
+              className={`relative min-w-[6.5rem] overflow-hidden rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium transition ${
+                notNowReady
+                  ? "cursor-pointer text-zinc-800 hover:bg-zinc-50"
+                  : "pointer-events-none cursor-wait text-zinc-800/90"
+              }`}
             >
-              Not now
+              <span
+                aria-hidden
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-zinc-200/95 to-zinc-100/90 transition-[width] ease-linear"
+                style={{
+                  width: notNowFillActive ? "100%" : "0%",
+                  transitionDuration: `${NOT_NOW_FILL_MS}ms`
+                }}
+              />
+              <span className="relative z-[1]">Not now</span>
             </button>
           </div>
           {showIosHint && iosOpen ? (

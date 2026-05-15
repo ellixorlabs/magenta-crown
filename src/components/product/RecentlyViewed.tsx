@@ -40,8 +40,10 @@ export function RecentlyViewed({ excludeId }: { excludeId: string }) {
               href={`/product/${p.slug}`}
               className="w-40 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-white"
             >
-              <div className="relative h-44">
-                <Image src={img} alt={p.name} fill className="object-cover" sizes="160px" />
+              <div className="relative h-44 w-full min-h-0">
+                <div className="relative h-full w-full min-h-0">
+                  <Image src={img} alt={p.name} fill className="object-cover" sizes="160px" />
+                </div>
               </div>
               <div className="p-2">
                 <p className="line-clamp-2 text-xs font-medium text-zinc-900">{p.name}</p>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { canManageInventory } from "@/lib/admin-auth";
 import { randomId } from "@/lib/random-id";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -26,7 +26,7 @@ async function compressImageToWebp(input: Buffer): Promise<Buffer> {
 export async function POST(req: Request) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || (!isAdminRole(role) && role !== "SUB_ADMIN")) {
+  if (!session?.user?.id || !canManageInventory(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

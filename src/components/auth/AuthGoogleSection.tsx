@@ -55,7 +55,7 @@ export function AuthGoogleSection({ callbackUrl, buttonClassName, compactMobile 
         disabled={loading}
         className={
           buttonClassName ??
-          `mt-8 flex w-full items-center justify-center gap-2 rounded-full border-2 border-zinc-300 bg-white py-3 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 ${compactMobile ? "md:gap-2" : ""}`
+          "mt-0 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
         }
         onClick={async () => {
           setError(null);
@@ -101,8 +101,8 @@ export function AuthGoogleSection({ callbackUrl, buttonClassName, compactMobile 
           "Redirecting..."
         ) : compactMobile ? (
           <>
-            <GoogleGlyph className="h-7 w-7 md:h-5 md:w-5" />
-            <span className="hidden md:inline">Continue with Google</span>
+            <GoogleGlyph className="h-5 w-5" />
+            <span className="inline">Continue with Google</span>
           </>
         ) : (
           <>
@@ -112,7 +112,7 @@ export function AuthGoogleSection({ callbackUrl, buttonClassName, compactMobile 
         )}
       </button>
       {error ? (
-        <p className="mt-2 text-center text-xs text-red-200 md:text-red-600">{error}</p>
+        <p className="mt-2 text-center text-xs text-red-600">{error}</p>
       ) : null}
     </>
   );

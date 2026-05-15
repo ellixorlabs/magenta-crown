@@ -10,9 +10,17 @@ type Props = {
   productName: string;
   hasOrders: boolean;
   status: ProductStatus;
+  /** ADMIN + SUB_ADMIN; TECH_SUPPORT can edit/archive but not hard-delete. */
+  allowProductDelete?: boolean;
 };
 
-export function AdminInventoryActions({ productId, productName, hasOrders, status }: Props) {
+export function AdminInventoryActions({
+  productId,
+  productName,
+  hasOrders,
+  status,
+  allowProductDelete = true
+}: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<"archive" | "delete" | null>(null);
   const [modal, setModal] = useState<null | "archive" | "cannotDelete" | "confirmDelete">(null);
@@ -58,7 +66,7 @@ export function AdminInventoryActions({ productId, productName, hasOrders, statu
         </button>
         <button
           type="button"
-          disabled={busy != null}
+          disabled={busy != null || !allowProductDelete}
           onClick={() => setModal(canDelete ? "confirmDelete" : "cannotDelete")}
           className="inline-flex items-center rounded-lg border border-rose-300 bg-gradient-to-b from-rose-50 to-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:from-rose-100 hover:to-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
         >

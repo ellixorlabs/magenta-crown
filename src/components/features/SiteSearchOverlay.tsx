@@ -6,12 +6,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  memo,
   type KeyboardEvent
 } from "react";
 import { createPortal } from "react-dom";
@@ -61,6 +61,28 @@ type Props = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+let suggestionsSearchAbort: AbortController | null = null;
+
+async function fetchJsonAbortable(url: string) {
+  suggestionsSearchAbort?.abort();
+  const ctrl = new AbortController();
+  suggestionsSearchAbort = ctrl;
+  const res = await fetch(url, { signal: ctrl.signal });
+  if (!res.ok) throw new Error(String(res.status));
+  return res.json();
+}
+
+async function fetchSuggestionsJson(url: string) {
+  try {
+    return await fetchJsonAbortable(url);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: true as const, products: [], categories: [], styles: [], collections: [] };
+    }
+    throw e;
+  }
+}
+
 function parseListPayload(json: unknown): { items: ListItem[] } | null {
   if (typeof json !== "object" || json === null) return null;
   const data = (json as { data?: unknown }).data;
@@ -71,7 +93,9 @@ function parseListPayload(json: unknown): { items: ListItem[] } | null {
   for (const row of items) {
     if (typeof row !== "object" || row === null) continue;
     const r = row as Record<string, unknown>;
-    if (typeof r.id !== "string" || typeof r.slug !== "string" || typeof r.name !== "string") continue;
+    if (typeof r.slug !== "string" || typeof r.name !== "string") continue;
+    if (typeof r.id !== "string" && typeof r.id !== "number") continue;
+    const id = String(r.id);
     const mrp = typeof r.mrp === "number" ? r.mrp : Number(r.mrp);
     const salePrice = typeof r.salePrice === "number" ? r.salePrice : Number(r.salePrice);
     const discountPercent =
@@ -79,7 +103,7 @@ function parseListPayload(json: unknown): { items: ListItem[] } | null {
     if (!Number.isFinite(mrp) || !Number.isFinite(salePrice)) continue;
     const urls = Array.isArray(r.imageUrls) ? r.imageUrls.filter((u): u is string => typeof u === "string") : [];
     out.push({
-      id: r.id,
+      id,
       slug: r.slug,
       name: r.name,
       mrp,
@@ -90,6 +114,56 @@ function parseListPayload(json: unknown): { items: ListItem[] } | null {
     });
   }
   return { items: out };
+}
+
+function parseSearchSuggestions(json: unknown): {
+  products: ListItem[];
+  categories: string[];
+  styles: string[];
+  collections: { label: string; href: string }[];
+} | null {
+  if (typeof json !== "object" || json === null) return null;
+  const o = json as Record<string, unknown>;
+  if (o.ok !== true) return null;
+  const categories = Array.isArray(o.categories) ? o.categories.filter((c): c is string => typeof c === "string") : [];
+  const styles = Array.isArray(o.styles) ? o.styles.filter((c): c is string => typeof c === "string") : [];
+  const collections = Array.isArray(o.collections)
+    ? o.collections
+        .filter((x): x is { label: string; href: string } => {
+          if (typeof x !== "object" || x === null) return false;
+          const r = x as Record<string, unknown>;
+          return typeof r.label === "string" && typeof r.href === "string";
+        })
+        .map((x) => ({ label: x.label, href: x.href }))
+    : [];
+  const rawP = o.products;
+  const products: ListItem[] = [];
+  if (Array.isArray(rawP)) {
+    for (const row of rawP) {
+      if (typeof row !== "object" || row === null) continue;
+      const r = row as Record<string, unknown>;
+      if (typeof r.slug !== "string" || typeof r.name !== "string") continue;
+      if (typeof r.id !== "string" && typeof r.id !== "number") continue;
+      const id = String(r.id);
+      const mrp = typeof r.mrp === "number" ? r.mrp : Number(r.mrp);
+      const salePrice = typeof r.salePrice === "number" ? r.salePrice : Number(r.salePrice);
+      const discountPercent =
+        typeof r.discountPercent === "number" ? r.discountPercent : Number(r.discountPercent);
+      if (!Number.isFinite(mrp) || !Number.isFinite(salePrice)) continue;
+      const urls = Array.isArray(r.imageUrls) ? r.imageUrls.filter((u): u is string => typeof u === "string") : [];
+      products.push({
+        id,
+        slug: r.slug,
+        name: r.name,
+        mrp,
+        salePrice,
+        discountPercent: Number.isFinite(discountPercent) ? discountPercent : 0,
+        primaryImageUrl: typeof r.primaryImageUrl === "string" ? r.primaryImageUrl : null,
+        imageUrls: urls.slice(0, 4)
+      });
+    }
+  }
+  return { products, categories, styles, collections };
 }
 
 function readRecent(): string[] {
@@ -106,7 +180,7 @@ function readRecent(): string[] {
 
 function writeRecent(q: string) {
   const t = q.trim();
-  if (t.length < 2) return;
+  if (t.length < 1) return;
   const prev = readRecent().filter((x) => x.toLowerCase() !== t.toLowerCase());
   const next = [t, ...prev].slice(0, RECENT_MAX);
   localStorage.setItem(RECENT_KEY, JSON.stringify(next));
@@ -116,7 +190,7 @@ function HighlightedTitle({ text, needle }: { text: string; needle: string }) {
   const tokens = needle
     .trim()
     .split(/\s+/)
-    .filter((t) => t.length > 1)
+    .filter((t) => t.length >= 1)
     .slice(0, 6);
   if (!tokens.length) return <span>{text}</span>;
   const esc = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
@@ -137,7 +211,7 @@ function HighlightedTitle({ text, needle }: { text: string; needle: string }) {
   );
 }
 
-function SearchProductCard({
+function SearchProductCardInner({
   item,
   query,
   onPick,
@@ -159,30 +233,38 @@ function SearchProductCard({
         selected ? "border-crown-800 ring-2 ring-crown-700/30" : "border-zinc-200/90 hover:border-zinc-300"
       }`}
     >
-      <div className="relative aspect-[3/4] w-full bg-zinc-100">
+      <div className="relative aspect-[3/4] w-full min-h-0 bg-zinc-100">
         {item.primaryImageUrl ? (
           <>
-            <Image
-              src={item.primaryImageUrl}
-              alt=""
-              fill
-              className={`object-cover transition duration-500 group-hover:scale-[1.03] ${
-                hoverUrl && hoverUrl !== item.primaryImageUrl ? "group-hover:opacity-0" : ""
-              }`}
-              sizes="(max-width: 768px) 46vw, 220px"
-              loading="lazy"
-              unoptimized
-            />
+            <div className="absolute inset-0 min-h-0">
+              <div className="relative h-full w-full min-h-0">
+                <Image
+                  src={item.primaryImageUrl}
+                  alt=""
+                  fill
+                  className={`object-cover transition duration-500 group-hover:scale-[1.03] ${
+                    hoverUrl && hoverUrl !== item.primaryImageUrl ? "group-hover:opacity-0" : ""
+                  }`}
+                  sizes="(max-width: 768px) 46vw, 220px"
+                  loading="lazy"
+                  unoptimized
+                />
+              </div>
+            </div>
             {hoverUrl && hoverUrl !== item.primaryImageUrl ? (
-              <Image
-                src={hoverUrl}
-                alt=""
-                fill
-                className="object-cover opacity-0 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
-                sizes="(max-width: 768px) 46vw, 220px"
-                loading="lazy"
-                unoptimized
-              />
+              <div className="absolute inset-0 min-h-0">
+                <div className="relative h-full w-full min-h-0">
+                  <Image
+                    src={hoverUrl}
+                    alt=""
+                    fill
+                    className="object-cover opacity-0 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                    sizes="(max-width: 768px) 46vw, 220px"
+                    loading="lazy"
+                    unoptimized
+                  />
+                </div>
+              </div>
             ) : null}
           </>
         ) : (
@@ -209,15 +291,27 @@ function SearchProductCard({
   );
 }
 
+const SearchProductCard = memo(SearchProductCardInner);
+
 export function SiteSearchOverlay({ open, onClose }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
   const [topPx, setTopPx] = useState(88);
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query.trim());
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    return () => window.clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    if (open) return;
+    suggestionsSearchAbort?.abort();
+  }, [open]);
 
   const { data: catJson } = useSWR(open ? "/api/public/shop-categories" : null, fetcher, {
     revalidateOnFocus: false,
@@ -229,31 +323,45 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
     return raw.filter((c): c is string => typeof c === "string" && c.trim().length > 0);
   }, [catJson]);
 
-  const qForFetch = deferredQuery.length ? deferredQuery : "";
-  const { data: latestJson, isLoading: loadingLatest } = useSWR(open && !qForFetch ? "/api/products/latest?limit=8" : null, fetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60_000
-  });
-  const { data: searchJson, isLoading: loadingSearch } = useSWR(
-    open && qForFetch
-      ? `/api/products?q=${encodeURIComponent(qForFetch)}&page=1&pageSize=12&sort=newest`
-      : null,
+  const qForFetch = debouncedQuery;
+  const fetchAutocomplete = open && qForFetch.length >= 1;
+
+  const { data: latestJson, isLoading: loadingLatest } = useSWR(
+    open && !fetchAutocomplete ? "/api/products/latest?limit=8" : null,
     fetcher,
-    { keepPreviousData: true, revalidateOnFocus: false, dedupingInterval: 5_000 }
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60_000
+    }
+  );
+  const { data: sugJson, isLoading: loadingSug } = useSWR(
+    fetchAutocomplete ? `/api/public/search-suggestions?q=${encodeURIComponent(qForFetch)}` : null,
+    fetchSuggestionsJson,
+    { revalidateOnFocus: false, dedupingInterval: 4000, shouldRetryOnError: false }
   );
 
+  const suggestions = useMemo(() => parseSearchSuggestions(sugJson), [sugJson]);
+
   const topProducts = useMemo(() => parseListPayload(latestJson)?.items ?? [], [latestJson]);
-  const searchResults = useMemo(() => parseListPayload(searchJson)?.items ?? [], [searchJson]);
-  const gridItems = qForFetch ? searchResults : topProducts;
-  const gridLoading = qForFetch ? loadingSearch : loadingLatest;
+  const autocompleteItems = useMemo(() => suggestions?.products ?? [], [suggestions]);
+  const gridItems = fetchAutocomplete ? autocompleteItems : topProducts;
+  const gridLoading = fetchAutocomplete ? loadingSug : loadingLatest;
+  const typingPending = query.trim().length > 0 && query.trim() !== debouncedQuery;
 
   const categorySuggestions = useMemo(() => {
-    const t = deferredQuery.trim().toLowerCase();
+    const t = debouncedQuery.trim().toLowerCase();
     if (!t || !categories.length) return [] as string[];
     return categories
       .filter((c) => c.toLowerCase().includes(t) || t.includes(c.toLowerCase().slice(0, Math.max(3, t.length))))
       .slice(0, 8);
-  }, [categories, deferredQuery]);
+  }, [categories, debouncedQuery]);
+
+  const displayCategories = useMemo(
+    () => (suggestions?.categories?.length ? suggestions.categories : categorySuggestions),
+    [suggestions, categorySuggestions]
+  );
+  const displayStyles = suggestions?.styles ?? [];
+  const displayCollections = suggestions?.collections ?? [];
 
   useEffect(() => {
     setMounted(true);
@@ -302,13 +410,14 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) {
       setQuery("");
+      setDebouncedQuery("");
       setActiveIndex(-1);
     }
   }, [open]);
 
   useEffect(() => {
     setActiveIndex(-1);
-  }, [deferredQuery, gridItems.length]);
+  }, [debouncedQuery, gridItems.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -399,7 +508,9 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                     autoComplete="off"
                     className="w-full rounded-2xl border border-zinc-200/90 bg-zinc-50/90 py-3.5 pl-11 pr-12 text-base text-zinc-900 outline-none ring-crown-800/0 transition placeholder:text-zinc-400 focus:border-crown-800/40 focus:bg-white focus:ring-2 focus:ring-crown-800/15 sm:text-[15px]"
                   />
-                  {(loadingSearch && qForFetch) || (!qForFetch && loadingLatest) ? (
+                  {(typingPending && query.trim().length >= 1) ||
+                  (fetchAutocomplete && loadingSug) ||
+                  (open && !fetchAutocomplete && loadingLatest) ? (
                     <Loader2 className="pointer-events-none absolute right-14 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
                   ) : null}
                 </div>
@@ -416,11 +527,36 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
 
             <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden px-4 py-5 sm:px-8 lg:flex-row">
               <aside className="flex w-full shrink-0 flex-col gap-6 overflow-y-auto border-zinc-200/80 lg:w-[280px] lg:border-r lg:pr-6">
-                {categorySuggestions.length ? (
+                {suggestions?.products?.length ? (
+                  <section>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Products</p>
+                    <ul className="mt-2 space-y-1">
+                      {suggestions.products.map((p) => (
+                        <li key={p.id}>
+                          <Link
+                            href={`/product/${p.slug}`}
+                            className="line-clamp-2 block rounded-xl px-2 py-2 text-left text-sm font-medium text-zinc-800 transition hover:bg-white/80"
+                            onClick={() => {
+                              writeRecent(qForFetch || p.name);
+                              onClose();
+                            }}
+                          >
+                            <span className="mr-2 rounded-md bg-amber-100/90 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-zinc-800">
+                              PDP
+                            </span>
+                            {p.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {displayCategories.length ? (
                   <section>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Categories</p>
                     <ul className="mt-2 space-y-1">
-                      {categorySuggestions.map((c) => (
+                      {displayCategories.map((c) => (
                         <li key={c}>
                           <button
                             type="button"
@@ -436,6 +572,52 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                             </span>
                             {c}
                           </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {displayStyles.length ? (
+                  <section>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Styles</p>
+                    <ul className="mt-2 space-y-1">
+                      {displayStyles.map((s) => (
+                        <li key={s}>
+                          <button
+                            type="button"
+                            className="w-full rounded-xl px-2 py-2 text-left text-sm font-medium text-zinc-800 transition hover:bg-white/80"
+                            onClick={() => {
+                              setQuery(s);
+                            }}
+                          >
+                            <span className="mr-2 rounded-md bg-violet-100/90 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-violet-900">
+                              Style
+                            </span>
+                            {s}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {displayCollections.length ? (
+                  <section>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Collections</p>
+                    <ul className="mt-2 space-y-1">
+                      {displayCollections.map((col) => (
+                        <li key={col.href}>
+                          <Link
+                            href={col.href}
+                            className="block rounded-xl px-2 py-2 text-sm font-medium text-zinc-800 transition hover:bg-white/80"
+                            onClick={() => {
+                              writeRecent(col.label);
+                              onClose();
+                            }}
+                          >
+                            {col.label}
+                          </Link>
                         </li>
                       ))}
                     </ul>
@@ -479,7 +661,7 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                 ) : null}
 
                 <section>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Collections</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Shortcuts</p>
                   <ul className="mt-2 space-y-1">
                     {POPULAR.map((l) => (
                       <li key={l.href}>
@@ -499,11 +681,11 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
               <section className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                    {qForFetch ? "Live results" : "Top products"}
+                    {fetchAutocomplete ? "Suggestions" : "Top products"}
                   </h2>
-                  {qForFetch ? (
+                  {fetchAutocomplete ? (
                     <span className="text-xs text-zinc-500">
-                      {gridLoading ? "Searching…" : `${gridItems.length} shown`}
+                      {gridLoading ? "Loading…" : `${gridItems.length} shown`}
                     </span>
                   ) : null}
                 </div>
@@ -522,17 +704,25 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                     </div>
                   ) : gridItems.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-zinc-200/90 bg-white/60 px-4 py-10 text-center text-sm text-zinc-600">
-                      {qForFetch ? (
-                        <>
-                          0 results for <span className="font-semibold text-zinc-900">“{qForFetch}”</span>. Try a
-                          different keyword or{" "}
-                          <button type="button" className="font-semibold text-crown-900 underline" onClick={() => setQuery("")}>
-                            clear
-                          </button>
-                          .
-                        </>
+                      {fetchAutocomplete ? (
+                        debouncedQuery.length >= 2 ? (
+                          <>
+                            No quick matches for <span className="font-semibold text-zinc-900">“{debouncedQuery}”</span>.
+                            Try another spelling or{" "}
+                            <button type="button" className="font-semibold text-crown-900 underline" onClick={() => setQuery("")}>
+                              clear
+                            </button>{" "}
+                            — full ranked results on{" "}
+                            <Link href={`/search?q=${encodeURIComponent(debouncedQuery)}&page=1`} className="font-semibold text-crown-900 underline" onClick={onClose}>
+                              search page
+                            </Link>
+                            .
+                          </>
+                        ) : (
+                          "Keep typing for more matches — or use trending / recent on the left."
+                        )
                       ) : (
-                        "Start typing to see live matches."
+                        "Start typing to see suggestions."
                       )}
                     </p>
                   ) : (
@@ -541,7 +731,7 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                         <SearchProductCard
                           key={item.id}
                           item={item}
-                          query={deferredQuery}
+                          query={debouncedQuery}
                           selected={activeIndex === idx}
                           onPick={() => {
                             writeRecent(query.trim() || item.name);

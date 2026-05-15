@@ -23,6 +23,7 @@ import { useCart } from "@/context/CartContext";
 import { useHeroReady } from "@/context/HeroReadyContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlistCount } from "@/context/WishlistContext";
+import { isStaffRole } from "@/lib/admin-permissions";
 
 type BrandMarkProps = {
   brandMarkMode?: "text" | "image";
@@ -377,7 +378,7 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
   const isLight = !immersive && !pathname?.startsWith("/auth");
 
   const isAuthed = isAuthenticated;
-  const isStaff = role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
+  const isStaff = isStaffRole(role);
 
   const megaEntries = Object.entries(mega);
 

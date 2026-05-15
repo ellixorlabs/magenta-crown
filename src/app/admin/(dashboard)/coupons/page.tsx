@@ -1,16 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createCoupon, deleteCouponForm, toggleCouponForm } from "./actions";
 
 export default async function AdminCouponsPage() {
-  const session = await auth();
-  if (!isAdminRole(session?.user?.role)) {
-    redirect("/admin");
-  }
-
+  await requireMerchAdmin("/admin/coupons");
   const supabase = getSupabaseServiceRoleClient();
   const { data: coupons, error } = await (supabase.from("Coupon") as any).select("*").order("code", { ascending: true });
   if (error) throw new Error(error.message);

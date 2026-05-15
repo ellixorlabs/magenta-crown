@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { isStaffRole } from "@/lib/admin-permissions";
 import { normVariantPart } from "@/lib/cart-line";
 import { normalizeCouponCode, isValidCouponCodeFormat } from "@/lib/coupon";
 import {
@@ -30,10 +31,6 @@ type VariantRow = {
   stock: number;
   isActive: boolean;
 };
-
-function isStaffRole(role: string | undefined) {
-  return role === "ADMIN" || role === "SUB_ADMIN" || role === "TECH_SUPPORT";
-}
 
 function isPlaceholderSingleSku(v: { color: string; size: string }) {
   const c = normVariantPart(v.color);

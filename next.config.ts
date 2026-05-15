@@ -67,12 +67,18 @@ const nextConfig = {
     // that block hotlinking (or resolve via NAT64/private ranges) still render.
     unoptimized: process.env.NODE_ENV === "development",
     dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
+    qualities: [75, 80],
     /**
      * Supabase Storage serves original objects from `*.supabase.co/.../object/public/...`.
      * URL query transforms (`?width=`) need the Storage image transformation add-on (Pro).
      * Storefront uses `next/image` for responsive derivatives instead.
      */
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ppxamrrvfijwttnpwzlr.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
       {
         protocol: "https",
         hostname: "**.supabase.co",
@@ -116,10 +122,6 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "i.imageupload.app",
-      },
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
       },
     ],
   },

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { isAdminRole, requireStaff } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
 import { parseHeroTransition } from "@/lib/hero-transition";
 import { DEFAULT_HERO_SLIDES } from "@/lib/hero-public";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -11,11 +10,7 @@ import { HeroTransitionForm } from "./HeroTransitionForm";
 export const metadata = { title: "Hero slides | Admin" };
 
 export default async function AdminHeroPage() {
-  const session = await requireStaff("/admin/hero");
-  if (!isAdminRole(session.user.role)) {
-    redirect("/admin");
-  }
-
+  await requireMerchAdmin("/admin/hero");
   const supabase = getSupabaseServiceRoleClient();
   const [slides, heroSettings] = await Promise.all([
     (supabase.from("HeroSlide") as any).select("*").order("sortOrder", { ascending: true }),

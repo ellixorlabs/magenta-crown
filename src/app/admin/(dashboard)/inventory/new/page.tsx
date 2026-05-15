@@ -1,18 +1,12 @@
 import Link from "next/link";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
-import { redirect } from "next/navigation";
+import { requireMerchAdmin } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { ProductCreateFormClient } from "../ProductCreateFormClient";
 
 export const metadata = { title: "Add product | Admin" };
 
 export default async function AdminNewProductPage() {
-  const session = await auth();
-  if (!isAdminRole(session?.user?.role)) {
-    redirect("/admin/inventory");
-  }
-
+  await requireMerchAdmin("/admin/inventory/new");
   const supabase = getSupabaseServiceRoleClient();
   const [couponsRes, attributeRowsRes] = await Promise.all([
     (supabase.from("Coupon") as any)

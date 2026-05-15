@@ -3,6 +3,10 @@
 export const PRODUCT_GRID_COMFORT =
   "grid auto-rows-fr grid-cols-2 items-stretch gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6 xl:gap-[1.05rem] 2xl:grid-cols-7 2xl:gap-4";
 
+/** Tighter homepage-only grid: 2–6 columns, reduced gutters. */
+export const PRODUCT_GRID_HOME_LUXURY =
+  "grid auto-rows-fr grid-cols-2 items-stretch gap-2 sm:grid-cols-3 sm:gap-2.5 md:grid-cols-4 md:gap-2.5 lg:grid-cols-5 lg:gap-3 xl:grid-cols-6 xl:gap-3";
+
 export const PRODUCT_GRID_COZY =
   "grid auto-rows-fr grid-cols-2 items-stretch gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 md:gap-4 lg:grid-cols-4 lg:gap-4 xl:grid-cols-5 xl:gap-[1.05rem] 2xl:grid-cols-5 2xl:gap-4";
 

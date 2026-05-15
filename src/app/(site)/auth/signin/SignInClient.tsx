@@ -206,162 +206,184 @@ function Inner() {
   if (!sessionChecked) {
     return (
       <AuthImmersiveShell minimalChrome>
-        <div className="mx-auto w-full max-w-[560px] p-1 text-center md:p-2">
-          <p className="text-sm text-white/80 md:text-zinc-500">Checking your session…</p>
+        <div className="mx-auto flex w-full min-w-0 max-w-[560px] flex-col justify-center px-6 py-16 lg:px-10">
+          <p className="text-center text-sm text-neutral-500">Checking your session…</p>
         </div>
       </AuthImmersiveShell>
     );
   }
 
   const fieldClass =
-    "mt-1.5 w-full rounded-2xl border-0 bg-mc-input px-4 py-3 font-[family-name:var(--font-body)] text-base text-mc-ink placeholder:italic placeholder:text-mc-muted/75 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] outline-none transition focus:ring-2 focus:ring-mc-gold/55 md:border md:border-zinc-200 md:bg-white md:shadow-none md:focus:ring-mc-gold/35 sm:text-sm";
-  const labelClass =
-    "font-mc-heading text-sm font-normal text-white md:text-xs md:font-semibold md:text-zinc-800";
+    "mt-1.5 h-14 w-full rounded-full border border-neutral-300 bg-white px-5 text-base text-zinc-950 placeholder:text-neutral-400 outline-none transition focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900/15 sm:text-sm";
+  const labelClass = "text-sm font-medium text-zinc-800";
+  const btnPrimary =
+    "h-14 w-full rounded-full bg-zinc-900 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
+  const btnSecondary =
+    "h-14 w-full rounded-full border border-neutral-300 bg-white text-sm font-semibold text-zinc-900 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <AuthImmersiveShell mobileAlign="center" minimalChrome>
-      <div className="w-full max-w-[380px] px-1 md:max-w-[560px] md:p-2">
-        <h1 className="text-center font-mc-heading text-2xl font-semibold text-white md:text-3xl md:text-zinc-950">Welcome back</h1>
-        <p className="mt-1 text-center text-sm text-white/75 md:text-zinc-500">Sign in to continue shopping</p>
+      <div className="mx-auto flex w-full min-w-0 max-w-[560px] flex-col gap-5 px-6 py-8 text-left lg:px-10 lg:py-16">
+        <header>
+          <h1 className="font-mc-heading text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl lg:text-5xl">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-base text-neutral-500">Sign in to continue shopping</p>
+        </header>
 
-        <form onSubmit={onSubmit} className="mt-2 space-y-3 md:mt-3.5 md:space-y-2.5">
-          <div>
-            <label className={labelClass}>Email</label>
-            <input
-              type="email"
-              required
-              placeholder="Type here..."
-              className={fieldClass}
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setEmailChecked(false);
-                setEmailExists(false);
-                setPassword("");
-                setMagicMessage(null);
-                setResendMessage(null);
-                setNeedsVerificationResend(false);
-                setError(null);
-              }}
-              autoComplete="email"
-            />
-          </div>
-          {emailChecked && emailExists ? (
-            <>
-              <div>
-                <label className={labelClass}>Password</label>
-                <div className="relative mt-1.5">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    placeholder="Type here..."
-                    className={`${fieldClass} pr-12`}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-2 inline-flex items-center justify-center text-mc-muted hover:text-mc-ink md:text-zinc-500 md:hover:text-zinc-800"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="-mt-1 text-right">
-                <Link
-                  href="/auth/forgot-password"
-                  className="font-mc-heading text-sm italic text-mc-gold underline underline-offset-4 md:text-xs md:not-italic md:font-semibold md:text-crown-800"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            </>
-          ) : null}
-          {error && <p className="text-sm text-red-200 md:text-red-600">{error}</p>}
-          {magicMessage && <p className="text-sm text-emerald-200 md:text-emerald-700">{magicMessage}</p>}
-          {resendMessage && <p className="text-sm text-emerald-200 md:text-emerald-700">{resendMessage}</p>}
-          {needsVerificationResend && (
-            <button
-              type="button"
-              disabled={resendLoading || resendCooldown > 0}
-              onClick={() => {
-                void (async () => {
-                  setResendLoading(true);
+        <form onSubmit={onSubmit} className="flex min-w-0 flex-col">
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass} htmlFor="auth-signin-email">
+                Email
+              </label>
+              <input
+                id="auth-signin-email"
+                type="email"
+                required
+                placeholder="Type here..."
+                className={fieldClass}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailChecked(false);
+                  setEmailExists(false);
+                  setPassword("");
+                  setMagicMessage(null);
                   setResendMessage(null);
+                  setNeedsVerificationResend(false);
                   setError(null);
-                  try {
-                    await resendVerification(email);
-                    setResendMessage("Verification email sent.");
-                    setResendCooldown(30);
-                  } catch {
-                    setError("Could not resend verification email. Please try again.");
-                  } finally {
-                    setResendLoading(false);
-                  }
-                })();
-              }}
-              className="w-full rounded-2xl border border-white/25 bg-white/10 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15 disabled:opacity-50 md:rounded-lg md:border-zinc-300 md:bg-white md:text-zinc-800 md:hover:bg-zinc-50 md:backdrop-blur-none"
-            >
-              {resendLoading
-                ? "Sending verification email…"
-                : resendCooldown > 0
-                  ? `Resend Email (${resendCooldown}s)`
-                  : "Resend Email"}
-            </button>
-          )}
-          {!emailChecked || !emailExists ? (
-            <button
-              type="button"
-              onClick={() => void continueWithEmail()}
-              disabled={checkingEmail}
-              className="mt-1 w-full rounded-2xl bg-mc-gold py-3.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep disabled:opacity-50 md:mt-1.5 md:rounded-lg md:bg-zinc-900 md:py-2.5 md:font-semibold md:text-white md:hover:bg-zinc-800"
-            >
-              {checkingEmail ? "Checking..." : "Continue"}
-            </button>
-          ) : (
-            <>
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-1 w-full rounded-2xl bg-mc-gold py-3.5 text-sm font-bold text-mc-ink shadow-sm transition hover:bg-mc-goldDeep disabled:opacity-50 md:mt-1.5 md:rounded-lg md:bg-zinc-900 md:py-2.5 md:font-semibold md:text-white md:hover:bg-zinc-800"
-              >
-                {loading ? "Signing in…" : "Login"}
-              </button>
+                }}
+                autoComplete="email"
+              />
+            </div>
+            {emailChecked && emailExists ? (
+              <>
+                <div>
+                  <label className={labelClass} htmlFor="auth-signin-password">
+                    Password
+                  </label>
+                  <div className="relative mt-1.5">
+                    <input
+                      id="auth-signin-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="Type here..."
+                      className={`${fieldClass} pr-12`}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-zinc-900"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              </>
+            ) : null}
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {magicMessage ? <p className="text-sm text-emerald-700">{magicMessage}</p> : null}
+            {resendMessage ? <p className="text-sm text-emerald-700">{resendMessage}</p> : null}
+            {needsVerificationResend ? (
               <button
                 type="button"
-                onClick={() => void sendMagicLink()}
-                disabled={magicLoading}
-                className="w-full rounded-2xl border border-white/25 bg-white/10 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15 disabled:opacity-50 md:rounded-lg md:border-zinc-300 md:bg-white md:text-zinc-800 md:hover:bg-zinc-50"
+                disabled={resendLoading || resendCooldown > 0}
+                onClick={() => {
+                  void (async () => {
+                    setResendLoading(true);
+                    setResendMessage(null);
+                    setError(null);
+                    try {
+                      await resendVerification(email);
+                      setResendMessage("Verification email sent.");
+                      setResendCooldown(30);
+                    } catch {
+                      setError("Could not resend verification email. Please try again.");
+                    } finally {
+                      setResendLoading(false);
+                    }
+                  })();
+                }}
+                className={btnSecondary}
               >
-                {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
+                {resendLoading
+                  ? "Sending verification email…"
+                  : resendCooldown > 0
+                    ? `Resend Email (${resendCooldown}s)`
+                    : "Resend Email"}
               </button>
-            </>
-          )}
+            ) : null}
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3">
+            {!emailChecked || !emailExists ? (
+              <button
+                type="button"
+                onClick={() => void continueWithEmail()}
+                disabled={checkingEmail}
+                className={btnPrimary}
+              >
+                {checkingEmail ? "Checking..." : "Continue"}
+              </button>
+            ) : (
+              <>
+                <button type="submit" disabled={loading} className={btnPrimary}>
+                  {loading ? "Signing in…" : "Login"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void sendMagicLink()}
+                  disabled={magicLoading}
+                  className={btnSecondary}
+                >
+                  {magicLoading ? "Sending magic link…" : "Sign in with magic link"}
+                </button>
+              </>
+            )}
+          </div>
         </form>
 
-        <div className="my-5 flex items-center gap-3 md:my-3">
-          <div className="h-px flex-1 bg-white/35 md:bg-zinc-200" />
-          <span className="font-mc-heading text-xs text-white md:text-zinc-500">Or Sign Up with</span>
-          <div className="h-px flex-1 bg-white/35 md:bg-zinc-200" />
-        </div>
-        <div className="mt-2 space-y-3">
-          <OAuthExternalContextHint />
-          <AuthGoogleSection
-            callbackUrl={callbackUrl}
-            compactMobile
-            buttonClassName="mx-auto mt-0 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white shadow-md transition hover:bg-white/95 disabled:cursor-not-allowed disabled:opacity-60 md:mx-0 md:mt-8 md:h-auto md:w-full md:gap-2 md:rounded-full md:border-2 md:border-zinc-300 md:py-3 md:text-sm md:font-semibold md:text-zinc-900"
-          />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-neutral-200" />
+            <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Or continue with</span>
+            <div className="h-px flex-1 bg-neutral-200" />
+          </div>
+          <OAuthExternalContextHint variant="authLight" />
+          <AuthGoogleSection callbackUrl={callbackUrl} />
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium text-white/90 md:mt-3 md:text-zinc-800">
+        <p className="text-center text-xs text-neutral-500">
+          By continuing you agree to our{" "}
+          <Link href="/legal/terms" className="font-medium text-zinc-800 underline underline-offset-2 hover:text-zinc-950">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/legal/privacy" className="font-medium text-zinc-800 underline underline-offset-2 hover:text-zinc-950">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="text-center text-sm text-zinc-800">
           Don&apos;t have an account?{" "}
           <button
             type="button"
             onClick={() => router.push("/auth/signup?callbackUrl=" + encodeURIComponent(callbackUrl))}
-            className="font-mc-heading font-semibold text-mc-gold underline decoration-2 underline-offset-4 md:font-semibold md:text-crown-900"
+            className="font-mc-heading font-semibold text-crown-900 underline decoration-2 underline-offset-4"
           >
             Create one
           </button>

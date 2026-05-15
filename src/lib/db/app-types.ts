@@ -38,6 +38,10 @@ export type ProductRow = {
   imageUrls: string[];
   listImageIndex: number;
   listImagePosition: string;
+  /** Extra tokens indexed for search (comma / newline). */
+  searchKeywords?: string | null;
+  /** Alternate spellings / phrases (comma / newline). */
+  searchSynonyms?: string | null;
   newTagExpiresAt: string | Date | null;
   sizeChartImageUrl: string | null;
   /** When false, PDP hides the size guide even if a chart image URL exists. Omitted = show (DB default true). */

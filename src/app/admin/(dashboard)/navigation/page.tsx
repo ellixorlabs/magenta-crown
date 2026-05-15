@@ -1,16 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/admin-auth";
+import { requireFullAdmin } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createNavLink, deleteNavLinkForm, toggleNavLinkForm } from "./actions";
 
 export default async function AdminNavigationPage() {
-  const session = await auth();
-  if (!isAdminRole(session?.user?.role)) {
-    redirect("/admin");
-  }
-
+  await requireFullAdmin("/admin/navigation");
   const supabase = getSupabaseServiceRoleClient();
   const { data: links, error } = await (supabase.from("HeaderNavLink") as any)
     .select("*")

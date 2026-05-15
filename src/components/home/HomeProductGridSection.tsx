@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { ProductCard } from "@/components/features/ProductCard";
 import type { ProductRow } from "@/lib/db/app-types";
-import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
+import { PRODUCT_GRID_COMFORT, PRODUCT_GRID_HOME_LUXURY } from "@/lib/product-grid-classes";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
 type HomeProductRow = ProductRow & { variants?: { stock: number; isActive: boolean }[] };
@@ -13,6 +13,7 @@ type Props = {
   wishlistIds: Set<string>;
   viewAllHref: string;
   emptyMessage?: string;
+  cardDensity?: "default" | "compact";
 };
 
 export function HomeProductGridSection({
@@ -20,8 +21,10 @@ export function HomeProductGridSection({
   products,
   wishlistIds,
   viewAllHref,
-  emptyMessage = "Add products to see them here."
+  emptyMessage = "Add products to see them here.",
+  cardDensity = "default"
 }: Props) {
+  const gridClass = cardDensity === "compact" ? PRODUCT_GRID_HOME_LUXURY : PRODUCT_GRID_COMFORT;
   return (
     <section className="section-shell max-w-full min-w-0 bg-mc-cream py-8 sm:py-11 lg:py-10">
       <div className="mb-5 flex min-w-0 flex-col gap-2 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4 lg:mb-5">
@@ -50,13 +53,14 @@ export function HomeProductGridSection({
           {emptyMessage}
         </div>
       ) : (
-        <div className={PRODUCT_GRID_COMFORT}>
+        <div className={gridClass}>
           {products.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
               initialWishlisted={wishlistIds.has(product.id)}
               outOfStock={getProductTotalStock(product.variants ?? []) === 0}
+              cardDensity={cardDensity}
             />
           ))}
         </div>
