@@ -7,7 +7,7 @@ import { compressImageFileForUpload } from "@/lib/client-image-compress";
 import type { HomePageBannerRow } from "@/lib/home-page-banner";
 import { createEmptyHomePageBanner } from "@/lib/home-page-banner";
 import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
-import { saveHomePageBanners } from "./actions";
+import { saveHomePageBanners, type SaveHomePageBannersResult } from "./actions";
 
 type UploadMeta = { width: number; height: number; bytes: number };
 
@@ -20,6 +20,7 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
   const [rows, setRows] = useState<HomePageBannerRow[]>(() => normalizeRows(initialBanners));
   const [meta, setMeta] = useState<Record<string, { desktop?: UploadMeta; mobile?: UploadMeta }>>({});
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -30,22 +31,31 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
 
   const persist = useCallback(() => {
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
+      const payload = rows.map((r, i) => ({
+        id: r.id,
+        desktopImageUrl: r.desktopImageUrl.trim(),
+        mobileImageUrl: r.mobileImageUrl.trim(),
+        redirectUrl: r.redirectUrl.trim() || "/shop",
+        title: r.title.trim() || "Banner",
+        sortOrder: i,
+        isVisible: r.isVisible,
+        createdAt: r.createdAt
+      }));
+      console.log("BANNER SAVE START (client)", { rowCount: payload.length, payload });
       try {
-        await saveHomePageBanners(
-          rows.map((r, i) => ({
-            id: r.id,
-            desktopImageUrl: r.desktopImageUrl.trim(),
-            mobileImageUrl: r.mobileImageUrl.trim(),
-            redirectUrl: r.redirectUrl.trim() || "/shop",
-            title: r.title.trim() || "Banner",
-            sortOrder: i,
-            isVisible: r.isVisible,
-            createdAt: r.createdAt
-          }))
-        );
+        const result: SaveHomePageBannersResult = await saveHomePageBanners(payload);
+        console.log("BANNER SAVE CLIENT RESULT", result);
+        if (!result.ok) {
+          setError([result.error, result.detail].filter(Boolean).join(" — "));
+          return;
+        }
+        console.log("DB SAVE OK (client)", result.returnedIds);
+        setSuccess(`Saved ${result.saved} banner block(s).`);
         router.refresh();
       } catch (e) {
+        console.error("BANNER SAVE CLIENT THROW", e instanceof Error ? e.stack : e);
         setError(e instanceof Error ? e.message : "Save failed");
       }
     });
@@ -59,6 +69,7 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
     async (bannerId: string, variant: "desktop" | "mobile", file: File | null) => {
       if (!file) return;
       setError(null);
+      setSuccess(null);
       setUploadingKey(`${bannerId}-${variant}`);
       try {
         const prepared = await compressImageFileForUpload(file, {
@@ -71,6 +82,7 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
         fd.append("bannerVariant", variant);
         const res = await fetch("/api/admin/homepage-image", { method: "POST", body: fd });
         const json = (await res.json()) as { url?: string; error?: string; width?: number; height?: number; bytes?: number };
+        console.log("UPLOAD RESULT (client)", res.status, json);
         if (!res.ok || !json.url) throw new Error(json.error || "Upload failed");
         const url = json.url.trim();
         patchRow(bannerId, variant === "desktop" ? { desktopImageUrl: url } : { mobileImageUrl: url });
@@ -304,6 +316,7 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
         </p>
       )}
 
+      {success ? <p className="mt-3 text-sm text-emerald-700">{success}</p> : null}
       {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
     </div>
   );

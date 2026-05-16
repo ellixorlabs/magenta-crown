@@ -49,6 +49,7 @@ async function encodeBannerVariant(
 }
 
 export async function POST(req: Request) {
+  console.log("HOMEPAGE IMAGE POST start");
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user?.id || !canManageHomepage(role)) {
@@ -61,9 +62,20 @@ export async function POST(req: Request) {
   }
 
   const form = await req.formData();
+  const formKeys: string[] = [];
+  for (const k of form.keys()) formKeys.push(k);
   const file = form.get("file");
   const sectionId = String(form.get("sectionId") ?? "").trim() || "general";
   const scope = String(form.get("scope") ?? "").trim();
+  console.log("HOMEPAGE IMAGE FormData keys", formKeys, {
+    scope,
+    sectionId,
+    bannerVariant: String(form.get("bannerVariant") ?? ""),
+    fileIsFile: file instanceof File,
+    fileName: file instanceof File ? file.name : null,
+    fileSize: file instanceof File ? file.size : null,
+    fileType: file instanceof File ? file.type : null
+  });
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -78,6 +90,7 @@ export async function POST(req: Request) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     const input = Buffer.from(await file.arrayBuffer());
+    console.log("HOMEPAGE IMAGE input bytes", input.length, "bucket", BUCKET);
 
     if (scope === "banner") {
       const variant = String(form.get("bannerVariant") ?? "").trim();
@@ -90,13 +103,19 @@ export async function POST(req: Request) {
       });
       const folder = variant === "desktop" ? "banners/desktop" : "banners/mobile";
       const path = `${folder}/${Date.now()}-${randomId()}.webp`;
+      console.log("UPLOAD RESULT path (before storage)", path, "webpBytes", webp.length);
       const upload = await supabaseAdmin.storage.from(BUCKET).upload(path, webp, {
         contentType: "image/webp",
-        upsert: false,
+        upsert: true,
         cacheControl: BANNER_CACHE_CONTROL
       });
-      if (upload.error) return NextResponse.json({ error: upload.error.message }, { status: 500 });
+      if (upload.error) {
+        console.error("UPLOAD RESULT storage error", upload.error);
+        return NextResponse.json({ error: upload.error.message }, { status: 500 });
+      }
       const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+      const uploadResult = { path, publicUrl: data.publicUrl, width, height, bytes: webp.length };
+      console.log("UPLOAD RESULT", uploadResult);
       return NextResponse.json({
         url: data.publicUrl,
         width,
@@ -113,7 +132,7 @@ export async function POST(req: Request) {
     const path = `${sectionId}/${Date.now()}-${randomId()}.webp`;
     const upload = await supabaseAdmin.storage.from(BUCKET).upload(path, webp, {
       contentType: "image/webp",
-      upsert: false,
+      upsert: true,
       cacheControl: "public, max-age=86400"
     });
     if (upload.error) return NextResponse.json({ error: upload.error.message }, { status: 500 });
@@ -126,6 +145,7 @@ export async function POST(req: Request) {
       bytes: webp.length
     });
   } catch (err) {
+    console.error("HOMEPAGE IMAGE POST catch", err instanceof Error ? err.stack : err);
     const msg = err instanceof Error ? err.message : "Upload failed";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
