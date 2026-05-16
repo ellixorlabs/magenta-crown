@@ -24,8 +24,9 @@ const PENDING_POLICY_SNIPPET =
 type OrderRow = {
   id: string;
   publicOrderRef: string | null;
-  status: string;
-  /** UPI + PENDING = awaiting payment; excluded from "Processing" filter. */
+  orderStatus: string;
+  paymentStatus: string;
+  /** COD | UPI | … */
   paymentMethod: string | null;
   createdAt: string;
   totalAmount: number;

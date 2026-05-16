@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { displayPaymentMethod } from "@/lib/order-domain";
 import { getProductDisplayImage } from "@/lib/product-image-display";
 
 type ShippingJson = Record<string, unknown>;
@@ -32,12 +33,6 @@ function formatDeliveryWindow(placedAt: Date): string {
   return `${start.toLocaleDateString("en-IN", opts)} – ${end.toLocaleDateString("en-IN", opts)}`;
 }
 
-function paymentLabel(pm: string | null | undefined): string {
-  if (pm === "UPI") return "UPI";
-  if (pm === "CASH_ON_DELIVERY") return "Cash on delivery";
-  return pm?.replace(/_/g, " ") ?? "—";
-}
-
 function isUsefulTrackingUrl(url: string | null | undefined): url is string {
   if (!url || url === "#") return false;
   try {
@@ -50,6 +45,8 @@ function isUsefulTrackingUrl(url: string | null | undefined): url is string {
 
 export type ConfirmationOrderPayload = {
   publicOrderRef: string | null;
+  orderStatus: string | null;
+  paymentStatus: string | null;
   createdAt: string;
   subtotalBeforeDiscount: number;
   discountAmount: number;
@@ -288,7 +285,15 @@ export function OrderConfirmationView({ order }: { order: ConfirmationOrderPaylo
                 <span className="tabular-nums">Rs {order.totalAmount.toFixed(0)}</span>
               </div>
               <p className="text-xs text-zinc-500">
-                Payment: <span className="font-medium text-zinc-700">{paymentLabel(order.paymentMethod)}</span>
+                Payment:{" "}
+                <span className="font-medium text-zinc-700">{displayPaymentMethod(order.paymentMethod)}</span>
+                {order.paymentStatus ? (
+                  <>
+                    {" "}
+                    <span className="text-zinc-400">·</span>{" "}
+                    <span className="font-medium text-zinc-600">{order.paymentStatus}</span>
+                  </>
+                ) : null}
               </p>
             </div>
           </section>

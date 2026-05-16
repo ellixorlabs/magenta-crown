@@ -41,9 +41,10 @@ export function expandSearchTyposTokens(stripped: string): string {
   const rules: Array<[RegExp, string]> = [
     [/\bkurtees\b/gi, "kurti"],
     [/\bkurtee\b/gi, "kurti"],
-    [/\bkurthi\b/gi, "kurta"],
     [/\bkurtha\b/gi, "kurta"],
-    [/\bkurti\b/gi, "kurta"],
+    [/\bkurtaa\b/gi, "kurta"],
+    [/\bkurthi\b/gi, "kurti"],
+    [/\bkurthas\b/gi, "kurti"],
     [/\blehanga\b/gi, "lehenga"],
     [/\blehangas\b/gi, "lehenga"],
     [/\banarkalli\b/gi, "anarkali"],

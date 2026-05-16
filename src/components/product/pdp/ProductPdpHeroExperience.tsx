@@ -41,6 +41,14 @@ export type ProductPdpHeroExperienceProps = {
   imageAlt: string;
   canQuickEdit: boolean;
   globalSizeChartImageUrl: string;
+  /** PDP trust / policy signals (server-provided). */
+  trustMeta?: {
+    verifiedReviewCount: number;
+    returnWindowDays: number;
+    returnable: boolean;
+    exchangeable: boolean;
+    codAvailable: boolean;
+  };
 };
 
 const MAGNIFIER_VIEW_MARGIN = 12;
@@ -93,7 +101,8 @@ function ProductPdpHeroExperienceInner({
   productUrl,
   imageAlt,
   canQuickEdit,
-  globalSizeChartImageUrl
+  globalSizeChartImageUrl,
+  trustMeta
 }: ProductPdpHeroExperienceProps) {
   const purchase = useProductPdpPurchase(product, reviewAvg, reviewCount);
   const { price, offPct, isStaff, totalSellable, singleDefault, pricingNote } = purchase;
@@ -316,7 +325,11 @@ function ProductPdpHeroExperienceInner({
             </div>
           </div>
 
-          <ProductPdpStatusPills inStock={inStockPill} readyToShip={readyToShip} />
+          <ProductPdpStatusPills
+            inStock={inStockPill}
+            readyToShip={readyToShip}
+            lowStock={inStockPill && totalStock > 0 && totalStock <= 8}
+          />
 
           {!(!singleDefault && totalSellable <= 0) ? (
             <div className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200/60 pb-6">
@@ -333,23 +346,41 @@ function ProductPdpHeroExperienceInner({
                 <p className="mt-2 text-xs leading-relaxed text-zinc-500">{pricingNote}</p>
               </div>
               {reviewCount > 0 && reviewAvg != null ? (
-                <div className="text-sm text-zinc-600">
+                <div className="text-right text-sm text-zinc-600">
                   <span className="font-semibold text-amber-600">★ {reviewAvg.toFixed(1)}</span>
                   <span className="text-zinc-500"> ({reviewCount})</span>
+                  {trustMeta && trustMeta.verifiedReviewCount > 0 ? (
+                    <span className="mt-1 block text-[11px] text-emerald-800">
+                      {trustMeta.verifiedReviewCount} verified purchase
+                      {trustMeta.verifiedReviewCount === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>
           ) : null}
 
-          <ProductPdpPurchaseBlock
-            product={productForPurchase}
-            purchase={purchase}
-            reviewAvg={reviewAvg}
-            reviewCount={reviewCount}
-            variant="luxury"
+          <ProductPdpDeliveryTrust
+            codEnabled={trustMeta?.codAvailable ?? product.codEnabled !== false}
+            returnEligible={trustMeta?.returnable ?? product.returnable !== false}
+            exchangeEligible={trustMeta?.exchangeable ?? product.exchangeable !== false}
+            returnWindowDays={trustMeta?.returnWindowDays ?? Number(product.returnWindowDays ?? 7)}
+            verifiedReviewCount={trustMeta?.verifiedReviewCount ?? 0}
+            dispatchEstimate="Most orders ship within 2–3 business days; metro delivery typically 3–5 days after dispatch."
           />
 
-          <ProductPdpDeliveryTrust codEnabled={product.codEnabled !== false} />
+          <div className="lg:contents">
+            <div className="pointer-events-none max-lg:h-28 max-lg:shrink-0" aria-hidden />
+            <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-[60] max-lg:border-t max-lg:border-zinc-200/90 max-lg:bg-[#faf9f8]/95 max-lg:p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] max-lg:shadow-[0_-8px_32px_-12px_rgba(0,0,0,0.12)] max-lg:backdrop-blur-md lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+              <ProductPdpPurchaseBlock
+                product={productForPurchase}
+                purchase={purchase}
+                reviewAvg={reviewAvg}
+                reviewCount={reviewCount}
+                variant="luxury"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

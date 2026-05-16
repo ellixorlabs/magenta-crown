@@ -2,6 +2,8 @@ import "server-only";
 
 import { discountPercentOffMrp, effectiveSalePrice } from "@/lib/pricing";
 import { getCache, setCache } from "@/lib/cache";
+import { expandSearchTyposTokens, stripSearchQuery } from "@/lib/search-query";
+import { opsLog } from "@/lib/ops-logger";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const TTL_MS = 30_000;
@@ -17,6 +19,7 @@ export type AutocompleteProductDto = {
   name: string;
   category?: string;
   style?: string | null;
+  styleCode?: string | null;
   mrp: number;
   salePrice: number;
   discountPercent: number;
@@ -64,6 +67,7 @@ function rowToDto(row: ProductRow): AutocompleteProductDto | null {
     name,
     category: row.category ?? undefined,
     style: row.style ?? null,
+    styleCode: row.styleCode?.trim() ? row.styleCode.trim() : null,
     mrp,
     salePrice,
     discountPercent,
@@ -121,11 +125,14 @@ export async function getLiveSearchProductSuggestions(q: string, limit = 8): Pro
   const safeNeedle = needle.replace(/,/g, " ").trim();
   if (safeNeedle.length < 1) return [];
 
-  const key = `search:autocomplete:${safeNeedle.toLowerCase()}:${limit}`;
+  const canonical = expandSearchTyposTokens(stripSearchQuery(safeNeedle));
+  const qUse = canonical.length >= 1 ? canonical : safeNeedle;
+
+  const key = `search:autocomplete:${qUse.toLowerCase()}:${limit}`;
   const hit = getCache<AutocompleteProductDto[]>(key);
   if (hit) return hit;
 
-  const pat = `%${escapeIlike(safeNeedle)}%`;
+  const pat = `%${escapeIlike(qUse)}%`;
   const ors = [
     `name.ilike.${pat}`,
     `styleCode.ilike.${pat}`,
@@ -149,13 +156,13 @@ export async function getLiveSearchProductSuggestions(q: string, limit = 8): Pro
     .limit(FETCH_CAP);
 
   if (error) {
-    console.error("[getLiveSearchProductSuggestions]", error.message);
+    opsLog("search-autocomplete", "error", error.message, { q: qUse });
     return [];
   }
 
   const rows = (data ?? []) as ProductRow[];
   const scored = rows
-    .map((r) => ({ r, sc: Math.max(1, rankScore(r, safeNeedle)) }))
+    .map((r) => ({ r, sc: Math.max(1, rankScore(r, qUse)) }))
     .sort((a, b) => b.sc - a.sc || String(a.r.name).localeCompare(String(b.r.name)));
 
   const out: AutocompleteProductDto[] = [];

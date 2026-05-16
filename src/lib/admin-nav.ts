@@ -38,24 +38,27 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/orders",
     label: "Orders",
     icon: ShoppingCart,
-    section: "admin",
-    activePathPrefixes: ["/admin/orders"],
+    section: "staff",
+    activePathPrefixes: ["/admin/orders", "/admin/returns"],
     children: [
       { href: "/admin/orders", label: "All Orders" },
-      { href: "/admin/orders?status=PENDING", label: "Pending" },
-      { href: "/admin/orders?status=PROCESSING", label: "Processing" },
-      { href: "/admin/orders?status=SHIPPED", label: "Shipped" },
-      { href: "/admin/orders?status=DELIVERED", label: "Delivered" },
-      { href: "/admin/orders?status=CANCELLED", label: "Cancelled" },
-      { href: "/admin/orders?status=RETURNED", label: "Returns & Refunds" }
+      { href: "/admin/orders?orderStatus=ORDER_PLACED", label: "Placed" },
+      { href: "/admin/orders?orderStatus=PROCESSING", label: "Processing" },
+      { href: "/admin/orders?orderStatus=SHIPPED", label: "Shipped" },
+      { href: "/admin/orders?orderStatus=OUT_FOR_DELIVERY", label: "Out for delivery" },
+      { href: "/admin/orders?orderStatus=DELIVERED", label: "Delivered" },
+      { href: "/admin/orders?orderStatus=CANCELLED", label: "Cancelled" },
+      { href: "/admin/orders?returns=1", label: "Returns pipeline" },
+      { href: "/admin/returns", label: "Return & exchange ops" }
     ]
   },
-  { href: "/admin/users", label: "Customers", icon: Users, section: "admin" },
+  { href: "/admin/users", label: "Customers", icon: Users, section: "merch" },
   {
     href: "/admin/homepage",
     label: "Homepage",
     icon: Home,
-    section: "merch",
+    /** Staff (incl. TECH) need merchandising tools; writes still gated in server actions. */
+    section: "staff",
     activePathPrefixes: ["/admin/homepage", "/admin/hero"],
     children: [
       { href: "/admin/homepage", label: "Layout & sections" },
@@ -73,14 +76,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     children: [
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/inventory?featured=1", label: "Featured Products", section: "staff" },
-      { href: "/admin/others", label: "Announcements", section: "admin" }
+      { href: "/admin/others", label: "Brand & auth visuals" }
     ]
   },
   {
     href: "/admin/navigation",
     label: "Navigation",
     icon: Settings2,
-    section: "admin",
+    section: "staff",
     activePathPrefixes: ["/admin/navigation"],
     children: [
       { href: "/admin/navigation", label: "Header Menus" },

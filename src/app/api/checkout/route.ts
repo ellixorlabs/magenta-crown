@@ -10,6 +10,11 @@ import {
   type SaveAddressPayload,
   type ShippingPayload
 } from "@/lib/checkout-address";
+import { normalizeCheckoutPaymentMethod } from "@/lib/order-domain";
+import { adjustVariantStockById, restoreStockForOrderLines } from "@/lib/order-stock";
+import { insertOrderTimelineEvent } from "@/lib/order-timeline";
+import { notifyMerchAdmins } from "@/lib/ops-notifications";
+import { enqueueTransactionalEmail } from "@/lib/transactional-email-queue";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { DEFAULT_COLOR, DEFAULT_SIZE } from "@/lib/product-variants";
 import { randomId } from "@/lib/random-id";
@@ -88,6 +93,18 @@ async function resolveVariant(line: Line) {
     if (rows.length === 1 && isPlaceholderSingleSku(rows[0]!)) variant = rows[0]!;
   }
   return { variant, size, color };
+}
+
+async function reserveStockForResolvedLines(
+  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
+  items: Line[],
+  resolved: Array<{ variant: VariantRow | null }>
+) {
+  for (let i = 0; i < items.length; i++) {
+    const variant = resolved[i]!.variant;
+    if (!variant) continue;
+    await adjustVariantStockById(supabase, variant.id, -items[i]!.quantity);
+  }
 }
 
 async function saveAddressIfRequested(
@@ -175,9 +192,8 @@ export async function POST(req: Request) {
     if (paymentMethodRaw !== "CASH_ON_DELIVERY" && paymentMethodRaw !== "UPI") {
       return NextResponse.json({ error: "Choose either cash on delivery or UPI." }, { status: 400 });
     }
-    const paymentMethod = paymentMethodRaw;
-    const isCod = paymentMethod === "CASH_ON_DELIVERY";
-    const orderStatus = "PENDING";
+    const paymentMethod = normalizeCheckoutPaymentMethod(paymentMethodRaw);
+    const isCod = paymentMethod === "COD";
 
     const addressSource = body.addressSource ?? "new";
     const saveRaw = body.saveAddress;
@@ -259,15 +275,15 @@ export async function POST(req: Request) {
     const shippingAddressJson = { ...addr, fullName, email, phone, street, city, pincode };
 
     /**
-     * UPI creates an order before Razorpay opens; each abandoned payment left a new PENDING row.
-     * Reuse the latest pending UPI checkout for this user (same publicOrderRef, refresh lines/totals).
+     * UPI: reuse latest unpaid order for this user; restore reserved stock before replacing lines.
      */
     if (!isCod) {
       const { data: pendingRows, error: pendingErr } = await (supabase.from("Order") as any)
         .select("id,publicOrderRef")
         .eq("userId", session.user.id)
         .eq("paymentMethod", "UPI")
-        .eq("status", "PENDING")
+        .eq("paymentStatus", "PENDING")
+        .eq("orderStatus", "ORDER_PLACED")
         .order("createdAt", { ascending: false });
       if (pendingErr) throw new Error(pendingErr.message);
 
@@ -275,11 +291,14 @@ export async function POST(req: Request) {
       if (pending.length > 0) {
         const [keep, ...olderPending] = pending;
         for (const row of olderPending) {
+          await restoreStockForOrderLines(supabase, row.id);
           const delItems = await (supabase.from("OrderItem") as any).delete().eq("orderId", row.id);
           if (delItems.error) throw new Error(delItems.error.message);
           const delOrd = await (supabase.from("Order") as any).delete().eq("id", row.id);
           if (delOrd.error) throw new Error(delOrd.error.message);
         }
+
+        await restoreStockForOrderLines(supabase, keep.id);
 
         const orderUpdate = await (supabase
           .from("Order") as any)
@@ -289,10 +308,13 @@ export async function POST(req: Request) {
             discountAmount,
             totalAmount,
             paymentMethod,
-            status: orderStatus,
+            orderStatus: "ORDER_PLACED",
+            paymentStatus: "PENDING",
+            returnStatus: "NONE",
+            exchangeStatus: "NONE",
             couponCode: couponCodeStored,
             couponId,
-            trackingUrl: "https://example.com/track"
+            trackingUrl: null
           })
           .eq("id", keep.id)
           .select("id,publicOrderRef")
@@ -322,6 +344,16 @@ export async function POST(req: Request) {
         );
         if (orderItemsInsert.error) throw new Error(`ORDER_ITEMS_CREATE_FAILED:${orderItemsInsert.error.message}`);
 
+        await reserveStockForResolvedLines(supabase, items, resolved);
+
+        await insertOrderTimelineEvent(supabase, {
+          orderId: keep.id,
+          type: "ORDER_UPDATED",
+          title: "Checkout refreshed",
+          description: "Cart lines updated before payment.",
+          metadata: { publicOrderRef: (orderUpdate.data as { publicOrderRef: string | null }).publicOrderRef }
+        });
+
         await syncUserCheckoutProfile(supabase, session.user.id, shippingPayload);
         await saveAddressIfRequested(supabase, session.user.id, savePayload, shippingPayload);
 
@@ -347,10 +379,13 @@ export async function POST(req: Request) {
         discountAmount,
         totalAmount,
         paymentMethod,
-        status: orderStatus,
+        orderStatus: "ORDER_PLACED",
+        paymentStatus: "PENDING",
+        returnStatus: "NONE",
+        exchangeStatus: "NONE",
         couponCode: couponCodeStored,
         couponId,
-        trackingUrl: isCod ? null : "https://example.com/track"
+        trackingUrl: null
       })
       .select("id,publicOrderRef")
       .single();
@@ -375,18 +410,30 @@ export async function POST(req: Request) {
     );
     if (orderItemsInsert.error) throw new Error(`ORDER_ITEMS_CREATE_FAILED:${orderItemsInsert.error.message}`);
 
-    // For online payment flows, finalize stock only after payment verification succeeds.
-    if (isCod) {
-      for (let i = 0; i < items.length; i++) {
-        const line = items[i]!;
-        const variant = resolved[i]!.variant!;
-        const stockUpdate = await (supabase
-          .from("ProductVariant") as any)
-          .update({ stock: Math.max(0, variant.stock - line.quantity) })
-          .eq("id", variant.id);
-        if (stockUpdate.error) throw new Error(`STOCK_UPDATE_FAILED:${stockUpdate.error.message}`);
-      }
-    }
+    await reserveStockForResolvedLines(supabase, items, resolved);
+
+    await insertOrderTimelineEvent(supabase, {
+      orderId: created.id,
+      type: "ORDER_PLACED",
+      title: isCod ? "Order placed (COD)" : "Order placed — payment pending",
+      description: isCod ? "Awaiting fulfillment. Payment on delivery." : "Complete UPI payment to confirm.",
+      metadata: { paymentMethod, publicOrderRef: created.publicOrderRef }
+    });
+
+    const refEnc = created.publicOrderRef ? encodeURIComponent(created.publicOrderRef) : "";
+    await notifyMerchAdmins(supabase, {
+      type: isCod ? "NEW_ORDER_COD" : "NEW_ORDER",
+      title: isCod ? "New COD order" : "New order (payment pending)",
+      message: `Order ${created.publicOrderRef ?? created.id} · ${paymentMethod}`,
+      metadata: { orderId: created.id, publicOrderRef: created.publicOrderRef, paymentMethod },
+      actionUrl: refEnc ? `/admin/orders/${refEnc}` : "/admin/orders"
+    });
+
+    await enqueueTransactionalEmail(supabase, "ORDER_PLACED", {
+      orderId: created.id,
+      publicOrderRef: created.publicOrderRef ?? "",
+      userId: session.user.id
+    });
 
     await syncUserCheckoutProfile(supabase, session.user.id, shippingPayload);
     await saveAddressIfRequested(supabase, session.user.id, savePayload, shippingPayload);

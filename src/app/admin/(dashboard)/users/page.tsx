@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { requireFullAdmin } from "@/lib/admin-auth";
+import { requireMerchAdmin, requireFullAdmin } from "@/lib/admin-auth";
+import { isFullAdmin } from "@/lib/admin-permissions";
 import { getCanonicalSiteUrl } from "@/lib/seo";
 import type { NextAppPageSearch } from "@/types/next-app";
 
@@ -26,7 +28,7 @@ async function inviteUserAction(formData: FormData) {
 }
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
-  await requireFullAdmin("/admin/users");
+  await requireMerchAdmin("/admin/users");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const invited = sp.invited === "1";
@@ -56,34 +58,41 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  const session = await auth();
+  const canInvite = isFullAdmin(session?.user.role);
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-zinc-600">
         Search by email, name, or phone. Open a record for orders and payment status.
       </p>
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-zinc-900">Invite user</h3>
-        <p className="mt-1 text-xs text-zinc-600">
-          Send a secure invite email to people who do not yet have an account.
-        </p>
-        <form action={inviteUserAction} className="mt-3 flex flex-wrap gap-2">
-          <input
-            type="email"
-            name="email"
-            required
-            placeholder="customer@example.com"
-            className="min-w-[220px] flex-1 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-admin-300 focus:outline-none focus:ring-2 focus:ring-admin-100"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-admin-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-admin-700"
-          >
-            Send invite
-          </button>
-        </form>
-        {invited ? <p className="mt-2 text-xs text-emerald-700">Invite sent successfully.</p> : null}
-        {inviteError ? <p className="mt-2 text-xs text-red-700">{inviteError}</p> : null}
-      </section>
+      {canInvite ? (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-zinc-900">Invite user</h3>
+          <p className="mt-1 text-xs text-zinc-600">
+            Send a secure invite email to people who do not yet have an account.
+          </p>
+          <form action={inviteUserAction} className="mt-3 flex flex-wrap gap-2">
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="customer@example.com"
+              className="min-w-[220px] flex-1 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-admin-300 focus:outline-none focus:ring-2 focus:ring-admin-100"
+            />
+            <button
+              type="submit"
+              className="rounded-full bg-admin-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-admin-700"
+            >
+              Send invite
+            </button>
+          </form>
+          {invited ? <p className="mt-2 text-xs text-emerald-700">Invite sent successfully.</p> : null}
+          {inviteError ? <p className="mt-2 text-xs text-red-700">{inviteError}</p> : null}
+        </section>
+      ) : (
+        <p className="text-xs text-zinc-500">Customer invites are limited to the primary admin.</p>
+      )}
 
       <form className="flex flex-wrap gap-2" action="/admin/users" method="get">
         <input

@@ -1,14 +1,14 @@
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isFullAdmin } from "@/lib/admin-auth";
+import { isMerchAdmin } from "@/lib/admin-auth";
 import { parseHomePageConfigPayload } from "@/lib/home-page-config-payload";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export async function POST(req: Request) {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user?.id || !isFullAdmin(role)) {
+  if (!session?.user?.id || !isMerchAdmin(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

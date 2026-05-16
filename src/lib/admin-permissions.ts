@@ -46,10 +46,22 @@ export function canCreateOrDeleteProducts(role: string | undefined): boolean {
   return isMerchAdmin(role);
 }
 
+/** View admin order list + detail (read-only for TECH_SUPPORT). */
 export function canAccessAdminOrders(role: string | undefined): boolean {
-  return role === ROLE.ADMIN;
+  return isStaffRole(role);
 }
 
+/** Change order/payment/tracking (ADMIN + SUB_ADMIN). */
+export function canMutateAdminOrders(role: string | undefined): boolean {
+  return isMerchAdmin(role);
+}
+
+/** View customer directory (ADMIN + SUB_ADMIN). */
+export function canViewAdminCustomers(role: string | undefined): boolean {
+  return isMerchAdmin(role);
+}
+
+/** Invite-only and other full-admin-only customer tools. */
 export function canAccessAdminUsers(role: string | undefined): boolean {
   return role === ROLE.ADMIN;
 }
@@ -63,7 +75,7 @@ export function canManageCoupons(role: string | undefined): boolean {
 }
 
 export function canManageNavigation(role: string | undefined): boolean {
-  return role === ROLE.ADMIN;
+  return isStaffRole(role);
 }
 
 export function canManageSiteSettings(role: string | undefined): boolean {

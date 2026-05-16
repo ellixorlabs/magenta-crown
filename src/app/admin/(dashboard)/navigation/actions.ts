@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { requireFullAdmin } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
 
 export async function createNavLink(formData: FormData) {
-  await requireFullAdmin("/admin/navigation");
+  await requireMerchAdmin("/admin/navigation");
   const groupRaw = String(formData.get("group") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
   const href = String(formData.get("href") ?? "").trim();
@@ -27,7 +27,7 @@ export async function createNavLink(formData: FormData) {
 }
 
 export async function deleteNavLink(id: string) {
-  await requireFullAdmin("/admin/navigation");
+  await requireMerchAdmin("/admin/navigation");
   const supabase = getSupabaseServiceRoleClient();
   const { error } = await (supabase.from("HeaderNavLink") as any).delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -36,7 +36,7 @@ export async function deleteNavLink(id: string) {
 }
 
 export async function toggleNavLink(id: string, isActive: boolean) {
-  await requireFullAdmin("/admin/navigation");
+  await requireMerchAdmin("/admin/navigation");
   const supabase = getSupabaseServiceRoleClient();
   const { error } = await (supabase.from("HeaderNavLink") as any).update({ isActive }).eq("id", id);
   if (error) throw new Error(error.message);

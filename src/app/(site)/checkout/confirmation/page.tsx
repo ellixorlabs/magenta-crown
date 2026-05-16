@@ -77,7 +77,7 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: order, error } = await (supabase.from("Order") as any)
     .select(
-      "publicOrderRef,createdAt,subtotalBeforeDiscount,discountAmount,totalAmount,couponCode,paymentMethod,trackingUrl,shippingAddress,items:OrderItem(id,quantity,price,size,color,product:Product(name,slug,imageUrls,listImageIndex))"
+      "publicOrderRef,orderStatus,paymentStatus,createdAt,subtotalBeforeDiscount,discountAmount,totalAmount,couponCode,paymentMethod,trackingUrl,shippingAddress,items:OrderItem(id,quantity,price,size,color,product:Product(name,slug,imageUrls,listImageIndex))"
     )
     .eq("publicOrderRef", ref)
     .eq("userId", session.user.id)

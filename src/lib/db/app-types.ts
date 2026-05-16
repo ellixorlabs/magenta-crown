@@ -50,6 +50,9 @@ export type ProductRow = {
   prepaidOfferText: string | null;
   pricingFootnote: string | null;
   status?: "ACTIVE" | "DRAFT" | "SOLD_OUT" | "ARCHIVED";
+  returnable?: boolean;
+  exchangeable?: boolean;
+  returnWindowDays?: number;
 };
 
 export type ProductVariantRow = {

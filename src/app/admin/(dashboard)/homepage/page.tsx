@@ -1,4 +1,4 @@
-import { requireMerchAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/admin-auth";
 import { clearCache } from "@/lib/cache";
 import { migrateLegacyPromoBannersIfNeeded } from "@/lib/home-page-banner";
 import type { HomePageBannerRow } from "@/lib/home-page-banner";
@@ -10,7 +10,7 @@ import { HomePageEditorClient } from "./HomePageEditorClient";
 export const metadata = { title: "Homepage layout | Admin" };
 
 export default async function AdminHomepageLayoutPage() {
-  await requireMerchAdmin("/admin/homepage");
+  await requireStaff("/admin/homepage");
   const supabase = getSupabaseServiceRoleClient();
   let layoutPayload = await getHomePagePayload();
   try {

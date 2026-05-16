@@ -10,7 +10,11 @@ import {
   orderStatusBadge
 } from "@/lib/account-orders";
 import { normalizePublicOrderRef } from "@/lib/order-public-ref";
+import { OrderFulfillmentTimeline } from "@/components/account/OrderFulfillmentTimeline";
+import { OrderReturnExchangeTimeline } from "@/components/account/OrderReturnExchangeTimeline";
+import { OrderItemReturnExchangeForms } from "@/components/account/OrderItemReturnExchangeForms";
 import { getProductDisplayImage } from "@/lib/product-image-display";
+import { canRequestExchangeForLine, canRequestReturnForLine } from "@/lib/return-exchange-eligibility";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { NextAppPageParams } from "@/types/next-app";
 
@@ -43,7 +47,7 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: order, error } = await (supabase.from("Order") as any)
     .select(
-      "publicOrderRef,status,paymentMethod,createdAt,totalAmount,trackingUrl,invoiceUrl,shippingAddress,items:OrderItem(id,quantity,price,size,color,product:Product(name,slug,imageUrls,listImageIndex))"
+      "id,publicOrderRef,orderStatus,paymentStatus,paymentMethod,createdAt,deliveredAt,totalAmount,trackingUrl,invoiceUrl,trackingNumber,courierPartner,shippingAddress,items:OrderItem(id,productId,variantId,quantity,price,size,color,product:Product(name,slug,imageUrls,listImageIndex,returnable,exchangeable,returnWindowDays))"
     )
     .eq("publicOrderRef", ref)
     .eq("userId", session.user.id)
@@ -58,15 +62,53 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const orderSnap = {
+    orderStatus: String(order.orderStatus ?? ""),
+    deliveredAt: (order.deliveredAt as string | null) ?? null,
+    createdAt: String(order.createdAt)
+  };
   const badge = orderStatusBadge(order);
+
+  const [{ data: returnRows }, { data: exchangeRows }] = await Promise.all([
+    (supabase.from("ReturnRequest") as any).select("orderItemId,status,createdAt").eq("orderId", order.id),
+    (supabase.from("ExchangeRequest") as any).select("orderItemId,status,createdAt").eq("orderId", order.id)
+  ]);
+  const openReturns = (returnRows ?? []) as Array<{ orderItemId: string | null; status: string }>;
+  const openExchanges = (exchangeRows ?? []) as Array<{ orderItemId: string | null; status: string }>;
+  const returnTimeline = (returnRows ?? []) as Array<{ status: string; createdAt: string }>;
+  const exchangeTimeline = (exchangeRows ?? []) as Array<{ status: string; createdAt: string }>;
+
   const items = (order.items ?? []) as Array<{
     id: string;
+    productId: string;
+    variantId: string | null;
     quantity: number;
     price: number;
     size: string | null;
     color: string | null;
-    product: { name: string; slug: string; imageUrls: string[] | null; listImageIndex: number | null };
+    product: {
+      name: string;
+      slug: string;
+      imageUrls: string[] | null;
+      listImageIndex: number | null;
+      returnable: boolean;
+      exchangeable: boolean;
+      returnWindowDays: number;
+    };
   }>;
+
+  const productIds = [...new Set(items.map((i) => i.productId))];
+  const { data: variantRows } = await (supabase.from("ProductVariant") as any)
+    .select("id,productId,size,color,isActive,stock")
+    .in("productId", productIds)
+    .eq("isActive", true);
+
+  const variantsByProduct = new Map<string, Array<{ id: string; size: string; color: string }>>();
+  for (const row of (variantRows ?? []) as Array<{ id: string; productId: string; size: string; color: string }>) {
+    const list = variantsByProduct.get(row.productId) ?? [];
+    list.push({ id: row.id, size: row.size, color: row.color });
+    variantsByProduct.set(row.productId, list);
+  }
 
   const ship = order.shippingAddress as Record<string, unknown> | null;
   const shipName = ship && typeof ship.fullName === "string" ? ship.fullName : "";
@@ -116,6 +158,17 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
         </div>
       )}
 
+      <OrderFulfillmentTimeline
+        orderStatus={order.orderStatus}
+        paymentStatus={order.paymentStatus}
+        paymentMethod={order.paymentMethod}
+      />
+
+      <OrderReturnExchangeTimeline
+        returns={(returnTimeline ?? []) as Array<{ status: string; createdAt: string }>}
+        exchanges={(exchangeTimeline ?? []) as Array<{ status: string; createdAt: string }>}
+      />
+
       <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="font-[family-name:var(--font-heading)] text-lg font-semibold text-zinc-900">Items</h2>
         <ul className="mt-4 divide-y divide-zinc-100">
@@ -124,6 +177,26 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
               imageUrls: item.product.imageUrls ?? [],
               listImageIndex: item.product.listImageIndex ?? 0
             }).url;
+            const productSnap = {
+              returnable: !!item.product.returnable,
+              exchangeable: !!item.product.exchangeable,
+              returnWindowDays: Number(item.product.returnWindowDays ?? 7)
+            };
+            const canReturn = canRequestReturnForLine({
+              order: orderSnap,
+              product: productSnap,
+              orderItemId: item.id,
+              openReturns
+            });
+            const canExchange = canRequestExchangeForLine({
+              order: orderSnap,
+              product: productSnap,
+              orderItemId: item.id,
+              openExchanges
+            });
+            const exchangeVariants = (variantsByProduct.get(item.productId) ?? []).filter(
+              (v) => v.id !== (item.variantId ?? "")
+            );
             return (
               <li key={item.id} className="flex gap-4 py-4 first:pt-0">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50">
@@ -148,6 +221,15 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
                   <p className="mt-1 font-medium tabular-nums text-crown-800">
                     Rs {(item.price * item.quantity).toFixed(0)}
                   </p>
+                  <OrderItemReturnExchangeForms
+                    publicOrderRef={order.publicOrderRef}
+                    orderId={order.id}
+                    orderItemId={item.id}
+                    productName={item.product.name}
+                    canReturn={canReturn}
+                    canExchange={canExchange && exchangeVariants.length > 0}
+                    exchangeVariants={exchangeVariants}
+                  />
                 </div>
               </li>
             );
@@ -159,6 +241,23 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {(order.trackingNumber || order.courierPartner) && (
+        <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/80 px-4 py-3 text-sm text-zinc-700">
+          {order.courierPartner ? (
+            <p>
+              <span className="text-zinc-500">Courier:</span>{" "}
+              <span className="font-medium text-zinc-900">{String(order.courierPartner)}</span>
+            </p>
+          ) : null}
+          {order.trackingNumber ? (
+            <p className={order.courierPartner ? "mt-1" : ""}>
+              <span className="text-zinc-500">Tracking #:</span>{" "}
+              <span className="font-mono font-medium text-zinc-900">{String(order.trackingNumber)}</span>
+            </p>
+          ) : null}
+        </div>
+      )}
+
       <div className="mt-6 flex flex-wrap gap-3">
         {isUsefulTrackingUrl(order.trackingUrl) ? (
           <a
@@ -167,11 +266,11 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
             rel="noreferrer"
             className="inline-flex flex-1 items-center justify-center rounded-xl border border-zinc-900 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 sm:flex-none sm:min-w-[200px]"
           >
-            Track order
+            Open tracking link
           </a>
         ) : (
           <span className="inline-flex flex-1 cursor-not-allowed items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 px-5 py-3 text-sm font-semibold text-zinc-400 sm:flex-none sm:min-w-[200px]">
-            Tracking when shipped
+            Tracking link when shipped
           </span>
         )}
         {order.invoiceUrl ? (
@@ -183,7 +282,14 @@ export default async function AccountOrderDetailPage({ params }: PageProps) {
           >
             Download invoice
           </a>
-        ) : null}
+        ) : (
+          <span
+            className="inline-flex cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-5 py-3 text-sm font-semibold text-zinc-400"
+            title="Invoice generation is not wired yet"
+          >
+            Invoice — coming soon
+          </span>
+        )}
       </div>
 
       <div className="mt-10 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">

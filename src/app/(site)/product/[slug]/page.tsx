@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { absoluteUrl, buildProductKeywords, buildProductMetaDescription, productImageAlt } from "@/lib/seo";
@@ -12,6 +13,7 @@ import { ProductPdpHeroExperience } from "@/components/product/pdp/ProductPdpHer
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { ReviewForm } from "@/components/product/ReviewForm";
 import { TrackProductView } from "@/components/product/TrackProductView";
+import { fetchVerifiedReviewEligibleLines } from "@/lib/review-eligibility";
 import type { NextAppPageParams } from "@/types/next-app";
 
 type PageProps = NextAppPageParams<{ slug: string }>;
@@ -99,26 +101,100 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const [reviewAgg, crossSells, wishlistState] = await Promise.all([
-    (supabase.from("Review") as any).select("rating").eq("productId", productData.id),
-    (supabase.from("Product") as any)
-      .select("*,variants:ProductVariant(stock,isActive)")
-      .eq("status", "ACTIVE")
-      .eq("category", productData.category)
-      .neq("id", productData.id)
-      .order("createdAt", { ascending: false })
-      .limit(4),
-    loadWishlistState(session, productData.id)
-  ]);
+  const tags = Array.isArray(productData.tags) ? (productData.tags as string[]).filter(Boolean) : [];
+  const material = String(productData.material ?? "").trim();
+
+  const tagRelatedPromise =
+    tags.length > 0
+      ? (supabase.from("Product") as any)
+          .select("*,variants:ProductVariant(stock,isActive)")
+          .eq("status", "ACTIVE")
+          .overlaps("tags", tags)
+          .neq("id", productData.id)
+          .limit(10)
+      : Promise.resolve({ data: [], error: null });
+
+  const materialRelatedPromise =
+    material.length > 0
+      ? (supabase.from("Product") as any)
+          .select("*,variants:ProductVariant(stock,isActive)")
+          .eq("status", "ACTIVE")
+          .eq("material", material)
+          .neq("id", productData.id)
+          .limit(6)
+      : Promise.resolve({ data: [], error: null });
+
+  const [reviewAgg, crossSells, wishlistState, reviewEligibility, tagRelatedRes, materialRelatedRes, verifiedAgg] =
+    await Promise.all([
+      (supabase.from("Review") as any)
+        .select("rating")
+        .eq("productId", productData.id)
+        .eq("moderationStatus", "APPROVED"),
+      (supabase.from("Product") as any)
+        .select("*,variants:ProductVariant(stock,isActive)")
+        .eq("status", "ACTIVE")
+        .eq("category", productData.category)
+        .neq("id", productData.id)
+        .order("createdAt", { ascending: false })
+        .limit(4),
+      loadWishlistState(session, productData.id),
+      session?.user?.id
+        ? fetchVerifiedReviewEligibleLines(supabase, session.user.id, productData.id)
+        : Promise.resolve([]),
+      tagRelatedPromise,
+      materialRelatedPromise,
+      (supabase.from("Review") as any)
+        .select("id", { count: "exact", head: true })
+        .eq("productId", productData.id)
+        .eq("moderationStatus", "APPROVED")
+        .eq("verifiedPurchase", true)
+    ]);
   if (reviewAgg.error) throw new Error(reviewAgg.error.message);
   if (crossSells.error) throw new Error(crossSells.error.message);
   const crossSellRows = (crossSells.data ?? []) as any[];
+
+  const pickById = new Map<string, any>();
+  for (const res of [tagRelatedRes, materialRelatedRes]) {
+    if (res.error) continue;
+    for (const p of (res.data ?? []) as any[]) {
+      if (p?.id && p.id !== productData.id) pickById.set(p.id, p);
+    }
+  }
+  const curatedRows = [...pickById.values()].slice(0, 8);
+  const verifiedReviewCount = verifiedAgg.count ?? 0;
+  const trustMeta = {
+    verifiedReviewCount,
+    returnWindowDays: Number(productData.returnWindowDays ?? 7),
+    returnable: productData.returnable !== false,
+    exchangeable: productData.exchangeable !== false,
+    codAvailable: productData.codEnabled !== false
+  };
   const product = {
     ...productData,
-    reviews: ((productData.reviews ?? []) as any[]).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    ).slice(0, 8)
+    reviews: ((productData.reviews ?? []) as any[])
+      .filter((r) => r.moderationStatus === "APPROVED" || r.moderationStatus == null)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 8)
   };
+  const reviewIds = (product.reviews as any[]).map((r) => r.id as string).filter(Boolean);
+  const mediaByReview = new Map<string, Array<{ id: string; type: string; url: string; thumbnailUrl: string | null }>>();
+  if (reviewIds.length > 0) {
+    const { data: mediaRows, error: mediaErr } = await (supabase.from("ReviewMedia") as any)
+      .select("id,reviewId,type,url,thumbnailUrl")
+      .in("reviewId", reviewIds);
+    if (mediaErr) throw new Error(mediaErr.message);
+    for (const m of (mediaRows ?? []) as Array<{
+      id: string;
+      reviewId: string;
+      type: string;
+      url: string;
+      thumbnailUrl: string | null;
+    }>) {
+      const list = mediaByReview.get(m.reviewId) ?? [];
+      list.push(m);
+      mediaByReview.set(m.reviewId, list);
+    }
+  }
   const cfgPayload = (homeCfgRes.data?.payload ?? {}) as Record<string, unknown>;
   const globalSizeChartImageUrl =
     typeof cfgPayload.globalSizeChartImageUrl === "string" ? cfgPayload.globalSizeChartImageUrl : "";
@@ -153,6 +229,7 @@ export default async function ProductPage({ params }: PageProps) {
           imageAlt={productImageAlt(product)}
           canQuickEdit={canQuickEdit}
           globalSizeChartImageUrl={globalSizeChartImageUrl}
+          trustMeta={trustMeta}
         />
 
         <section className="mt-16 border-t border-zinc-200 pt-12">
@@ -169,17 +246,75 @@ export default async function ProductPage({ params }: PageProps) {
                     <li key={r.id} className="rounded-xl border border-zinc-200 bg-white p-4">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-zinc-900">{r.authorName}</span>
-                        <span className="text-sm text-amber-600">{"★".repeat(r.rating)}</span>
+                        <span className="flex items-center gap-2 text-sm text-amber-600">
+                          {r.verifiedPurchase ? (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                              Verified purchase
+                            </span>
+                          ) : null}
+                          <span>{"★".repeat(r.rating)}</span>
+                        </span>
                       </div>
                       {r.body && <p className="mt-2 text-sm text-zinc-700">{r.body}</p>}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(mediaByReview.get(r.id) ?? []).map((m) =>
+                          m.type === "IMAGE" ? (
+                            <div key={m.id} className="relative h-24 w-24 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50">
+                              <Image
+                                src={m.thumbnailUrl || m.url}
+                                alt=""
+                                fill
+                                className="object-cover"
+                                sizes="96px"
+                                loading="lazy"
+                                unoptimized
+                              />
+                            </div>
+                          ) : (
+                            <video
+                              key={m.id}
+                              src={m.url}
+                              className="mt-1 max-h-44 w-full max-w-xs rounded-lg border border-zinc-100 bg-black object-contain"
+                              controls
+                              playsInline
+                              preload="metadata"
+                            />
+                          )
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
               )}
-              <ReviewForm productId={product.id} />
+              <ReviewForm
+                productId={product.id}
+                eligibility={reviewEligibility}
+                authorNameDefault={session?.user?.name ?? session?.user?.email ?? ""}
+              />
             </div>
           </div>
         </section>
+
+        {curatedRows.length > 0 && (
+          <section className="mt-16 border-t border-zinc-200 pt-12">
+            <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">
+              Curated with this piece
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+              Pieces that share tags or fabric with what you are viewing — styled for the same occasions.
+            </p>
+            <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
+              {curatedRows.map((p: any) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  initialWishlisted={wishlistIds.has(p.id)}
+                  outOfStock={getProductTotalStock(p.variants) === 0}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {crossSellRows.length > 0 && (
           <section className="mt-16 border-t border-zinc-200 pt-12">

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { NextAppPageParams } from "@/types/next-app";
-import { requireFullAdmin } from "@/lib/admin-auth";
+import { requireMerchAdmin } from "@/lib/admin-auth";
+import { AdminUserRoleForm } from "@/app/admin/(dashboard)/users/AdminUserRoleForm";
 
 export const metadata = { title: "Customer | Admin" };
 
@@ -14,11 +15,11 @@ function money(n: number) {
 
 export default async function AdminUserDetailPage({ params }: PageProps) {
   const { id } = await params;
-  await requireFullAdmin(`/admin/users/${id}`);
+  const session = await requireMerchAdmin(`/admin/users/${id}`);
 
   const supabase = getSupabaseServiceRoleClient();
   const { data: user, error } = await (supabase.from("User") as any)
-    .select("*,orders:Order(*,items:OrderItem(*,product:Product(name,slug)))")
+    .select("*,orders:Order(id,publicOrderRef,orderStatus,paymentStatus,paymentMethod,totalAmount,createdAt,items:OrderItem(*,product:Product(name,slug)))")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -72,6 +73,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
               <dd className="text-zinc-800">{new Date(user.createdAt).toLocaleString()}</dd>
             </div>
           </dl>
+          <AdminUserRoleForm userId={user.id} currentRole={user.role} viewerRole={session.user.role} />
         </section>
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -120,8 +122,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-600">
                   <span>
-                    <span className="text-zinc-400">Order / payment: </span>
-                    {o.status}
+                    <span className="text-zinc-400">Fulfillment / payment: </span>
+                    {o.orderStatus} · {o.paymentStatus}
                   </span>
                   {o.paymentMethod && (
                     <span>

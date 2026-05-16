@@ -576,6 +576,14 @@ export function CheckoutClient({ defaultPaymentMethod }: { defaultPaymentMethod?
           </Link>
         </p>
 
+        <div className="mt-6 flex flex-wrap gap-2 rounded-xl border border-zinc-200/80 bg-white/90 px-4 py-3 text-xs text-zinc-700 shadow-sm">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-900">Secure checkout</span>
+          <span className="rounded-full bg-zinc-50 px-2.5 py-1">Encrypted connection</span>
+          <span className="rounded-full bg-zinc-50 px-2.5 py-1">UPI / Razorpay</span>
+          <span className="rounded-full bg-zinc-50 px-2.5 py-1">COD on eligible orders</span>
+          <span className="rounded-full bg-zinc-50 px-2.5 py-1">Dispatch 2–3 business days</span>
+        </div>
+
         {items.length === 0 ? (
           <p className="mt-8 text-zinc-600">
             Nothing to checkout.{" "}

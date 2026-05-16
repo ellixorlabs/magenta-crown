@@ -9,6 +9,7 @@ import { canCreateOrDeleteProducts, canManageInventory, requireStaff } from "@/l
 import { clearCacheByPrefix } from "@/lib/cache";
 import { normalizeProductStatus } from "@/lib/product-status";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { notifyInventoryStaff } from "@/lib/ops-notifications";
 
 function slugifyProductName(input: string) {
   return input
@@ -446,6 +447,17 @@ export async function updateProduct(formData: FormData) {
   );
   if (variantsInsert.error) {
     throw new Error(`Failed to replace variants: ${variantsInsert.error.message}`);
+  }
+
+  const minStock = variantRows.length ? Math.min(...variantRows.map((r) => r.stock)) : 0;
+  if (Number.isFinite(minStock) && minStock <= 5) {
+    await notifyInventoryStaff(supabase, {
+      type: "LOW_STOCK",
+      title: "Low stock warning",
+      message: `${name} (${slug}) — minimum active variant stock is ${minStock}.`,
+      metadata: { productId: id, minStock },
+      actionUrl: `/admin/inventory/${id}`
+    });
   }
 
   const featuredDelete = await supabase.from("ProductFeaturedCoupon").delete().eq("productId", id);

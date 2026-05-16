@@ -25,14 +25,14 @@ export async function POST(req: Request) {
     const supabase = getSupabaseServiceRoleClient();
     const { data: order, error: orderError } = await supabase
       .from("Order")
-      .select("id,totalAmount,publicOrderRef,status")
+      .select("id,totalAmount,publicOrderRef,paymentStatus")
       .eq("publicOrderRef", ref)
       .eq("userId", session.user.id)
-      .maybeSingle<{ id: string; totalAmount: number; publicOrderRef: string | null; status: string }>();
+      .maybeSingle<{ id: string; totalAmount: number; publicOrderRef: string | null; paymentStatus: string }>();
     if (orderError || !order) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
-    if (order.status === "PAID") {
+    if (order.paymentStatus === "PAID") {
       return NextResponse.json({ error: "Order already paid." }, { status: 409 });
     }
 

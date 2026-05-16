@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { requireFullAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/admin-auth";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createNavLink, deleteNavLinkForm, toggleNavLinkForm } from "./actions";
 
 export default async function AdminNavigationPage() {
-  await requireFullAdmin("/admin/navigation");
+  await requireStaff("/admin/navigation");
   const supabase = getSupabaseServiceRoleClient();
   const { data: links, error } = await (supabase.from("HeaderNavLink") as any)
     .select("*")

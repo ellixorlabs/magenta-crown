@@ -19,6 +19,7 @@ import { Loader2, Sparkles, X } from "lucide-react";
 import useSWR from "swr";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { resolveSearchNavigationIntent } from "@/lib/search-intent";
+import { normalizeSearchQueryForDisplay, relatedCategoriesForSearchQuery } from "@/lib/search-query";
 import { shopCategoryHref } from "@/lib/shop-category-url";
 
 const TRENDING = ["Salwar Suits", "Co-ord Sets", "Sarees", "Blouses", "Dress Materials"] as const;
@@ -47,6 +48,8 @@ type ListItem = {
   id: string;
   slug: string;
   name: string;
+  category?: string | null;
+  styleCode?: string | null;
   mrp: number;
   salePrice: number;
   discountPercent: number;
@@ -106,6 +109,8 @@ function parseListPayload(json: unknown): { items: ListItem[] } | null {
       id,
       slug: r.slug,
       name: r.name,
+      category: typeof r.category === "string" ? r.category : null,
+      styleCode: typeof r.styleCode === "string" ? r.styleCode : null,
       mrp,
       salePrice,
       discountPercent: Number.isFinite(discountPercent) ? discountPercent : 0,
@@ -155,6 +160,8 @@ function parseSearchSuggestions(json: unknown): {
         id,
         slug: r.slug,
         name: r.name,
+        category: typeof r.category === "string" ? r.category : null,
+        styleCode: typeof r.styleCode === "string" ? r.styleCode : null,
         mrp,
         salePrice,
         discountPercent: Number.isFinite(discountPercent) ? discountPercent : 0,
@@ -276,11 +283,22 @@ function SearchProductCardInner({
           </span>
         ) : null}
       </div>
-      <div className="flex min-h-[5.5rem] flex-1 flex-col gap-1 p-3">
-        <p className="line-clamp-2 text-sm font-medium leading-snug text-zinc-900">
-          <HighlightedTitle text={item.name} needle={query} />
-        </p>
-        <div className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <div className="flex min-h-[5.5rem] flex-1 flex-col justify-between gap-2 p-3">
+        <div>
+          <p className="line-clamp-2 text-sm font-medium leading-snug text-zinc-900">
+            <HighlightedTitle text={item.name} needle={query} />
+          </p>
+          {(item.category || item.styleCode) && (
+            <p className="mt-1 text-[11px] text-zinc-500">
+              {item.category ? <span>{item.category}</span> : null}
+              {item.category && item.styleCode ? <span className="text-zinc-300"> · </span> : null}
+              {item.styleCode ? (
+                <span className="font-mono tabular-nums text-zinc-600">Code {item.styleCode}</span>
+              ) : null}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="text-base font-bold tabular-nums text-zinc-950">{formatInr(item.salePrice)}</span>
           {showStrike ? (
             <span className="text-sm tabular-nums text-zinc-400 line-through">{formatInr(item.mrp)}</span>
@@ -304,7 +322,7 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
   const [activeIndex, setActiveIndex] = useState(-1);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    const t = window.setTimeout(() => setDebouncedQuery(query.trim()), 280);
     return () => window.clearTimeout(t);
   }, [query]);
 
@@ -362,6 +380,15 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
   );
   const displayStyles = suggestions?.styles ?? [];
   const displayCollections = suggestions?.collections ?? [];
+
+  const noResultHints = useMemo(() => {
+    const dq = debouncedQuery.trim();
+    if (dq.length < 2) return { typo: "", cats: [] as string[] };
+    const { raw, canonical } = normalizeSearchQueryForDisplay(dq);
+    const typo = canonical && canonical !== raw ? canonical : "";
+    const cats = categories.length ? relatedCategoriesForSearchQuery(dq, categories, 6) : [];
+    return { typo, cats };
+  }, [debouncedQuery, categories]);
 
   useEffect(() => {
     setMounted(true);
@@ -448,6 +475,13 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
   const onKeyDownInput = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      if (activeIndex >= 0 && gridItems[activeIndex]) {
+        const item = gridItems[activeIndex]!;
+        writeRecent(query.trim() || item.name);
+        router.push(`/product/${item.slug}`);
+        onClose();
+        return;
+      }
       submit();
       return;
     }
@@ -703,28 +737,64 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                       ))}
                     </div>
                   ) : gridItems.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-zinc-200/90 bg-white/60 px-4 py-10 text-center text-sm text-zinc-600">
+                    <div className="rounded-2xl border border-dashed border-zinc-200/90 bg-white/60 px-4 py-8 text-sm text-zinc-600">
                       {fetchAutocomplete ? (
                         debouncedQuery.length >= 2 ? (
-                          <>
-                            No quick matches for <span className="font-semibold text-zinc-900">“{debouncedQuery}”</span>.
-                            Try another spelling or{" "}
-                            <button type="button" className="font-semibold text-crown-900 underline" onClick={() => setQuery("")}>
-                              clear
-                            </button>{" "}
-                            — full ranked results on{" "}
-                            <Link href={`/search?q=${encodeURIComponent(debouncedQuery)}&page=1`} className="font-semibold text-crown-900 underline" onClick={onClose}>
-                              search page
-                            </Link>
-                            .
-                          </>
+                          <div className="space-y-4 text-left">
+                            <p>
+                              No quick matches for <span className="font-semibold text-zinc-900">“{debouncedQuery}”</span>.
+                              Full ranked results on{" "}
+                              <Link
+                                href={`/search?q=${encodeURIComponent(debouncedQuery)}&page=1`}
+                                className="font-semibold text-crown-900 underline"
+                                onClick={onClose}
+                              >
+                                search page
+                              </Link>
+                              .
+                            </p>
+                            {noResultHints.typo ? (
+                              <p>
+                                Did you mean{" "}
+                                <button
+                                  type="button"
+                                  className="font-semibold text-crown-900 underline"
+                                  onClick={() => setQuery(noResultHints.typo)}
+                                >
+                                  {noResultHints.typo}
+                                </button>
+                                ?
+                              </p>
+                            ) : null}
+                            {noResultHints.cats.length > 0 ? (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Browse instead</p>
+                                <ul className="mt-2 flex flex-wrap gap-2">
+                                  {noResultHints.cats.map((c) => (
+                                    <li key={c}>
+                                      <Link
+                                        href={`${shopCategoryHref(c)}?page=1`}
+                                        className="inline-flex rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-800 hover:border-crown-300 hover:text-crown-900"
+                                        onClick={onClose}
+                                      >
+                                        {c}
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            <button type="button" className="text-xs font-semibold text-crown-900 underline" onClick={() => setQuery("")}>
+                              Clear search
+                            </button>
+                          </div>
                         ) : (
                           "Keep typing for more matches — or use trending / recent on the left."
                         )
                       ) : (
                         "Start typing to see suggestions."
                       )}
-                    </p>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                       {gridItems.map((item, idx) => (

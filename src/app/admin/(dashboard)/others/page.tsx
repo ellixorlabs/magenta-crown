@@ -1,7 +1,7 @@
 import { AuthVisualSettingsForm } from "@/components/admin/AuthVisualSettingsForm";
 import { AuthMaintenanceTools } from "@/components/admin/AuthMaintenanceTools";
 import { BrandAssetsSettingsForm } from "@/components/admin/BrandAssetsSettingsForm";
-import { requireFullAdmin } from "@/lib/admin-auth";
+import { isFullAdmin, requireStaff } from "@/lib/admin-auth";
 import { getBrandSettings } from "@/lib/brand-settings";
 import { parseHomePageConfigPayload } from "@/lib/home-page-config-payload";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -9,7 +9,7 @@ import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 export const metadata = { title: "Others | Admin" };
 
 export default async function AdminOthersPage() {
-  await requireFullAdmin("/admin/others");
+  const session = await requireStaff("/admin/others");
   const supabase = getSupabaseServiceRoleClient();
   const { data: row } = await (supabase.from("HomePageConfig") as any)
     .select("payload")
@@ -41,7 +41,7 @@ export default async function AdminOthersPage() {
         initialShareTemplate={shareMessageTemplate}
         authVisualImageUrl={authVisualImageUrl}
       />
-      <AuthMaintenanceTools />
+      <AuthMaintenanceTools show={isFullAdmin(session.user.role)} />
     </div>
   );
 }

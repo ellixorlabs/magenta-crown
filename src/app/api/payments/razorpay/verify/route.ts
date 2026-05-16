@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizePublicOrderRef } from "@/lib/order-public-ref";
 import { getRazorpayConfig, signRazorpayPayload } from "@/lib/razorpay";
+import { insertOrderTimelineEvent } from "@/lib/order-timeline";
+import { notifyMerchAdmins } from "@/lib/ops-notifications";
+import { recordCouponUsageIfEligible, type OrderCouponSnapshot } from "@/lib/coupon-analytics";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { enqueueTransactionalEmail } from "@/lib/transactional-email-queue";
 
 export async function POST(req: Request) {
   try {
@@ -34,14 +38,15 @@ export async function POST(req: Request) {
     const supabase = getSupabaseServiceRoleClient();
     const { data: order, error: orderError } = await supabase
       .from("Order")
-      .select("id,status,paymentMethod")
+      .select("id,userId,couponId,discountAmount,totalAmount,orderStatus,paymentStatus,paymentMethod")
       .eq("publicOrderRef", publicRef)
       .eq("userId", session.user.id)
-      .maybeSingle<{ id: string; status: string; paymentMethod: string | null }>();
+      .maybeSingle();
     if (orderError || !order) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
-    if (order.status === "PAID") {
+    const o = order as OrderCouponSnapshot;
+    if (o.paymentStatus === "PAID") {
       return NextResponse.json({ ok: true });
     }
 
@@ -50,49 +55,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payment signature." }, { status: 400 });
     }
 
-    const { data: lines, error: linesError } = await (supabase.from("OrderItem") as any)
-      .select("id,quantity,variantId")
-      .eq("orderId", order.id);
-    if (linesError) {
-      return NextResponse.json({ error: "Could not verify payment." }, { status: 500 });
-    }
-
-    const orderLines = (lines ?? []) as Array<{ id: string; quantity: number; variantId: string | null }>;
-    for (const line of orderLines) {
-      if (!line.variantId) {
-        return NextResponse.json({ error: "Order line is missing a variant. Please retry payment." }, { status: 409 });
-      }
-      const { data: variant, error: variantErr } = await (supabase.from("ProductVariant") as any)
-        .select("id,stock,isActive")
-        .eq("id", line.variantId)
-        .maybeSingle();
-      if (variantErr || !variant) {
-        return NextResponse.json({ error: "Some items are unavailable. Please retry or choose COD." }, { status: 409 });
-      }
-      if (!variant.isActive || variant.stock < line.quantity) {
-        return NextResponse.json(
-          { error: "Some items sold out during payment. Please retry payment or switch to cash on delivery." },
-          { status: 409 }
-        );
-      }
-      const { error: stockErr } = await (supabase.from("ProductVariant") as any)
-        .update({ stock: Math.max(0, variant.stock - line.quantity) })
-        .eq("id", variant.id);
-      if (stockErr) {
-        return NextResponse.json({ error: "Could not finalize stock. Please retry payment." }, { status: 500 });
-      }
-    }
-
     const { error: updateError } = await (supabase
       .from("Order") as any)
       .update({
-        status: "PAID",
+        paymentStatus: "PAID",
         trackingUrl: `razorpay:${razorpayPaymentId}`
       })
-      .eq("id", order.id);
+      .eq("id", o.id);
     if (updateError) {
       return NextResponse.json({ error: "Could not verify payment." }, { status: 500 });
     }
+
+    await insertOrderTimelineEvent(supabase, {
+      orderId: o.id,
+      actorId: session.user.id,
+      type: "PAYMENT_CONFIRMED",
+      title: "Payment received",
+      description: "UPI / Razorpay payment verified.",
+      metadata: { razorpayPaymentId }
+    });
+
+    const { data: ordRow } = await supabase.from("Order").select("publicOrderRef").eq("id", o.id).maybeSingle();
+    const pref = (ordRow as { publicOrderRef?: string | null } | null)?.publicOrderRef;
+    const refEnc = pref ? encodeURIComponent(pref) : "";
+    await notifyMerchAdmins(supabase, {
+      type: "PAYMENT_SUCCESS",
+      title: "Payment confirmed",
+      message: `Order ${pref ?? o.id} paid online.`,
+      metadata: { orderId: o.id, razorpayPaymentId },
+      actionUrl: refEnc ? `/admin/orders/${refEnc}` : "/admin/orders"
+    });
+
+    await recordCouponUsageIfEligible(supabase, {
+      id: o.id,
+      userId: o.userId,
+      couponId: o.couponId,
+      discountAmount: o.discountAmount,
+      totalAmount: o.totalAmount,
+      orderStatus: o.orderStatus,
+      paymentStatus: "PAID",
+      paymentMethod: o.paymentMethod
+    });
+
+    await enqueueTransactionalEmail(supabase, "PAYMENT_SUCCESS", {
+      orderId: o.id,
+      publicOrderRef: pref ?? "",
+      userId: o.userId ?? ""
+    });
 
     return NextResponse.json({ ok: true });
   } catch {
@@ -100,4 +109,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not verify payment." }, { status: 500 });
   }
 }
-

@@ -33,7 +33,9 @@ export async function requireMerchAdmin(callbackPath: string): Promise<StaffSess
 
 export {
   canAccessAdminOrders,
+  canMutateAdminOrders,
   canAccessAdminUsers,
+  canViewAdminCustomers,
   canCreateOrDeleteProducts,
   canManageBrandAssets,
   canManageCoupons,

@@ -32,7 +32,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServiceRoleClient();
   const { data: orders, error } = await (supabase.from("Order") as any)
     .select(
-      "id,publicOrderRef,status,paymentMethod,createdAt,totalAmount,trackingUrl,items:OrderItem(id,quantity,product:Product(name,imageUrls,listImageIndex))"
+      "id,publicOrderRef,orderStatus,paymentStatus,paymentMethod,createdAt,totalAmount,trackingUrl,items:OrderItem(id,quantity,product:Product(name,imageUrls,listImageIndex))"
     )
     .eq("userId", session.user.id)
     .order("createdAt", { ascending: false });

@@ -75,6 +75,12 @@ const runtimeCaching = [
       sameOrigin && request.method === "GET" && url.pathname.startsWith("/api/public/"),
     handler: publicGetApi
   },
+  /** Never cache App Router admin HTML/RSC — stale shells break hydration after deploy. */
+  {
+    matcher: ({ sameOrigin, request, url }: { sameOrigin: boolean; request: Request; url: URL }) =>
+      sameOrigin && request.method === "GET" && url.pathname.startsWith("/admin"),
+    handler: sensitiveApi
+  },
   ...defaultCache
 ];
 

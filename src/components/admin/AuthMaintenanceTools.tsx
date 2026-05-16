@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function AuthMaintenanceTools() {
+export function AuthMaintenanceTools({ show = true }: { show?: boolean }) {
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -25,6 +25,8 @@ export function AuthMaintenanceTools() {
       setRunning(false);
     }
   }
+
+  if (!show) return null;
 
   return (
     <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-6">

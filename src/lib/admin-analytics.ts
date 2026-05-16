@@ -78,7 +78,9 @@ export function formatInr(n: number) {
   }).format(n);
 }
 
-const PAID_STATUSES = new Set(["PAID", "SHIPPED"]);
+function isRevenueOrder(o: { paymentStatus: string; orderStatus: string }) {
+  return o.paymentStatus === "PAID" || ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(o.orderStatus);
+}
 
 /** Only line items for paid/shipped orders — avoids loading every order line (major win vs join-all). */
 async function fetchOrderItemsForPaidOrders(
@@ -117,18 +119,25 @@ async function loadAdminDashboardAnalytics(): Promise<AdminDashboardAnalytics> {
 
   const [ordersRes, usersRes] = await Promise.all([
     (supabase.from("Order") as any)
-      .select("id,status,totalAmount,subtotalBeforeDiscount,createdAt")
+      .select("id,orderStatus,paymentStatus,totalAmount,subtotalBeforeDiscount,createdAt")
       .gte("createdAt", addDays(now, -400).toISOString()),
     (supabase.from("User") as any).select("role,createdAt")
   ]);
   if (ordersRes.error) throw new Error(ordersRes.error.message);
   if (usersRes.error) throw new Error(usersRes.error.message);
-  const orders = (ordersRes.data ?? []) as Array<{ id: string; status: string; totalAmount: number; subtotalBeforeDiscount: number; createdAt: string }>;
+  const orders = (ordersRes.data ?? []) as Array<{
+    id: string;
+    orderStatus: string;
+    paymentStatus: string;
+    totalAmount: number;
+    subtotalBeforeDiscount: number;
+    createdAt: string;
+  }>;
   const users = (usersRes.data ?? []) as Array<{ role: string; createdAt: string }>;
 
-  const paidOrderIds = orders.filter((o) => PAID_STATUSES.has(o.status)).map((o) => o.id);
+  const paidOrderIds = orders.filter((o) => isRevenueOrder(o)).map((o) => o.id);
   const orderItemsAgg = await fetchOrderItemsForPaidOrders(supabase, paidOrderIds);
-  const paidOrders = orders.filter((o) => PAID_STATUSES.has(o.status));
+  const paidOrders = orders.filter((o) => isRevenueOrder(o));
   const orderCountAll = orders.length;
   const customerRows = users.filter((u) => u.role === "CUSTOMER");
   const customerCount = customerRows.length;
@@ -151,7 +160,7 @@ async function loadAdminDashboardAnalytics(): Promise<AdminDashboardAnalytics> {
   const cust30 = customerRows.filter((u) => inRange(u.createdAt, d30)).length;
   const custPrev30 = customerRows.filter((u) => inRange(u.createdAt, d60, d30)).length;
   const statusMap = new Map<string, number>();
-  for (const o of orders) statusMap.set(o.status, (statusMap.get(o.status) ?? 0) + 1);
+  for (const o of orders) statusMap.set(o.orderStatus, (statusMap.get(o.orderStatus) ?? 0) + 1);
   const ordersByStatus = [...statusMap.entries()].map(([status, count]) => ({ status, count }));
   const trendOrders = paidOrders;
 
