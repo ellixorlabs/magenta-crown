@@ -96,8 +96,8 @@ export function HomeProductCarouselSection({
               Side columns keep nav off the product imagery. Buttons only mount when that direction
               can scroll — no disabled overlay stealing clicks from cards.
             */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex w-10 shrink-0 flex-col items-center justify-center self-stretch sm:w-12">
+            <div className="flex items-center gap-1.5 sm:gap-4">
+              <div className="hidden w-10 shrink-0 flex-col items-center justify-center self-stretch min-[520px]:flex sm:w-12">
                 {canPrev ? (
                   <motion.button
                     type="button"
@@ -114,12 +114,12 @@ export function HomeProductCarouselSection({
               <div
                 ref={scrollerRef}
                 onScroll={updateArrows}
-                className="flex min-w-0 flex-1 snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex min-w-0 flex-1 snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-smooth pb-2 pt-1 sm:gap-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {products.map((product) => (
                   <div
                     key={product.id}
-                    className="w-[min(260px,100%)] max-w-full shrink-0 snap-start sm:w-[min(280px,38vw)] lg:w-[min(260px,calc((100%-6rem)/5))]"
+                    className="w-[42vw] max-w-[168px] shrink-0 snap-start min-[520px]:w-[min(220px,36vw)] min-[520px]:max-w-none lg:w-[min(240px,calc((100%-6rem)/5))]"
                   >
                     <ProductCard
                       product={product}
@@ -132,7 +132,7 @@ export function HomeProductCarouselSection({
                 ))}
               </div>
 
-              <div className="flex w-10 shrink-0 flex-col items-center justify-center self-stretch sm:w-12">
+              <div className="hidden w-10 shrink-0 flex-col items-center justify-center self-stretch min-[520px]:flex sm:w-12">
                 {canNext ? (
                   <motion.button
                     type="button"

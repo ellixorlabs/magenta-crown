@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { isStorefrontStaff } from "@/lib/admin-permissions";
+import { HomePagePwaShell } from "@/components/home/HomePagePwaShell";
 import { HomePageView } from "@/components/home/HomePageView";
+import { isStorefrontStaff } from "@/lib/admin-permissions";
+import { serializeHomeBundle } from "@/lib/home-page-client-cache";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getHomePageDbBundle } from "@/lib/site/load-home-bundle";
 
@@ -29,9 +31,10 @@ export default async function HomePage() {
   }
 
   const { payload, heroSlides, heroCarousel, productById, homePageBanners } = bundle;
+  const snapshot = serializeHomeBundle(bundle);
 
   return (
-    <>
+    <HomePagePwaShell snapshot={snapshot}>
       <HomePageView
         payload={payload}
         heroSlides={heroSlides}
@@ -40,6 +43,6 @@ export default async function HomePage() {
         productById={productById}
         homePageBanners={homePageBanners}
       />
-    </>
+    </HomePagePwaShell>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { IosSpinner } from "@/components/ui/IosSpinner";
 
 export function ContactForm() {
   const [sent, setSent] = useState(false);
@@ -14,7 +15,8 @@ export function ContactForm() {
         e.preventDefault();
         setError(null);
         setLoading(true);
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         try {
           const res = await fetch("/api/public/support-inquiry", {
             method: "POST",
@@ -26,13 +28,18 @@ export function ContactForm() {
               message: fd.get("message")
             })
           });
-          const data = (await res.json()) as { error?: string };
+          let data: { error?: string; ok?: boolean } = {};
+          try {
+            data = (await res.json()) as { error?: string; ok?: boolean };
+          } catch {
+            if (res.ok) data = { ok: true };
+          }
           if (!res.ok) {
             setError(data.error ?? "Could not send.");
             return;
           }
           setSent(true);
-          e.currentTarget.reset();
+          form.reset();
         } catch {
           setError("Could not send. Try again.");
         } finally {
@@ -68,9 +75,18 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={loading || sent}
-        className="rounded-full bg-crown-800 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-full bg-crown-800 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-crown-900 disabled:opacity-50"
       >
-        {loading ? "Sending…" : sent ? "Sent" : "Send message"}
+        {loading ? (
+          <>
+            <IosSpinner size={14} className="text-white" />
+            Sending…
+          </>
+        ) : sent ? (
+          "Sent"
+        ) : (
+          "Send message"
+        )}
       </button>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {sent ? (

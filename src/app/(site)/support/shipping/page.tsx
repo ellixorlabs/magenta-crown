@@ -1,9 +1,16 @@
+import { parseSupportInfo } from "@/lib/brand-content";
+import { getBrandContentMap } from "@/lib/brand-content.server";
+
 export const metadata = {
   title: "Shipping",
   description: "Shipping timelines, tracking, and delivery information for Magenta Crown orders."
 };
 
-export default function ShippingPolicyPage() {
+export default async function ShippingPolicyPage() {
+  const cms = await getBrandContentMap();
+  const info = parseSupportInfo(cms.support_info.jsonData);
+  const email = info.email;
+
   return (
     <main className="bg-[#f8f5f6] py-12">
       <div className="section-shell max-w-3xl space-y-4 text-zinc-700">
@@ -21,8 +28,8 @@ export default function ShippingPolicyPage() {
         </p>
         <p>
           Tracking details are shared by email and SMS once shipped. For delivery issues, contact{" "}
-          <a href="mailto:care@magentacrown.com" className="text-crown-800 underline">
-            care@magentacrown.com
+          <a href={`mailto:${email}`} className="text-crown-800 underline">
+            {email}
           </a>{" "}
           with your order ID.
         </p>

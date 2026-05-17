@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { saveBrandContentSection } from "@/app/admin/(dashboard)/content/actions";
+import { SaveSubmitButton } from "@/components/ui/SaveSubmitButton";
 import type { BrandSectionKey } from "@/lib/brand-content";
 
 type SectionData = {
@@ -60,12 +61,11 @@ export function BrandContentEditor({ sections }: { sections: SectionData[] }) {
           ) : (
             <input type="hidden" name="jsonData" value="" />
           )}
-          <button
-            type="submit"
+          <SaveSubmitButton
+            idleLabel="Save section"
+            savingLabel="Saving…"
             className="mt-4 rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white hover:bg-black"
-          >
-            Save section
-          </button>
+          />
           {saved === s.sectionKey ? (
             <span className="ml-3 text-xs font-medium text-emerald-700">Saved</span>
           ) : null}

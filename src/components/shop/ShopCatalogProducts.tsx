@@ -46,6 +46,7 @@ export const ShopCatalogProducts = memo(function ShopCatalogProducts({
               initialWishlisted={wishlistIds.has(product.id)}
               outOfStock={getProductTotalStock(p.variants) === 0}
               reviewSummary={reviewSummaryByProductId[product.id] ?? null}
+              cardDensity="compact"
             />
           );
         })}

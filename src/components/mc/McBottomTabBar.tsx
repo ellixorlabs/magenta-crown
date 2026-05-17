@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { memo } from "react";
 import { useEffect, useState } from "react";
 import { Home, ShoppingBag, ShoppingCart, User } from "lucide-react";
@@ -34,10 +34,15 @@ const tabs = [
 function McBottomTabBarInner() {
   useDevRenderLog("McBottomTabBar", 20);
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
   const { items: cartItems, cartHydrated } = useCart();
   const [hideForKeyboard, setHideForKeyboard] = useState(false);
   const cartCount = cartItems.reduce((n, it) => n + it.quantity, 0);
+
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

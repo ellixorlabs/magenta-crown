@@ -1,7 +1,5 @@
-import Image from "next/image";
 import { EditorialPageShell } from "@/components/brand/EditorialPageShell";
 import { EditorialSection } from "@/components/brand/EditorialSection";
-import { parseFounderJson } from "@/lib/brand-content";
 import { getBrandContentMap } from "@/lib/brand-content.server";
 
 export const metadata = {
@@ -11,7 +9,6 @@ export const metadata = {
 
 export default async function AboutPage() {
   const cms = await getBrandContentMap();
-  const founder = parseFounderJson(cms.about_founder.jsonData);
 
   return (
     <EditorialPageShell
@@ -40,27 +37,12 @@ export default async function AboutPage() {
         <p className="mt-4 text-[15px] leading-relaxed text-zinc-700">{cms.about_values.content}</p>
       </EditorialSection>
 
-      <section className="border-b border-zinc-200/60 bg-white">
-        <div className="section-shell grid gap-10 py-12 md:grid-cols-2 md:items-center md:py-16">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-zinc-200/80 bg-[#f3efe8]">
-            {founder.imageUrl ? (
-              <Image
-                src={founder.imageUrl}
-                alt={founder.imageAlt}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 40vw"
-              />
-            ) : null}
-          </div>
-          <div>
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">
-              {cms.about_founder.title}
-            </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-zinc-700">{cms.about_founder.content}</p>
-          </div>
-        </div>
-      </section>
+      <EditorialSection id="founder">
+        <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">
+          {cms.about_founder.title}
+        </h2>
+        <p className="mt-4 text-[15px] leading-relaxed text-zinc-700">{cms.about_founder.content}</p>
+      </EditorialSection>
 
       <EditorialSection id="craft" tone="champagne">
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">

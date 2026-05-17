@@ -209,16 +209,21 @@ function ProductCardInner({
 
   const hasRatingPill = Boolean(reviewSummary && reviewSummary.count > 0);
   const isCarousel = layout === "carousel";
-  const isCompactLuxury = cardDensity === "compact" && (layout === "grid" || layout === "carousel");
+  const isGridOrCarousel = layout === "grid" || layout === "carousel";
+  const isCompactLuxury = cardDensity === "compact" && isGridOrCarousel;
   const pillTag = product.tags?.[0]?.trim();
 
   return (
     <Link href={`/product/${product.slug}`} className="group mc-tap block h-full w-full min-w-0 max-w-full">
       <article
-        className={`flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md ${isCompactLuxury ? "rounded-xl" : ""}`}
+        className={`flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-mc-card shadow-sm ring-1 ring-mc-ink/[0.06] transition duration-300 group-hover:shadow-md max-lg:rounded-lg max-lg:shadow-none ${
+          isCompactLuxury ? "rounded-xl" : ""
+        }`}
       >
         <div
-          className={`relative w-full max-w-full min-h-0 overflow-hidden bg-mc-creamDeep ${isCompactLuxury ? "aspect-[3/4]" : "aspect-[3/4] lg:aspect-[4/5]"}`}
+          className={`relative w-full max-w-full min-h-0 overflow-hidden bg-mc-creamDeep ${
+            isCompactLuxury ? "aspect-[3/4]" : "aspect-[4/5] max-lg:aspect-[4/5] lg:aspect-[4/5]"
+          }`}
         >
           <div className="absolute inset-0 min-h-0">
             <div className="relative h-full w-full min-h-0">
@@ -232,8 +237,8 @@ function ProductCardInner({
                 style={{ objectPosition: listPos }}
                 sizes={
                   isCompactLuxury
-                    ? "(max-width: 640px) 46vw, (max-width: 1024px) 28vw, (max-width: 1536px) 20vw, 280px"
-                    : "(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+                    ? "(max-width: 640px) 42vw, (max-width: 1024px) 28vw, (max-width: 1536px) 20vw, 280px"
+                    : "(max-width: 640px) 42vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
                 }
                 quality={75}
                 loading="lazy"
@@ -252,7 +257,7 @@ function ProductCardInner({
                   sizes={
                     isCompactLuxury
                       ? "(max-width: 640px) 46vw, (max-width: 1024px) 28vw, (max-width: 1536px) 20vw, 280px"
-                      : "(max-width: 640px) 48vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
+                      : "(max-width: 640px) 42vw, (max-width: 1024px) 30vw, (max-width: 1536px) 24vw, 320px"
                   }
                   quality={75}
                   loading="lazy"
@@ -262,7 +267,7 @@ function ProductCardInner({
           ) : null}
           {showMetaOverlay && (
             <div
-              className="pointer-events-none absolute inset-0 z-[8] flex flex-col justify-end opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
+              className="pointer-events-none absolute inset-0 z-[8] hidden flex-col justify-end opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-within:opacity-100 lg:flex"
               aria-hidden
             >
               <div
@@ -290,7 +295,7 @@ function ProductCardInner({
           )}
           {hasRatingPill && (
             <div
-              className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-md border border-white/90 bg-white/95 px-2 py-1 text-[10px] shadow-sm backdrop-blur-sm sm:bottom-2.5 sm:left-2.5 sm:px-2.5 sm:py-1.5"
+              className="pointer-events-none absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-1rem)] items-center gap-1 rounded-md border border-white/90 bg-white/95 px-2 py-1 text-[10px] shadow-sm backdrop-blur-sm sm:bottom-2.5 sm:left-2.5 sm:px-2.5 sm:py-1.5 lg:flex"
               aria-label={`Rated ${reviewSummary!.avg.toFixed(1)} from ${reviewSummary!.count} reviews`}
             >
               <span className="flex shrink-0 gap-px">
@@ -320,12 +325,12 @@ function ProductCardInner({
             </div>
           )}
           {isCarousel && offPct != null && offPct > 0 && !outOfStock && (
-            <span className="absolute left-2 top-2 z-10 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+            <span className="absolute left-2 top-2 z-10 hidden rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm lg:inline max-lg:left-1.5 max-lg:top-1.5">
               Save {offPct}%
             </span>
           )}
           {showNewBadge && !isCompactLuxury && (
-            <span className="absolute right-2 top-2 z-10 rounded-full bg-[#5c4033] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white shadow-sm ring-2 ring-white/50">
+            <span className="absolute right-2 top-2 z-10 rounded-full bg-[#5c4033] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-white shadow-sm ring-2 ring-white/50 max-lg:right-8 max-lg:text-[7px]">
               New
             </span>
           )}
@@ -338,24 +343,25 @@ function ProductCardInner({
             type="button"
             aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
             onClick={toggleWishlist}
-            className={`absolute right-2 top-2 z-20 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white ${
-              isCarousel && !isCompactLuxury
-                ? "bottom-2 right-2 top-auto"
-                : ""
+            className={`absolute right-2 top-2 z-20 rounded-full border border-white/80 bg-white/95 p-1.5 shadow-md transition hover:bg-white max-lg:right-1.5 max-lg:top-1.5 max-lg:p-1 ${
+              isCarousel && !isCompactLuxury ? "max-lg:bottom-1.5 max-lg:right-1.5 max-lg:top-auto lg:bottom-2 lg:right-2 lg:top-auto" : ""
             }`}
           >
-            <Heart className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${heartClass}`} strokeWidth={1.6} />
+            <Heart
+              className={`h-4 w-4 max-lg:h-3.5 max-lg:w-3.5 sm:h-[18px] sm:w-[18px] ${heartClass}`}
+              strokeWidth={1.6}
+            />
           </button>
         </div>
         {isCarousel && pillTag && (
-          <div className="flex justify-center bg-mc-card px-2 pt-2">
+          <div className="hidden justify-center bg-mc-card px-2 pt-2 lg:flex">
             <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-mc-maroon">
               {pillTag}
             </span>
           </div>
         )}
         <div
-          className={`flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card text-center ${
+          className={`flex w-full min-w-0 max-w-full flex-1 flex-col justify-between bg-mc-card text-center max-lg:px-2 max-lg:pb-2 max-lg:pt-1.5 max-lg:text-left ${
             isCompactLuxury
               ? "px-2 pb-2 pt-1.5 sm:px-2.5 sm:pb-2 sm:pt-2"
               : "px-3 pb-3 pt-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3 lg:px-2.5 lg:pb-2.5 lg:pt-2"
@@ -365,24 +371,30 @@ function ProductCardInner({
             className={`break-words font-[family-name:var(--font-body)] font-medium leading-snug text-mc-ink ${
               isCompactLuxury
                 ? "line-clamp-2 min-h-[2.35rem] text-[13px] sm:text-sm"
-                : `min-h-[3.25rem] text-sm sm:text-[15px] lg:min-h-[3rem] ${
-                    isCarousel ? "line-clamp-2 min-h-[2.5rem]" : "line-clamp-2 min-h-[2.5rem] sm:line-clamp-2"
-                  }`
+                : "line-clamp-2 min-h-[3.25rem] text-sm max-lg:min-h-0 max-lg:text-[12px] sm:text-[15px] lg:min-h-[3rem]"
             }`}
           >
             {product.name}
           </h3>
           <div
-            className={`mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-2 gap-y-1 ${
-              isCompactLuxury ? "min-h-[2.25rem]" : "min-h-[2.75rem] lg:min-h-[2.5rem]"
+            className={`mt-1.5 flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0.5 max-lg:mt-1 max-lg:justify-start ${
+              isCompactLuxury ? "min-h-[2.25rem]" : "min-h-[2.75rem] max-lg:min-h-0 lg:min-h-[2.5rem]"
             }`}
           >
-            <span className="text-base font-bold tabular-nums text-mc-price sm:text-[17px]">{formatInr(salePrice)}</span>
+            <span className="text-base font-bold tabular-nums text-mc-price max-lg:text-sm sm:text-[17px]">
+              {formatInr(salePrice)}
+            </span>
             {showStrikethrough && (
-              <span className="text-xs tabular-nums text-mc-muted line-through sm:text-sm">{formatInr(product.mrp)}</span>
+              <span className="text-xs tabular-nums text-mc-muted line-through max-lg:text-[11px] sm:text-sm">
+                {formatInr(product.mrp)}
+              </span>
             )}
-            {offPct != null && offPct > 0 && !isCarousel && (
-              <span className="rounded-md bg-white/80 px-1.5 py-px text-[10px] font-semibold leading-tight text-mc-maroon sm:text-[11px]">
+            {offPct != null && offPct > 0 && (
+              <span
+                className={`rounded-md bg-white/80 px-1.5 py-px text-[10px] font-semibold leading-tight text-red-600 max-lg:text-[10px] sm:text-[11px] ${
+                  isCarousel ? "inline-flex lg:hidden" : ""
+                }`}
+              >
                 {offPct}% off
               </span>
             )}

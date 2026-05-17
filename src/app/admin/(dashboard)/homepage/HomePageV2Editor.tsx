@@ -1,5 +1,6 @@
 "use client";
 
+import { IosSpinner } from "@/components/ui/IosSpinner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
@@ -746,9 +747,16 @@ export function HomePageV2Editor({ initial, catalogProducts, initialBanners }: P
           type="button"
           disabled={isPending}
           onClick={() => void publish()}
-          className="w-fit shrink-0 rounded-full bg-crown-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
+          className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-crown-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
         >
-          {isPending ? "Saving…" : "Save & publish"}
+          {isPending ? (
+            <>
+              <IosSpinner size={14} className="text-white" />
+              Saving…
+            </>
+          ) : (
+            "Save & publish"
+          )}
         </button>
         <p className="min-w-0 max-w-prose break-words text-xs leading-relaxed text-zinc-500">
           Saves to the database and refreshes the storefront (no full reload).

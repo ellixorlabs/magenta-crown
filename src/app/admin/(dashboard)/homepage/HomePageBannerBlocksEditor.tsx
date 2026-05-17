@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { IosSpinner } from "@/components/ui/IosSpinner";
 import { compressImageFileForUpload } from "@/lib/client-image-compress";
 import type { HomePageBannerRow } from "@/lib/home-page-banner";
 import { createEmptyHomePageBanner } from "@/lib/home-page-banner";
@@ -166,9 +167,16 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
             type="button"
             disabled={pending}
             onClick={() => void persist()}
-            className="rounded-full bg-crown-800 px-4 py-2 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-crown-800 px-4 py-2 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
           >
-            {pending ? "Saving…" : "Save banners"}
+            {pending ? (
+              <>
+                <IosSpinner size={14} className="text-white" />
+                Saving…
+              </>
+            ) : (
+              "Save banners"
+            )}
           </button>
         </div>
       </div>

@@ -61,6 +61,7 @@ export default async function WishlistPage() {
               product={p}
               initialWishlisted
               outOfStock={getProductTotalStock(p.variants ?? []) === 0}
+              cardDensity="compact"
             />
           ))}
         </div>

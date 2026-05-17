@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AdminProductImageFields } from "@/components/admin/AdminProductImageFields";
+import { IosSpinner } from "@/components/ui/IosSpinner";
 import { AdminSizeChartFormFields } from "@/components/admin/AdminSizeChartFormFields";
 import { CreatableChipSelect } from "@/components/admin/CreatableChipSelect";
 import { ProductFeaturedCouponPicker, type CouponOption } from "@/components/admin/ProductFeaturedCouponPicker";
@@ -455,9 +456,16 @@ export function ProductEditForm({ product, coupons, occasionOptions, materialOpt
       <button
         type="submit"
         disabled={isSaving}
-        className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {isSaving ? "Saving changes..." : "Save changes"}
+        {isSaving ? (
+          <>
+            <IosSpinner size={14} className="text-white" />
+            Saving changes…
+          </>
+        ) : (
+          "Save changes"
+        )}
       </button>
       {saveNotice ? <p className="text-sm text-emerald-700">{saveNotice}</p> : null}
     </form>

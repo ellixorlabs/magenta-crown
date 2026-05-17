@@ -63,7 +63,9 @@ export default async function AdminSupportInquiriesPage({
           <li key={r.id} className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm shadow-sm">
             <div className="flex flex-wrap justify-between gap-2">
               <div>
-                <p className="font-semibold text-zinc-900">{r.name}</p>
+                <Link href={`/admin/support/${r.id}`} className="font-semibold text-zinc-900 hover:text-crown-800">
+                  {r.name}
+                </Link>
                 <p className="text-xs text-zinc-500">
                   {r.email}
                   {r.phone ? ` · ${r.phone}` : ""} · {new Date(r.createdAt).toLocaleString()}
@@ -77,8 +79,14 @@ export default async function AdminSupportInquiriesPage({
                 {r.status}
               </span>
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-zinc-700">{r.message}</p>
+            <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-zinc-700">{r.message}</p>
             <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href={`/admin/support/${r.id}`}
+                className="rounded-full bg-crown-50 px-3 py-1.5 text-xs font-semibold text-crown-900 ring-1 ring-crown-200 hover:bg-crown-100"
+              >
+                View details
+              </Link>
               {r.status !== "RESOLVED" ? (
                 <form action={setSupportInquiryStatus}>
                   <input type="hidden" name="id" value={r.id} />

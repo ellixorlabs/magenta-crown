@@ -39,11 +39,6 @@ export type FooterJson = {
   legalLinks: Array<{ label: string; href: string }>;
 };
 
-export type FounderJson = {
-  imageUrl: string;
-  imageAlt: string;
-};
-
 export type BrandContentRow = {
   id: string;
   sectionKey: BrandSectionKey;
@@ -80,12 +75,7 @@ export const BRAND_CONTENT_DEFAULTS: Record<
   about_founder: {
     title: "Founder Story",
     content:
-      "Our founder grew up between ateliers and archives—learning that luxury is not excess, but intention. Magenta Crown is that promise made wearable.",
-    jsonData: {
-      imageUrl:
-        "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?auto=format&fit=crop&w=900&q=80",
-      imageAlt: "Founder portrait"
-    } satisfies FounderJson
+      "Our founder grew up between ateliers and archives—learning that luxury is not excess, but intention. Magenta Crown is that promise made wearable."
   },
   about_craftsmanship: {
     title: "Craftsmanship",
@@ -105,7 +95,7 @@ export const BRAND_CONTENT_DEFAULTS: Record<
     title: "Customer care",
     content: "",
     jsonData: {
-      email: "care@magentacrown.com",
+      email: "admin@magentacrown.com",
       phone: "+91 80 1234 5678",
       whatsapp: "+91 80 1234 5678",
       whatsappUrl: "https://wa.me/918012345678",
@@ -187,7 +177,7 @@ export const BRAND_CONTENT_DEFAULTS: Record<
   returns_policy: {
     title: "Returns & exchanges",
     content:
-      "We accept exchanges on eligible full-price items within 14 days of delivery. Items must be unworn, with tags and packaging intact. Made-to-order pieces may be non-returnable—stated on the product page.\n\nTo initiate, email care@magentacrown.com with your order ID and reason."
+      "We accept exchanges on eligible full-price items within 14 days of delivery. Items must be unworn, with tags and packaging intact. Made-to-order pieces may be non-returnable—stated on the product page.\n\nTo initiate, email admin@magentacrown.com with your order ID and reason."
   }
 };
 
@@ -238,16 +228,6 @@ export function parseFaqEntries(json: unknown): FaqEntry[] {
       };
     })
     .filter(Boolean) as FaqEntry[];
-}
-
-export function parseFounderJson(json: unknown): FounderJson {
-  const d = BRAND_CONTENT_DEFAULTS.about_founder.jsonData as FounderJson;
-  if (!json || typeof json !== "object") return d;
-  const o = json as Partial<FounderJson>;
-  return {
-    imageUrl: String(o.imageUrl ?? d.imageUrl),
-    imageAlt: String(o.imageAlt ?? d.imageAlt)
-  };
 }
 
 /** Split stored content into paragraphs for legal/editorial pages. */

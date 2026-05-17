@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { IosSpinner } from "@/components/ui/IosSpinner";
 import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 
 type Props = {
@@ -164,9 +165,16 @@ export function AuthVisualSettingsForm({ initialUrl, initialSizeChartUrl }: Prop
       <button
         type="submit"
         disabled={saving || uploading}
-        className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
       >
-        {saving ? "Saving..." : "Save"}
+        {saving ? (
+          <>
+            <IosSpinner size={14} className="text-white" />
+            Saving…
+          </>
+        ) : (
+          "Save"
+        )}
       </button>
     </form>
   );

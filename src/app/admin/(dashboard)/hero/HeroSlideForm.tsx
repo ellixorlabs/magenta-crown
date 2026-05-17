@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { SaveSubmitButton } from "@/components/ui/SaveSubmitButton";
 import { ImageFocusPicker } from "@/components/admin/ImageFocusPicker";
 import { deleteHeroSlide, saveHeroSlide } from "./actions";
 
@@ -26,11 +26,12 @@ type Props = {
 };
 
 function SlideSubmitButton({ isEdit }: { isEdit: boolean }) {
-  const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-60">
-      {pending ? "Saving..." : isEdit ? "Save slide" : "Create slide"}
-    </button>
+    <SaveSubmitButton
+      idleLabel={isEdit ? "Save slide" : "Create slide"}
+      savingLabel="Saving…"
+      className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-white"
+    />
   );
 }
 

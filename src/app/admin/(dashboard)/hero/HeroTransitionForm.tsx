@@ -1,21 +1,8 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
+import { SaveSubmitButton } from "@/components/ui/SaveSubmitButton";
 import { HERO_TRANSITION_OPTIONS, type HeroTransitionId } from "@/lib/hero-transition";
 import { updateHeroCarouselTransition } from "./actions";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-full bg-crown-800 px-5 py-2 text-sm font-semibold text-white hover:bg-crown-900 disabled:opacity-50"
-    >
-      {pending ? "Saving…" : "Save transition"}
-    </button>
-  );
-}
 
 type Props = {
   current: HeroTransitionId;
@@ -46,7 +33,11 @@ export function HeroTransitionForm({ current }: Props) {
             ))}
           </select>
         </label>
-        <SubmitButton />
+        <SaveSubmitButton
+          idleLabel="Save transition"
+          savingLabel="Saving…"
+          className="rounded-full bg-crown-800 px-5 py-2 text-sm font-semibold text-white hover:bg-crown-900"
+        />
       </div>
       <p className="mt-3 text-xs text-zinc-500">
         {HERO_TRANSITION_OPTIONS.find((o) => o.id === current)?.description}

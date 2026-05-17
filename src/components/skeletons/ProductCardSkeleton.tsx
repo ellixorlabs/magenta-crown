@@ -18,10 +18,11 @@ export function ProductCardSkeleton({ layout = "grid" }: Props) {
 
   return (
     <div className="w-full">
-      <Skeleton className="aspect-[3/4] w-full shadow-sm ring-1 ring-black/[0.04]" rounded="lg" />
-      <div className="mt-3 space-y-2 px-0.5">
-        <Skeleton className="h-4 w-full" rounded="md" />
-        <Skeleton className="h-4 w-[66%] max-w-[12rem]" rounded="md" />
+      <Skeleton className="aspect-[4/5] w-full shadow-sm ring-1 ring-black/[0.04] max-lg:rounded-lg" rounded="lg" />
+      <div className="mt-2 space-y-1.5 px-0.5 max-lg:mt-1.5">
+        <Skeleton className="h-3.5 w-full max-lg:h-3" rounded="md" />
+        <Skeleton className="h-3.5 w-[70%] max-lg:h-3" rounded="md" />
+        <Skeleton className="h-4 w-20 max-lg:h-3.5" rounded="md" />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { memo, useCallback, useState } from "react";
+import { IosSpinner } from "@/components/ui/IosSpinner";
 import type { BrandSettings } from "@/lib/brand-settings";
 import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 
@@ -403,9 +404,16 @@ export function BrandAssetsSettingsForm({ initial, initialShareTemplate, authVis
       <button
         type="submit"
         disabled={saving || uploading}
-        className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
       >
-        {saving ? "Saving..." : "Save brand settings"}
+        {saving ? (
+          <>
+            <IosSpinner size={14} className="text-white" />
+            Saving…
+          </>
+        ) : (
+          "Save brand settings"
+        )}
       </button>
     </form>
   );

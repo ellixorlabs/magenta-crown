@@ -1,6 +1,6 @@
 /** Default responsive storefront grid — column count and gaps scale with viewport (no manual view toggle). */
 export const SHOP_PRODUCT_GRID_DEFAULT_CLASS =
-  "grid w-full auto-rows-fr grid-cols-2 items-stretch gap-5 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 md:gap-7 lg:grid-cols-4 lg:gap-8 xl:grid-cols-4 xl:gap-9 2xl:grid-cols-5 2xl:gap-10";
+  "grid w-full grid-cols-2 items-start gap-2.5 sm:auto-rows-fr sm:items-stretch sm:gap-5 md:grid-cols-3 md:gap-6 lg:grid-cols-4 lg:gap-8 xl:grid-cols-4 xl:gap-9 2xl:grid-cols-5 2xl:gap-10";
 
 /** @deprecated Use `SHOP_PRODUCT_GRID_DEFAULT_CLASS` or `getShopProductGridClass`. */
 export const SHOP_PRODUCT_GRID_CLASS = SHOP_PRODUCT_GRID_DEFAULT_CLASS;
