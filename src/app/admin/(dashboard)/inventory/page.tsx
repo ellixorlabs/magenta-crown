@@ -10,6 +10,7 @@ import { getProductTotalStock } from "@/lib/variant-stock";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import type { NextAppPageSearch } from "@/types/next-app";
 import { AdminInventoryActions } from "@/components/admin/AdminInventoryActions";
+import { AdminInventoryBulkBar } from "@/components/admin/AdminInventoryBulkBar";
 
 type PageProps = NextAppPageSearch<Record<string, string | string[] | undefined>>;
 
@@ -22,6 +23,7 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
 
   const sp = await searchParams;
   const activeStatus = firstString(sp.status)?.toUpperCase() ?? "ALL";
+  const lowStockOnly = firstString(sp.lowStock) === "1";
   const deleteError = firstString(sp.deleteError);
   const where = buildProductWhere(sp);
   const { sort } = parseShopSearchParams(sp);
@@ -56,9 +58,26 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
     ((orderItemsRes.data ?? []) as Array<{ productId: string }>).map((r) => r.productId)
   );
 
-  const products = [...filtered].sort(
+  let products = [...filtered].sort(
     (a, b) => getProductTotalStock(a.variants) - getProductTotalStock(b.variants)
   );
+  if (lowStockOnly) {
+    products = products.filter((p) => {
+      const s = getProductTotalStock(p.variants);
+      return s > 0 && s <= 8;
+    });
+  }
+
+  const lowStockToggleHref = (() => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      const s = firstString(v);
+      if (s && k !== "lowStock") params.set(k, s);
+    }
+    if (!lowStockOnly) params.set("lowStock", "1");
+    const q = params.toString();
+    return q ? `/admin/inventory?${q}` : "/admin/inventory";
+  })();
 
   return (
     <div className="space-y-8">
@@ -123,6 +142,13 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
           </Link>
         ))}
       </div>
+
+      <AdminInventoryBulkBar
+        products={products.map((p: { id: string }) => ({ id: p.id }))}
+        canMutate={showInventoryActions}
+        lowStockHref={lowStockToggleHref}
+        lowStockActive={lowStockOnly}
+      />
 
       <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">

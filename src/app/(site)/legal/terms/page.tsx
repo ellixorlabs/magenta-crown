@@ -1,20 +1,12 @@
-export const metadata = {
-  title: "Terms & conditions",
-  description: "Terms of use for the Magenta Crown website and online store."
-};
+import { LegalProse } from "@/components/brand/LegalProse";
+import { getBrandSection } from "@/lib/brand-content.server";
 
-export default function TermsPage() {
-  return (
-    <main className="bg-[#f8f5f6] py-12">
-      <div className="section-shell max-w-3xl space-y-4 text-zinc-700">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">
-          Terms & conditions
-        </h1>
-        <p>
-          By using this website you agree to our policies, including shipping, returns, and acceptable use. Product
-          imagery is representative; slight artisan variation is normal.
-        </p>
-      </div>
-    </main>
-  );
+export async function generateMetadata() {
+  const s = await getBrandSection("legal_terms");
+  return { title: s.title, description: "Terms of use for the Magenta Crown website and online store." };
+}
+
+export default async function TermsPage() {
+  const s = await getBrandSection("legal_terms");
+  return <LegalProse title={s.title} body={s.content} />;
 }

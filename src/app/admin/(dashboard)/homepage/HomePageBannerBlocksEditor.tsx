@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { compressImageFileForUpload } from "@/lib/client-image-compress";
 import type { HomePageBannerRow } from "@/lib/home-page-banner";
 import { createEmptyHomePageBanner } from "@/lib/home-page-banner";
-import { adminRemoteImageSrcUnoptimized } from "@/lib/admin-next-image";
 import { saveHomePageBanners, type SaveHomePageBannersResult } from "./actions";
 
 type UploadMeta = { width: number; height: number; bytes: number };
@@ -265,12 +264,13 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
                 <div className="relative mt-2 aspect-[16/9] w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
                   {row.desktopImageUrl.trim() ? (
                     <Image
+                      key={row.desktopImageUrl.trim()}
                       src={row.desktopImageUrl.trim()}
                       alt="Desktop preview"
                       fill
                       sizes="(max-width: 1024px) 0vw, 480px"
                       className="object-cover object-center"
-                      unoptimized={adminRemoteImageSrcUnoptimized(row.desktopImageUrl.trim())}
+                      unoptimized
                     />
                   ) : null}
                 </div>
@@ -294,12 +294,13 @@ export function HomePageBannerBlocksEditor({ initialBanners }: Props) {
                 <div className="relative mt-2 aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
                   {row.mobileImageUrl.trim() ? (
                     <Image
+                      key={row.mobileImageUrl.trim()}
                       src={row.mobileImageUrl.trim()}
                       alt="Mobile preview"
                       fill
                       sizes="220px"
                       className="object-cover object-center"
-                      unoptimized={adminRemoteImageSrcUnoptimized(row.mobileImageUrl.trim())}
+                      unoptimized
                     />
                   ) : null}
                 </div>

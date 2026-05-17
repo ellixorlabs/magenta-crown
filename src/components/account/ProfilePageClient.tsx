@@ -35,7 +35,7 @@ export function ProfilePageClient() {
         className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
         onClick={() => {
           void logout().then(() => {
-            router.push("/auth/signin");
+            window.location.assign("/auth/signin");
           });
         }}
       >

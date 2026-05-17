@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import RootWrapper from "@/components/RootWrapper";
+import { Footer } from "@/components/features/Footer";
 import { SiteNavSuspenseFallback } from "@/components/layout/SiteNavSuspenseFallback";
 import { SiteNavWithData } from "@/server/SiteNavWithData";
 
@@ -9,6 +10,11 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
       webChrome={
         <Suspense fallback={<SiteNavSuspenseFallback />}>
           <SiteNavWithData />
+        </Suspense>
+      }
+      footer={
+        <Suspense fallback={null}>
+          <Footer />
         </Suspense>
       }
     >

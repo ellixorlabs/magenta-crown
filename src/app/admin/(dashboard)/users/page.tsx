@@ -9,7 +9,7 @@ import type { NextAppPageSearch } from "@/types/next-app";
 
 export const metadata = { title: "Customers | Admin" };
 
-type PageProps = NextAppPageSearch<{ q?: string; invited?: string; inviteError?: string }>;
+type PageProps = NextAppPageSearch<{ q?: string; page?: string; invited?: string; inviteError?: string }>;
 
 async function inviteUserAction(formData: FormData) {
   "use server";
@@ -31,6 +31,10 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   await requireMerchAdmin("/admin/users");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
+  const page = Math.max(1, Number(sp.page ?? "1") || 1);
+  const pageSize = 30;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
   const invited = sp.invited === "1";
   const inviteError = (sp.inviteError ?? "").trim();
   const rolePriority = {
@@ -42,14 +46,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   const supabase = getSupabaseServiceRoleClient();
   let query = (supabase.from("User") as any)
-    .select("id,email,name,phone,role,createdAt,lastLoginAt")
+    .select("id,email,name,phone,role,createdAt,lastLoginAt", { count: "exact" })
     .order("createdAt", { ascending: false })
-    .limit(q ? 50 : 30);
+    .range(from, to);
   if (q) {
     const esc = q.replace(/[%_]/g, "");
     query = query.or(`email.ilike.%${esc}%,name.ilike.%${esc}%,phone.ilike.%${esc}%`);
   }
-  const { data: users, error } = await query;
+  const { data: users, error, count } = await query;
   if (error) throw new Error(error.message);
   const rows = (users ?? []) as Array<{ id: string; email: string | null; name: string | null; phone: string | null; role: keyof typeof rolePriority; createdAt: string; lastLoginAt: string | null }>;
   const usersSorted = [...rows].sort((a, b) => {
@@ -60,6 +64,15 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   const session = await auth();
   const canInvite = isFullAdmin(session?.user.role);
+  const total = count ?? rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/admin/users?${qs}` : "/admin/users";
+  };
 
   return (
     <div className="space-y-6">
@@ -150,6 +163,26 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-600">
+          <span>
+            Page {page} of {totalPages} · {total} users
+          </span>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold hover:bg-zinc-50">
+                ← Previous
+              </Link>
+            ) : null}
+            {page < totalPages ? (
+              <Link href={pageHref(page + 1)} className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold hover:bg-zinc-50">
+                Next →
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

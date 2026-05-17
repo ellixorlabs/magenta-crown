@@ -30,6 +30,7 @@ export async function enqueueTransactionalEmail(
       attempts: 0
     });
     if (error) {
+      if (error.code === "23505") return;
       if (error.message?.includes("email_outbox") || error.code === "42P01") {
         opsLog("email-queue", "warn", "email_outbox table missing — migration not applied?", { eventType });
         return;

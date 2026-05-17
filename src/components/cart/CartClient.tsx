@@ -39,6 +39,15 @@ export function CartClient({ upsells }: Props) {
       <div className="section-shell overflow-x-hidden">
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">Your bag</h1>
 
+        {items.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2 rounded-xl border border-zinc-200/80 bg-white/90 px-4 py-3 text-xs text-zinc-700 shadow-sm">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-900">Secure checkout</span>
+            <span className="rounded-full bg-zinc-50 px-2.5 py-1">COD available</span>
+            <span className="rounded-full bg-zinc-50 px-2.5 py-1">Easy returns on eligible pieces</span>
+            <span className="rounded-full bg-zinc-50 px-2.5 py-1">Dispatch in 2–3 business days</span>
+          </div>
+        ) : null}
+
         {items.length === 0 ? (
           <div className="mt-10">
             <EmptyState

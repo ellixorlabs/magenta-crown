@@ -518,7 +518,7 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
                     onClick={() => {
                       closeMobileMenu();
                       void logout().then(() => {
-                        window.location.href = "/";
+                        window.location.assign("/auth/signin");
                       });
                     }}
                   >
@@ -782,7 +782,7 @@ export const SiteNavbar = memo(function SiteNavbar({ serverLinks, brandMark }: P
                             onClick={() => {
                               setAccountOpen(false);
                               void logout().then(() => {
-                                window.location.href = "/";
+                                window.location.assign("/auth/signin");
                               });
                             }}
                           >

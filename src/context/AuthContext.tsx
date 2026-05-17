@@ -264,12 +264,22 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         window.location.href = "/auth/signin";
       },
       logout: async () => {
+        invalidateAuthSessionFetchCache();
         const supabase = await getSupabaseClientOrNull();
-        await supabase?.auth.signOut();
+        try {
+          await supabase?.auth.signOut({ scope: "global" });
+        } catch {
+          try {
+            await supabase?.auth.signOut({ scope: "local" });
+          } catch {
+            // still clear app session below
+          }
+        }
         await syncServerCookie(null);
+        clearAuthState();
       }
     }),
-    [hasRole, isAuthenticated, isLoading, role, syncServerCookie, userEmail, userId, userName]
+    [clearAuthState, hasRole, isAuthenticated, isLoading, role, syncServerCookie, userEmail, userId, userName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

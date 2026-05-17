@@ -41,8 +41,14 @@ export default async function AdminHomepageLayoutPage() {
   if (bannerQuery.error) throw new Error(bannerQuery.error.message);
 
   const bannerRows = (bannerQuery.data ?? []) as HomePageBannerRow[];
+  /** Include image URLs so the editor remounts after banner-only saves (not only `HomePageConfig` updates). */
   const bannerFingerprint =
-    bannerRows.map((r) => `${r.id}:${r.updatedAt ?? ""}`).join("|") || "none";
+    bannerRows
+      .map(
+        (r) =>
+          `${r.id}:${r.desktopImageUrl ?? ""}:${r.mobileImageUrl ?? ""}:${r.updatedAt ?? ""}`
+      )
+      .join("|") || "none";
   const editorKey = `${configMeta.data?.updatedAt ? new Date(configMeta.data.updatedAt).toISOString() : "default"}|${bannerFingerprint}`;
 
   return (

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Home, LayoutDashboard, LogOut, Package, Percent, Settings2, ShoppingCart, Users } from "lucide-react";
+import { FileText, Home, LayoutDashboard, LogOut, MessageSquare, Package, Percent, Settings2, ShoppingCart, Users } from "lucide-react";
 
 /** Who sees this nav entry (see `src/lib/admin-permissions.ts`). */
 export type AdminNavSection = "staff" | "merch" | "admin";
@@ -54,6 +54,17 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   { href: "/admin/users", label: "Customers", icon: Users, section: "merch" },
   {
+    href: "/admin/content",
+    label: "Brand Content",
+    icon: FileText,
+    section: "merch",
+    activePathPrefixes: ["/admin/content", "/admin/support"],
+    children: [
+      { href: "/admin/content", label: "Site copy & legal" },
+      { href: "/admin/support", label: "Support inquiries" }
+    ]
+  },
+  {
     href: "/admin/homepage",
     label: "Homepage",
     icon: Home,
@@ -95,8 +106,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
     label: "Settings",
     icon: Settings2,
     section: "admin",
-    activePathPrefixes: ["/admin/others"],
+    activePathPrefixes: ["/admin/others", "/admin/maintenance"],
     children: [
+      { href: "/admin/maintenance", label: "Storage & hygiene" },
       { href: "/admin/others", label: "Brand Settings" },
       { href: "/admin/others?tab=pwa", label: "PWA Settings" },
       { href: "/admin/others?tab=seo", label: "SEO Settings" },

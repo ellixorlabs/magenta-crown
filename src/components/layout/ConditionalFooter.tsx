@@ -1,41 +1,21 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Footer } from "@/components/features/Footer";
-import { useHeroReady } from "@/context/HeroReadyContext";
 
-export function ConditionalFooter() {
+export function ConditionalFooter({ footer }: { footer?: ReactNode }) {
   const pathname = usePathname();
-  const { heroReady } = useHeroReady();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  /** Avoid SSR/hydration flash where footer appears briefly before page shell settles. */
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
+  if (pathname === "/auth/signin" || pathname === "/auth/signup") return null;
+  if (pathname === "/checkout/confirmation") return null;
+  if (!footer) return null;
 
-  if (pathname === "/auth/signin" || pathname === "/auth/signup") {
-    return null;
-  }
-
-  /** Order success page ships its own footer strip + avoids stacking two footers. */
-  if (pathname === "/checkout/confirmation") {
-    return null;
-  }
-
-  /** Hide until hero reports ready — avoids footer flashing above the fold before the full-screen loader hydrates. */
-  if (pathname === "/" && !heroReady) {
-    return null;
-  }
-
-  return (
-    <div className="hidden md:block">
-      <Footer />
-    </div>
-  );
+  return <div className="mt-auto">{footer}</div>;
 }

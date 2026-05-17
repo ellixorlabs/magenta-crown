@@ -1,113 +1,84 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { FooterNewsletterForm } from "@/components/features/FooterNewsletterForm";
+import { FooterMobileAccordion } from "@/components/features/FooterMobileAccordion";
+import { getBrandContentMap } from "@/lib/brand-content.server";
+import { parseFooterJson } from "@/lib/brand-content";
 import { shopCategoryHref } from "@/lib/shop-category-url";
 
-const categories = [
+const shopLinks = [
   { label: "Sarees", href: shopCategoryHref("Sarees") },
   { label: "Lehengas", href: shopCategoryHref("Lehengas") },
   { label: "Kurtas", href: shopCategoryHref("Kurtas") },
   { label: "Shop all", href: "/shop" }
 ];
 
-const about = [
-  { label: "About us", href: "/about" },
-  { label: "Brand ethos", href: "/about#ethos" },
-  { label: "Craftsmanship", href: "/about#craft" }
-];
+export async function Footer() {
+  const cms = await getBrandContentMap();
+  const footer = parseFooterJson(cms.footer.jsonData);
 
-const support = [
-  { label: "Contact", href: "/support/contact" },
-  { label: "FAQs", href: "/support/faqs" },
-  { label: "Returns & exchanges", href: "/support/returns" },
-  { label: "Shipping", href: "/support/shipping" }
-];
+  const columns = [
+    { title: "About Magenta Crown", links: footer.aboutLinks },
+    { title: "Support", links: footer.supportLinks },
+    { title: "Legal", links: footer.legalLinks },
+    {
+      title: "Follow us",
+      links: [
+        { label: "Instagram", href: footer.instagramUrl },
+        { label: "Facebook", href: footer.facebookUrl },
+        { label: "Pinterest", href: footer.pinterestUrl }
+      ]
+    }
+  ] as const;
 
-const legal = [
-  { label: "Terms", href: "/legal/terms" },
-  { label: "Privacy", href: "/legal/privacy" },
-  { label: "Refunds", href: "/legal/refund" },
-  { label: "Cookies", href: "/legal/cookies" }
-];
-
-export function Footer() {
   return (
-    <footer className="bg-zinc-950 text-zinc-200" data-site-footer>
-      <div className="section-shell grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-6 lg:gap-9 lg:py-12">
-        <div className="lg:col-span-2">
-          <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold tracking-[0.15em] text-white">
+    <footer className="border-t border-zinc-800/40 bg-[#141210] text-zinc-300" data-site-footer>
+      <div className="section-shell py-12 md:py-14">
+        <div className="max-w-md">
+          <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold tracking-[0.18em] text-white">
             MAGENTA CROWN
           </h3>
-          <p className="mt-3 max-w-sm text-sm text-zinc-400">
-            Luxury occasionwear and modern festive silhouettes designed for statement moments.
-          </p>
-          <div className="mt-6 flex gap-4 text-xs uppercase tracking-[0.2em] text-zinc-500">
-            <a href="https://instagram.com" className="hover:text-white" target="_blank" rel="noreferrer">
-              Instagram
-            </a>
-            <a href="https://facebook.com" className="hover:text-white" target="_blank" rel="noreferrer">
-              Facebook
-            </a>
-            <a href="https://pinterest.com" className="hover:text-white" target="_blank" rel="noreferrer">
-              Pinterest
-            </a>
-          </div>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-400">{footer.tagline}</p>
         </div>
 
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">Categories</h4>
-          <ul className="mt-4 space-y-2 text-sm text-zinc-400">
-            {categories.map((c) => (
-              <li key={c.href}>
-                <Link href={c.href} className="hover:text-white">
-                  {c.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="mt-10 hidden gap-8 md:grid md:grid-cols-4 lg:gap-10">
+          {columns.map((col) => (
+            <div key={col.title}>
+              <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400">{col.title}</h4>
+              <ul className="mt-4 space-y-2.5 text-sm">
+                {col.links.map((l) => (
+                  <li key={l.href + l.label}>
+                    <FooterLink href={l.href} external={l.href.startsWith("http")}>
+                      {l.label}
+                    </FooterLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">About</h4>
-          <ul className="mt-4 space-y-2 text-sm text-zinc-400">
-            {about.map((c) => (
-              <li key={c.href}>
-                <Link href={c.href} className="hover:text-white">
-                  {c.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="mt-8 md:hidden">
+          <FooterMobileAccordion
+            columns={columns.map((c) => ({ title: c.title, links: [...c.links] }))}
+            shopLinks={shopLinks}
+          />
         </div>
 
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">Support</h4>
-          <ul className="mt-4 space-y-2 text-sm text-zinc-400">
-            {support.map((c) => (
-              <li key={c.href}>
-                <Link href={c.href} className="hover:text-white">
-                  {c.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">Legal</h4>
-          <ul className="mt-4 space-y-2 text-sm text-zinc-400">
-            {legal.map((c) => (
-              <li key={c.href}>
-                <Link href={c.href} className="hover:text-white">
-                  {c.label}
-                </Link>
+        <div className="mt-10 hidden border-t border-zinc-800/60 pt-8 lg:block">
+          <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Shop</h4>
+          <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            {shopLinks.map((l) => (
+              <li key={l.href}>
+                <FooterLink href={l.href}>{l.label}</FooterLink>
               </li>
             ))}
           </ul>
         </div>
       </div>
 
-      <div className="border-t border-zinc-800">
-        <div className="section-shell flex flex-col gap-6 py-8 md:flex-row md:items-center md:justify-between lg:gap-5 lg:py-7">
+      <div className="border-t border-zinc-800/80">
+        <div className="section-shell flex flex-col gap-6 py-8 md:flex-row md:items-center md:justify-between">
           <p className="text-xs text-zinc-500" suppressHydrationWarning>
             © {new Date().getFullYear()} Magenta Crown. All rights reserved.
           </p>
@@ -115,5 +86,30 @@ export function Footer() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterLink({
+  href,
+  children,
+  external
+}: {
+  href: string;
+  children: ReactNode;
+  external?: boolean;
+}) {
+  const cls =
+    "text-zinc-400 transition hover:text-white hover:underline decoration-zinc-600 underline-offset-4";
+  if (external) {
+    return (
+      <a href={href} className={cls} target="_blank" rel="noreferrer">
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={cls}>
+      {children}
+    </Link>
   );
 }

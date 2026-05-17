@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { requireMerchAdmin } from "@/lib/admin-auth";
+import { ReviewMediaGallery } from "@/components/admin/ReviewMediaGallery";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { deleteReviewMediaAdmin, setReviewModeration } from "./actions";
 
@@ -122,33 +122,7 @@ export default async function AdminInventoryReviewsPage({ searchParams }: { sear
                 </div>
               </div>
 
-              {media.length > 0 ? (
-                <div className="mt-4 border-t border-zinc-100 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Media</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {media.map((m) => (
-                      <div key={m.id} className="relative h-20 w-20 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50">
-                        {m.type === "IMAGE" ? (
-                          <Image src={m.thumbnailUrl || m.url} alt="" fill className="object-cover" sizes="80px" unoptimized />
-                        ) : (
-                          <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-                        )}
-                        <form action={deleteReviewMediaAdmin} className="absolute right-0.5 top-0.5">
-                          <input type="hidden" name="reviewId" value={r.id} />
-                          <input type="hidden" name="mediaId" value={m.id} />
-                          <button
-                            type="submit"
-                            className="rounded bg-black/70 px-1.5 text-[10px] font-bold text-white"
-                            title="Delete media"
-                          >
-                            ×
-                          </button>
-                        </form>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+              <ReviewMediaGallery reviewId={r.id} media={media} deleteFormAction={deleteReviewMediaAdmin} />
             </li>
           );
         })}

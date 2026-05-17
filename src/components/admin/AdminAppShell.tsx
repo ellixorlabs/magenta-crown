@@ -23,7 +23,10 @@ function pageTitle(pathname: string) {
     "/admin/homepage": "Layout & sections",
     "/admin/hero": "Hero carousel",
     "/admin/coupons": "Coupons",
-    "/admin/navigation": "Header & menus"
+    "/admin/navigation": "Header & menus",
+    "/admin/maintenance": "Storage & hygiene",
+    "/admin/content": "Brand Content",
+    "/admin/support": "Support inquiries"
   };
   if (exact[pathname]) return exact[pathname];
   if (pathname.startsWith("/admin/orders/") && pathname !== "/admin/orders") return "Order details";
@@ -209,9 +212,13 @@ export function AdminAppShell({
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                     onClick={async () => {
                       const supabase = await getSupabaseClientOrNull();
-                      await supabase?.auth.signOut();
-                      await fetch("/api/auth/session", { method: "DELETE" });
-                      window.location.href = "/";
+                      try {
+                        await supabase?.auth.signOut({ scope: "global" });
+                      } catch {
+                        await supabase?.auth.signOut({ scope: "local" }).catch(() => undefined);
+                      }
+                      await fetch("/api/auth/session", { method: "DELETE", keepalive: true });
+                      window.location.assign("/admin/signin");
                     }}
                   >
                     <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />

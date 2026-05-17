@@ -40,6 +40,13 @@ const nextConfig = {
     "*.ngrok.app",
     "*.ngrok.dev",
   ],
+  async redirects() {
+    return [
+      { source: "/support/contact", destination: "/support", permanent: true },
+      { source: "/support/faqs", destination: "/faqs", permanent: true },
+      { source: "/support/returns", destination: "/returns", permanent: true }
+    ];
+  },
   async headers() {
     return [
       {

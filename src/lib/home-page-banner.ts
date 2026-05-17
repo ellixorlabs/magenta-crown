@@ -64,10 +64,31 @@ export function legacyPromoSectionsToDisplay(sections: HomePagePayloadV2["sectio
     });
 }
 
+/** First enabled section that owns the single homepage promo carousel slot (same ordering as storefront). */
+export function firstHomeBannerSlotSection(
+  sections: HomePagePayloadV2["sections"]
+): BannerCarouselSectionConfig | DynamicPromoBannerSection | undefined {
+  const sorted = [...sections]
+    .filter((s) => s.enabled)
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  return sorted.find((s): s is BannerCarouselSectionConfig | DynamicPromoBannerSection =>
+    s.type === "bannerCarousel" || s.type === "promoBanner"
+  );
+}
+
+/**
+ * Resolves which creatives power the storefront carousel.
+ * When the layout slot is still legacy `promoBanner`, use JSON image URLs — not `HomePageBanner` rows — so
+ * merchandising edits there are not shadowed by older DB slides left over from migration.
+ */
 export function resolveHomePageBanners(
   rows: HomePageBannerRow[],
   payload: HomePagePayloadV2
 ): HomePageBannerDisplay[] {
+  const slot = firstHomeBannerSlotSection(payload.sections);
+  if (slot?.type === "promoBanner") {
+    return legacyPromoSectionsToDisplay(payload.sections);
+  }
   const fromDb = rowsToDisplay(rows);
   if (fromDb.length > 0) return fromDb;
   return legacyPromoSectionsToDisplay(payload.sections);

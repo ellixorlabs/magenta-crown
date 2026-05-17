@@ -33,8 +33,9 @@ function Loader({ fadeOut = false }: { fadeOut?: boolean }) {
 
 export default function RootWrapper({
   children,
-  webChrome
-}: Readonly<{ children: React.ReactNode; webChrome: React.ReactNode }>) {
+  webChrome,
+  footer
+}: Readonly<{ children: React.ReactNode; webChrome: React.ReactNode; footer?: React.ReactNode }>) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(true);
@@ -59,9 +60,11 @@ export default function RootWrapper({
   return (
     <PwaStandaloneProvider>
       {appMode ? (
-        <AppLayout>{children}</AppLayout>
+        <AppLayout footer={footer}>{children}</AppLayout>
       ) : (
-        <WebLayout webChrome={webChrome}>{children}</WebLayout>
+        <WebLayout webChrome={webChrome} footer={footer}>
+          {children}
+        </WebLayout>
       )}
       {showLoader ? <Loader fadeOut={!loading} /> : null}
     </PwaStandaloneProvider>

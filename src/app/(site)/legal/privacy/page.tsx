@@ -1,18 +1,12 @@
-export const metadata = {
-  title: "Privacy policy",
-  description: "How Magenta Crown collects, uses, and protects your personal information."
-};
+import { LegalProse } from "@/components/brand/LegalProse";
+import { getBrandSection } from "@/lib/brand-content.server";
 
-export default function PrivacyPage() {
-  return (
-    <main className="bg-[#f8f5f6] py-12">
-      <div className="section-shell max-w-3xl space-y-4 text-zinc-700">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-semibold text-zinc-900">Privacy policy</h1>
-        <p>
-          We collect information you provide (name, email, address) to fulfil orders and improve service. We do not sell
-          personal data. Payment data is handled by certified processors only.
-        </p>
-      </div>
-    </main>
-  );
+export async function generateMetadata() {
+  const s = await getBrandSection("legal_privacy");
+  return { title: s.title, description: "How Magenta Crown collects and protects your personal information." };
+}
+
+export default async function PrivacyPage() {
+  const s = await getBrandSection("legal_privacy");
+  return <LegalProse title={s.title} body={s.content} />;
 }
