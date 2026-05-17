@@ -3,7 +3,7 @@ import { AccountSessionRecover } from "@/components/account/AccountSessionRecove
 import { EmptyState } from "@/components/empty/EmptyState";
 import { getSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { ProductCard } from "@/components/features/ProductCard";
-import { PRODUCT_GRID_COMFORT } from "@/lib/product-grid-classes";
+import { PRODUCT_GRID_WISHLIST } from "@/lib/product-grid-classes";
 import { getProductTotalStock } from "@/lib/variant-stock";
 
 export const metadata = {
@@ -36,12 +36,14 @@ export default async function WishlistPage() {
   }
 
   return (
-    <div>
-      <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">Wishlist</h1>
-      <p className="mt-2 text-sm text-zinc-600">Saved pieces you love.</p>
+    <div className="space-y-6 pb-2">
+      <header className="space-y-2">
+        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-zinc-900">Wishlist</h1>
+        <p className="text-sm text-zinc-600">Saved pieces you love.</p>
+      </header>
 
       {items.length === 0 ? (
-        <div className="mt-8">
+        <div>
           <EmptyState
             title="Your wishlist is empty"
             description="Save pieces you love from the product page — tap the heart on each card."
@@ -52,7 +54,7 @@ export default async function WishlistPage() {
           />
         </div>
       ) : (
-        <div className={`mt-8 ${PRODUCT_GRID_COMFORT}`}>
+        <div className={PRODUCT_GRID_WISHLIST}>
           {items.map((p: any) => (
             <ProductCard
               key={p.id}

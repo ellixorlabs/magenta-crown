@@ -13,6 +13,10 @@ export const PRODUCT_GRID_COZY =
 export const PRODUCT_GRID_WIDE =
   "grid auto-rows-fr grid-cols-2 items-stretch gap-3 sm:grid-cols-3 sm:gap-3.5 md:grid-cols-4 md:gap-3.5 lg:grid-cols-6 lg:gap-3.5 xl:grid-cols-7 xl:gap-4 2xl:grid-cols-8 2xl:gap-4";
 
+/** Account wishlist: explicit row/column gaps so PWA cards do not visually stack. */
+export const PRODUCT_GRID_WISHLIST =
+  "grid grid-cols-2 items-start gap-x-3.5 gap-y-5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-6 md:grid-cols-4 md:gap-y-6 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-6";
+
 export type ProductGridDensity = "comfort" | "cozy" | "wide";
 
 export function productGridClass(density: ProductGridDensity | string | undefined) {

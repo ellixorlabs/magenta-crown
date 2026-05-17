@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { usePwaStandalone } from "@/context/PwaStandaloneContext";
 
 const links = [
   { href: "/account/profile", label: "Profile" },
@@ -11,11 +12,12 @@ const links = [
 
 export default function AccountLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
+  const isPwa = usePwaStandalone();
 
   return (
-    <div className="min-h-screen bg-[#f8f5f6] py-10">
-      <div className="section-shell flex flex-col gap-8 lg:flex-row">
-        <aside className="w-full shrink-0 lg:w-56">
+    <div className={`min-h-screen bg-[#f8f5f6] ${isPwa ? "py-5" : "py-10"}`}>
+      <div className={`section-shell flex flex-col ${isPwa ? "gap-5" : "gap-8"} lg:flex-row`}>
+        <aside className={`w-full shrink-0 lg:w-56 ${isPwa ? "hidden lg:block" : ""}`}>
           <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">My account</p>
             <nav className="mt-4 flex flex-col gap-2">

@@ -245,7 +245,7 @@ export function ShopFiltersMobileSheet(props: Props) {
         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200/90 bg-white/90 py-3 text-sm font-semibold text-zinc-900 shadow-sm backdrop-blur-sm transition hover:bg-white active:bg-zinc-50"
       >
         <SlidersHorizontal className="h-4 w-4 text-crown-800" aria-hidden />
-        Filter &amp; Sort
+        Filters
       </button>
 
       {mounted && overlay ? createPortal(overlay, document.body) : null}

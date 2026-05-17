@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
 import { clearLoaderChromeFromDocument, removeBootScrim } from "@/lib/loader-dom-cleanup";
+import { hasSeenAppIntro } from "@/lib/app-intro-session";
 import { MC_LOADER_MAROON } from "@/lib/loader-theme";
 import { pushHideSiteChrome, popHideSiteChrome } from "@/lib/site-chrome-loader-depth";
 import { useMcLoaderFixedBox } from "@/lib/use-mc-loader-fixed-box";
@@ -37,7 +38,7 @@ export function GlobalPageLoader({ heroReady, markHeroReady, loaderLogoSrc }: Pr
     clearLoaderChromeFromDocument();
   }, [pathname]);
 
-  const showHeroOverlay = surfaceReady && pathname === "/" && !heroReady;
+  const showHeroOverlay = surfaceReady && pathname === "/" && !heroReady && !hasSeenAppIntro();
 
   useEffect(() => {
     if (showHeroOverlay) {

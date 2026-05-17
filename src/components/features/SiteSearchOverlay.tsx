@@ -15,7 +15,7 @@ import {
   type KeyboardEvent
 } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, X } from "lucide-react";
 import useSWR from "swr";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/body-scroll-lock";
 import { resolveSearchNavigationIntent } from "@/lib/search-intent";
@@ -548,6 +548,14 @@ export function SiteSearchOverlay({ open, onClose }: Props) {
                     <Loader2 className="pointer-events-none absolute right-14 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
                   ) : null}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => submit()}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-crown-800/25 bg-crown-800 text-white transition hover:bg-crown-900"
+                  aria-label="Search"
+                >
+                  <ArrowRight className="h-5 w-5" strokeWidth={2} />
+                </button>
                 <button
                   type="button"
                   onClick={onClose}

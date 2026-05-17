@@ -6,6 +6,7 @@ import AppLayout from "@/components/app/AppLayout";
 import WebLayout from "@/components/web/WebLayout";
 import { BreathingLogoMark } from "@/components/layout/BreathingLogoMark";
 import { PwaStandaloneProvider } from "@/context/PwaStandaloneContext";
+import { hasSeenAppIntro, markAppIntroSeen } from "@/lib/app-intro-session";
 import { isPWA } from "@/lib/isPWA";
 import { MC_LOADER_MAROON } from "@/lib/loader-theme";
 
@@ -37,13 +38,19 @@ export default function RootWrapper({
   footer
 }: Readonly<{ children: React.ReactNode; webChrome: React.ReactNode; footer?: React.ReactNode }>) {
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [showLoader, setShowLoader] = useState(true);
+  const [loading, setLoading] = useState(() => !hasSeenAppIntro());
+  const [showLoader, setShowLoader] = useState(() => !hasSeenAppIntro());
   const [appMode, setAppMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setAppMode(isPWA());
+
+    if (hasSeenAppIntro()) {
+      setLoading(false);
+      setShowLoader(false);
+      return;
+    }
 
     const t = window.setTimeout(() => setLoading(false), 520);
     return () => window.clearTimeout(t);
@@ -51,6 +58,7 @@ export default function RootWrapper({
 
   useEffect(() => {
     if (loading) return;
+    markAppIntroSeen();
     const t = window.setTimeout(() => setShowLoader(false), 300);
     return () => window.clearTimeout(t);
   }, [loading]);

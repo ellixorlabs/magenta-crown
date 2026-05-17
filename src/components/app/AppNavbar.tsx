@@ -7,14 +7,54 @@ import { useState } from "react";
 import { useWishlistCount } from "@/context/WishlistContext";
 import { SiteSearchOverlay } from "@/components/features/SiteSearchOverlay";
 
+const homeChromeBtn =
+  "inline-flex items-center justify-center rounded-full border border-white/35 bg-black/25 text-white shadow-[0_8px_28px_-10px_rgba(0,0,0,0.55)] backdrop-blur-md transition hover:bg-black/35 active:scale-[0.97]";
+
 export default function AppNavbar() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const isHome = pathname === "/";
   const [searchOpen, setSearchOpen] = useState(false);
   const { count, hydrated } = useWishlistCount();
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/auth")) {
     return null;
+  }
+
+  if (isHome) {
+    return (
+      <>
+        <header
+          data-pwa-app-navbar
+          className="pointer-events-none fixed inset-x-0 top-0 z-[4800] px-4 pt-[max(0.75rem,env(safe-area-inset-top))]"
+        >
+          <div className="pointer-events-auto mx-auto flex max-w-lg items-center justify-end gap-2">
+            <button
+              type="button"
+              className={`${homeChromeBtn} h-11 gap-2 px-4 text-sm font-medium`}
+              aria-label="Search products"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="max-w-[8rem] truncate">Search</span>
+            </button>
+            <Link
+              href="/account/wishlist"
+              className={`${homeChromeBtn} relative h-11 w-11`}
+              aria-label="Wishlist"
+            >
+              <Heart className="h-5 w-5" />
+              {hydrated && count > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white tabular-nums">
+                  {count > 99 ? "99+" : count}
+                </span>
+              ) : null}
+            </Link>
+          </div>
+        </header>
+        <SiteSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      </>
+    );
   }
 
   return (
@@ -65,4 +105,3 @@ export default function AppNavbar() {
     </header>
   );
 }
-

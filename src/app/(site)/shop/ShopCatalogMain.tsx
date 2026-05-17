@@ -78,7 +78,7 @@ export async function ShopCatalogMain({
         <div className={`shrink-0 border-b border-mc-ink/10 py-4 ${shopBg}`}>
           <div className="section-shell">
             <div className="rounded-2xl border border-mc-ink/10 bg-mc-cream/90 p-4 shadow-sm ring-1 ring-mc-ink/[0.04] backdrop-blur-md">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
                 <div className="min-w-0 text-left">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-mc-gold sm:text-xs">Shop</p>
                   <h1 className="mt-1 font-mc-heading text-2xl font-semibold text-mc-ink sm:text-3xl">{heading}</h1>

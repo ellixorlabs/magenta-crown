@@ -1,8 +1,18 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode
+} from "react";
 import { usePathname } from "next/navigation";
 import { GlobalPageLoader } from "@/components/layout/GlobalPageLoader";
+import { hasSeenAppIntro, markAppIntroSeen } from "@/lib/app-intro-session";
 import { clearLoaderChromeFromDocument } from "@/lib/loader-dom-cleanup";
 
 type HeroReadyContextValue = {
@@ -20,18 +30,19 @@ export function HeroReadyProvider({ children, loaderLogoSrc }: { children: React
   const pathname = usePathname();
   const [heroReady, setHeroReady] = useState(false);
 
-  useEffect(() => {
-    if (pathname !== "/") {
-      setHeroReady(false);
-    }
-  }, [pathname]);
-
   const markHeroReady = useCallback(() => {
     setHeroReady(true);
+    markAppIntroSeen();
+  }, []);
+
+  useLayoutEffect(() => {
+    if (hasSeenAppIntro()) {
+      setHeroReady(true);
+    }
   }, []);
 
   useEffect(() => {
-    if (pathname !== "/" || heroReady) return;
+    if (pathname !== "/" || heroReady || hasSeenAppIntro()) return;
     const id = window.setTimeout(() => {
       markHeroReady();
     }, HERO_READY_FALLBACK_MS);
