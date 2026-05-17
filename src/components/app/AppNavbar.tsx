@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ArrowLeft, Heart, Search } from "lucide-react";
 import { useState } from "react";
 import { useWishlistCount } from "@/context/WishlistContext";
+import { usePwaStandalone } from "@/context/PwaStandaloneContext";
 import { SiteSearchOverlay } from "@/components/features/SiteSearchOverlay";
 
 const homeChromeBtn =
@@ -14,10 +15,13 @@ export default function AppNavbar() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const isHome = pathname === "/";
+  const isPwa = usePwaStandalone();
+  const isPwaProfile =
+    isPwa && (pathname === "/account/profile" || pathname.startsWith("/account/profile/"));
   const [searchOpen, setSearchOpen] = useState(false);
   const { count, hydrated } = useWishlistCount();
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/auth")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/auth") || isPwaProfile) {
     return null;
   }
 

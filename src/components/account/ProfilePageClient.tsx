@@ -1,28 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { ProfileAuthGate } from "@/components/account/ProfileAuthGate";
 import { ProfileFormClient } from "@/components/account/ProfileFormClient";
+import { ProfilePwaHub } from "@/components/account/ProfilePwaHub";
 import { useAuth } from "@/context/AuthContext";
+import { usePwaStandalone } from "@/context/PwaStandaloneContext";
 
 export function ProfilePageClient() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading, logout } = useAuth();
-  const [ready, setReady] = useState(false);
+  const isPwa = usePwaStandalone();
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      router.replace("/auth/signin?callbackUrl=/account/profile");
-      return;
-    }
-    setReady(true);
-  }, [isAuthenticated, isLoading, router]);
+  return (
+    <ProfileAuthGate callbackPath="/account/profile">
+      {isPwa ? <ProfilePwaHub /> : <ProfileWebView />}
+    </ProfileAuthGate>
+  );
+}
 
-  if (isLoading || !ready) {
-    return <p className="text-sm text-zinc-500">Loading profile…</p>;
-  }
+function ProfileWebView() {
+  const { logout } = useAuth();
 
   return (
     <div>
@@ -42,12 +38,9 @@ export function ProfilePageClient() {
         <LogOut className="h-4 w-4" />
         Logout
       </button>
-
       <div className="mt-8">
         <ProfileFormClient />
       </div>
-
     </div>
   );
 }
-

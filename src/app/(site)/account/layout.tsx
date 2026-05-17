@@ -13,6 +13,12 @@ const links = [
 export default function AccountLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const isPwa = usePwaStandalone();
+  const isPwaProfile =
+    isPwa && (pathname === "/account/profile" || pathname.startsWith("/account/profile/"));
+
+  if (isPwaProfile) {
+    return <div className="min-h-[100dvh] bg-[#F5F1E9]">{children}</div>;
+  }
 
   return (
     <div className={`min-h-screen bg-[#f8f5f6] ${isPwa ? "py-5" : "py-10"}`}>

@@ -43,7 +43,16 @@ type ProfilePayload = {
 const PROFILE_CACHE_TTL_MS = 60_000;
 let profileCache: { data: ProfilePayload; expiresAt: number } | null = null;
 
-export function ProfileFormClient() {
+export type ProfileFormSection = "all" | "personal" | "addresses" | "settings";
+
+type ProfileFormClientProps = {
+  section?: ProfileFormSection;
+};
+
+export function ProfileFormClient({ section = "all" }: ProfileFormClientProps) {
+  const showPersonal = section === "all" || section === "personal";
+  const showAddresses = section === "all" || section === "addresses";
+  const showSettings = section === "all" || section === "settings";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -341,6 +350,7 @@ export function ProfileFormClient() {
       {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
       {message && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{message}</p>}
 
+      {showPersonal ? (
       <section className="rounded-2xl border border-zinc-200 bg-white p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Personal info</h2>
         <p className="mt-1 text-sm text-zinc-600">Email is your sign-in; update name and phone here.</p>
@@ -416,7 +426,9 @@ export function ProfileFormClient() {
           )}
         </div>
       </section>
+      ) : null}
 
+      {showAddresses ? (
       <section className="rounded-2xl border border-zinc-200 bg-white p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -573,7 +585,10 @@ export function ProfileFormClient() {
           ))}
         </div>
       </section>
+      ) : null}
 
+      {showSettings ? (
+      <>
       <section className="rounded-2xl border border-zinc-200 bg-white p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Security</h2>
         <p className="mt-1 text-sm text-zinc-600">
@@ -718,6 +733,8 @@ export function ProfileFormClient() {
           </button>
         )}
       </section>
+      </>
+      ) : null}
 
       {showDeleteConfirm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
